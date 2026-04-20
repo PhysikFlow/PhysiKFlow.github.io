@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root {
+    --background: #f1e9dc;
+    --sideBar: #d9a064;
+
+    --surface: #f7efe3;
+    --surface2: #e4d4bd;
+    --shadow: rgba(0,0,0,0.15);
+
+    --text: #3a2e22;
+    --textDisabled: #a99985;
+
+    --ok: #4a8f52;
+    --error: #b94a48;
+
+    --radius: 8px;
+}
+
+body.dark {
+    --background: #1e1e1e;
+    --sideBar: #9e572d;
+
+    --surface: #2a2a2a;
+    --surface2: #333333;
+    --shadow: rgba(0,0,0,0.5);
+
+    --text: #ffffff;
+    --textDisabled: #777777;
+
+    --ok: #4caf50;
+    --error: #ef5350;
+}
+
+body {
+    margin: 0;
+    font-family: sans-serif;
+    background: var(--background);
+    color: var(--text);
+}
+
+/* HEADER */
+.header {
+    height: 50px;
+    background: var(--sideBar);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 15px;
+    box-sizing: border-box;
+}
+
+.header-title {
+    font-weight: bold;
+    color: white;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* select */
+select {
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: none;
+}
+
+/* switch */
+.switch {
+    position: relative;
+    width: 40px;
+    height: 20px;
+}
+
+.switch input { display: none; }
+
+.slider {
+    position: absolute;
+    inset: 0;
+    background: #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.slider::before {
+    content: "";
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    top: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+
+input:checked + .slider::before {
+    transform: translateX(20px);
+}
+
+/* LAYOUT */
+.container {
+    display: flex;
+    gap: 12px;
+    padding: 10px;
+    height: calc(100vh - 50px);
+    box-sizing: border-box;
+}
+
+/* ESQUERDA */
+.left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* GRID DE CARDS */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+/* CARDS */
+.card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 15px;
+    box-shadow: 0 2px 6px var(--shadow);
+    position: relative;
+    min-height: 110px;
+}
+
+.card::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 8px;
+    width: 50px;
+    height: 5px;
+    background: var(--sideBar);
+}
+
+.card.ok::before { background: var(--ok); }
+.card.error::before { background: var(--error); }
+
+.card-title {
+    color: var(--textDisabled);
+    font-size: 14px;
+}
+
+.card-value {
+    font-size: 26px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+/* PAINÉIS */
+.filters,
+.right {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: 0 2px 6px var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    min-height: 250px;
+}
+
+/* SEGMENT */
+.segment {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.segment button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: var(--surface2);
+    cursor: pointer;
+}
+
+/* DIREITA */
+.right {
+    flex: 1;
+}
+
+/* ---------------- RESPONSIVIDADE ---------------- */
+
+/* tablet */
+@media (max-width: 900px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* celular */
+@media (max-width: 600px) {
+
+    .header {
+        height: 40px;
+        font-size: 14px;
+    }
+
+    .container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    /* mantém 2 colunas no mobile */
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* melhora uso de espaço */
+    .filters {
+        min-height: 220px;
+    }
+
+    .right {
+        min-height: 300px;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-title">PhysikShow</div>
+
+    <div class="header-controls">
+        <select>
+            <option>Itaporanga</option>
+            <option>Conceição</option>
+        </select>
+
+        <label class="switch">
+            <input type="checkbox" id="themeToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+</div>
+
+<div class="container">
+
+    <div class="left">
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Total 30 Dias</div>
+                <div class="card-value">31.543,85</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Total 3 Meses</div>
+                <div class="card-value">103.593,35</div>
+            </div>
+
+            <div class="card ok">
+                <div class="card-title">Total Geral</div>
+                <div class="card-value">353.593,35</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Alunos Totais</div>
+                <div class="card-value">991</div>
+            </div>
+
+            <div class="card ok">
+                <div class="card-title">Alunos Ativos</div>
+                <div class="card-value">498</div>
+            </div>
+
+            <div class="card error">
+                <div class="card-title">Alunos Em Atraso</div>
+                <div class="card-value">403</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div style="color: var(--textDisabled); margin-bottom: 10px;">
+                Filtros avançados
+            </div>
+
+            <div class="segment">
+                <button>Todos Pagamentos</button>
+                <button>Mês a Mês</button>
+                <button>Projeção</button>
+                <button>Ajuda</button>
+                <button>Ranking</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="right">
+        <div style="color: var(--textDisabled)">
+            Relatório Detalhado
+        </div>
+    </div>
+
+</div>
+
+<script>
+const toggle = document.getElementById("themeToggle");
+toggle.addEventListener("change", () => {
+    document.body.classList.toggle("dark", toggle.checked);
+});
+</script>
+
+</body>
+</html>
