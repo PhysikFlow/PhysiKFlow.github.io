@@ -1,50 +1,156 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PhysikShow</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
+<title>PhysikShow • Dashboard</title>
+
+<link rel="icon" href="favicon.png">
 <link rel="stylesheet" href="style.css">
+
+<!-- IMPORTANTE -->
+<script src="script.js" defer></script>
 </head>
 
 <body>
 
 <header class="header">
-    <div class="header-title">PhysikShow</div>
+  <div class="header-inner">
 
-    <div class="header-controls">
-        <select id="gymSelect"></select>
+    <div class="brand">
+      <div class="brand-mark">P</div>
 
-        <label class="switch">
-            <input type="checkbox" id="themeToggle">
-            <span class="slider"></span>
-        </label>
+      <div class="brand-text">
+        <div class="brand-title">PhysikShow</div>
+        <div class="brand-sub">Dashboard rápido • Relatorios</div>
+      </div>
     </div>
+
+    <div class="header-actions">
+      <button class="btn">Entrar com Google</button>
+
+      <select class="select">
+        <option>Itaporanga</option>
+        <option>Conceição</option>
+      </select>
+
+      <select class="select">
+        <option>Últimos 30 dias</option>
+        <option>Este mês</option>
+        <option>Últimos 90 dias</option>
+        <option>Ano atual</option>
+      </select>
+
+      <button class="icon-btn btn" id="themeToggle" title="Alternar tema">☾</button>
+    </div>
+  </div>
 </header>
 
-<main class="container">
+<main class="page">
 
-    <section class="left">
+  <!-- HERO -->
+  <section class="hero">
 
-        <div id="cards" class="grid"></div>
+    <div class="hero-side">
 
-        <div class="filters">
-            <span>Relatórios</span>
+      <div class="card side-box">
+        <div class="side-top">
 
-            <div class="segment" id="reportButtons"></div>
+          <div>
+            <div class="side-label">Resumo do momento</div>
+            <div class="side-value" id="totalGeralHero">R$ 0,00</div>
+          </div>
 
-            <div class="report-config" id="reportConfig"></div>
+          <div class="badge">Atualizado agora</div>
         </div>
 
-    </section>
+        <div class="inline-tags">
+          <span class="chip active">Faturamento</span>
+          <span class="chip">Atrasos</span>
+          <span class="chip">Pico</span>
+          <span class="chip">Planos</span>
+        </div>
+      </div>
 
-    <section class="right" id="reportArea">
-        Selecione um relatório
-    </section>
+      <div class="card side-box">
+        <div class="side-top">
+          <div>
+            <div class="side-label">Ação rápida</div>
+            <div class="side-value" style="font-size:1.05rem">
+              Configurar relatórios
+            </div>
+          </div>
+
+          <div class="badge">Sem peso extra</div>
+        </div>
+
+        <div class="help-row">
+          <button class="btn ghost">Exportar</button>
+          <button class="btn ghost">Filtrar</button>
+          <button class="btn ghost">Salvar visão</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- INDICADORES -->
+  <section class="panel card" style="margin-bottom:16px;">
+
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">Indicadores principais</h2>
+        <div class="panel-sub">
+          Cards enxutos para bater o olho e entender a operação.
+        </div>
+      </div>
+
+      <span class="badge">Total geral + recortes</span>
+    </div>
+
+    <div class="metrics">
+
+      <div class="metric">
+        <div class="metric-label">Total 30 dias</div>
+        <div class="metric-value" id="total30">0</div>
+        <div class="metric-help">Base para leitura mensal</div>
+      </div>
+
+      <div class="metric small">
+        <div class="metric-label">Total 3 meses</div>
+        <div class="metric-value" id="total3m">0</div>
+        <div class="metric-help">Tendência de curto prazo</div>
+      </div>
+
+      <div class="metric good">
+        <div class="metric-label">Total Geral</div>
+        <div class="metric-value" id="totalGeral">0</div>
+        <div class="metric-help">Acumulado da unidade</div>
+      </div>
+
+      <div class="metric bad">
+        <div class="metric-label">Em atraso</div>
+        <div class="metric-value" id="totalAtrasados">0</div>
+        <div class="metric-help">Precisa atenção</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- GRÁFICO MENSAL -->
+  <section class="panel card">
+    <div class="panel-head">
+      <h2 class="panel-title">Faturamento mensal</h2>
+      <div class="panel-sub">Distribuição por mês</div>
+    </div>
+
+    <div class="chart-bars" id="graficoMensal"></div>
+  </section>
+
+  <div class="footer-space"></div>
 
 </main>
 
-<script type="module" src="js/app.js"></script>
 </body>
 </html>

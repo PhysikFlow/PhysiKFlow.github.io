@@ -1,3 +1,4 @@
+
 :root{
   --bg:#f4ede2;
   --bg2:#efe4d3;
@@ -572,3 +573,4 @@ button, .chip, .icon-btn, select, input{
 @media (prefers-reduced-motion: reduce){
   *{scroll-behavior:auto; transition:none !important}
 }
+
