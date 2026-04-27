@@ -60,6 +60,7 @@ button, .chip, .icon-btn, select, input{
 
 .header{
   position:sticky;
+  text-align: center;
   top:0;
   z-index:20;
   backdrop-filter: blur(10px);
