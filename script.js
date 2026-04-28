@@ -80,47 +80,60 @@ async function buscarFirebase() {
 // ==========================
 function aplicarTudo(data) {
   aplicarResumo(data.resumo || {});
-  aplicarMensal(data.mensal || {});
+  aplicarMensal(data.mesAMes || {});
+  aplicarRanking(data.topPessoas || []);
+  aplicarDistribuicao(data.topPlanos || []);
+  atualizarSync(data.meta || {});
 }
 
 // ==========================
 // RESUMO
 // ==========================
 function aplicarResumo(resumo) {
-  const financeiro = resumo.financeiro || {};
-  const alunos = resumo.alunos || {};
-
-  const totalGeral = financeiro.totalGeral || 0;
+  const totalGeral = resumo.total || 0;
+  const atrasados = resumo.atrasados || 0;
+  const ativos = resumo.ativos || 0;
+  const alunos = resumo.alunos || 0;
+  const total30d = resumo.total30d || 0;
+  const total3m = resumo.total3m || 0;
 
   setText("totalGeralHero", formatBRL(totalGeral));
   setText("totalGeral", formatBRL(totalGeral));
-  setText("totalAtrasados", alunos.atrasados || 0);
+  setText("totalAtrasados", atrasados);
+  setText("totalAlunos", alunos);
+  setText("totalAtivos", ativos);
 
-  // estimativas leves (sem custo backend)
-  setText("total30", formatBRL(totalGeral * 0.1));
-  setText("total3m", formatBRL(totalGeral * 0.3));
+  setText("total30", formatBRL(total30d));
+  setText("total3m", formatBRL(total3m));
+
+  // Percentuais
+  if (alunos > 0) {
+    const pctAtivos = Math.round((ativos / alunos) * 100);
+    const pctAtrasados = Math.round((atrasados / alunos) * 100);
+    setText("pctAtivos", pctAtivos + "%");
+    setText("pctAtrasados", pctAtrasados + "%");
+  }
 }
 
 // ==========================
 // MENSAL
 // ==========================
-function aplicarMensal(mensal) {
+function aplicarMensal(mesAMes) {
   const container = qs("graficoMensal");
   if (!container) return;
 
   container.innerHTML = "";
 
-  const entries = Object.entries(mensal);
+  const entries = Object.entries(mesAMes);
   if (!entries.length) return;
 
   // ordena YYYY-MM corretamente
   entries.sort((a, b) => a[0].localeCompare(b[0]));
 
-  const valores = entries.map(e => e[1].valor || 0);
+  const valores = entries.map(e => e[1]);
   const max = Math.max(...valores, 1);
 
-  for (const [mes, obj] of entries) {
-    const valor = obj.valor || 0;
+  for (const [mes, valor] of entries) {
     const percent = (valor / max) * 100;
 
     const row = document.createElement("div");
@@ -131,11 +144,92 @@ function aplicarMensal(mensal) {
       <div class="chart-track">
         <div class="chart-fill" style="width:${percent}%"></div>
       </div>
-      <div class="chart-label">${valor}</div>
+      <div class="chart-label">${formatBRL(valor)}</div>
     `;
 
     container.appendChild(row);
   }
+}
+
+// ==========================
+// RANKING
+// ==========================
+function aplicarRanking(topPessoas) {
+  const tbody = qs("rankingPessoas");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  if (!topPessoas || !topPessoas.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="mini-note">Sem dados carregados.</td></tr>';
+    return;
+  }
+
+  topPessoas.forEach((pessoa, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>#${pessoa.id}</td>
+      <td>${formatBRL(pessoa.total)}</td>
+      <td><span class="badge">Top ${idx + 1}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ==========================
+// DISTRIBUIÇÃO
+// ==========================
+function aplicarDistribuicao(topPlanos) {
+  const container = qs("listaValores");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (!topPlanos || !topPlanos.length) {
+    container.innerHTML = '<div class="list-item"><strong>Sem dados</strong><span>aguardando carregamento</span></div>';
+    return;
+  }
+
+  // agrupa por valor
+  const mapa = {};
+  topPlanos.forEach(plano => {
+    const valor = plano.valor;
+    if (!mapa[valor]) {
+      mapa[valor] = 0;
+    }
+    mapa[valor] += plano.qtd || 0;
+  });
+
+  // ordena por quantidade DESC
+  const sorted = Object.entries(mapa).sort((a, b) => b[1] - a[1]);
+
+  sorted.forEach(([valor, qtd]) => {
+    const item = document.createElement("div");
+    item.className = "list-item";
+    item.innerHTML = `
+      <strong>${formatBRL(valor)}</strong>
+      <span>${qtd} registros</span>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// ==========================
+// SYNC
+// ==========================
+function atualizarSync(meta) {
+  const timestamp = meta.lastUpdate || Date.now();
+  const data = new Date(timestamp);
+  const formatted = data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  setText("ultimaSync", formatted);
+  setText("statusCache", "ativo");
 }
 
 // ==========================
