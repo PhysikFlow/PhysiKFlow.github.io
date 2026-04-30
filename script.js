@@ -82,7 +82,7 @@ function aplicarTudo(data) {
   aplicarResumo(data.resumo || {});
   aplicarMensal(data.mesAMes || {});
   aplicarRanking(data.topPessoas || []);
-  aplicarDistribuicao(data.topPlanosGlobal || {});
+  aplicarDistribuicao(data.topPlanos || []);
   atualizarSync(data.meta || {});
 }
 
