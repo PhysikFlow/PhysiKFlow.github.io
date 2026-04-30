@@ -66,191 +66,398 @@
   </section>
 
   <main class="app-shell is-hidden" data-view="home">
-    <section class="hero" aria-label="Boas-vindas">
-      <div class="top-bar">
-        <button class="icon-button" type="button" aria-label="Abrir menu">
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
+    <section class="app-page active" data-page="home">
+      <section class="hero" aria-label="Boas-vindas">
+        <div class="top-bar">
+          <button class="icon-button" type="button" aria-label="Abrir menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
 
-        <div class="brand" aria-label="R1 Club">
-          <img class="brand-logo-asset" src="assets/icons/r1-logo.png" alt="R1 Club" />
+          <div class="brand" aria-label="R1 Club">
+            <img class="brand-logo-asset" src="assets/icons/r1-logo.png" alt="R1 Club" />
+          </div>
+
+          <button class="bell-button" type="button" aria-label="Notificacoes">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span></span>
+          </button>
         </div>
 
-        <button class="bell-button" type="button" aria-label="Notificacoes">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          <span></span>
-        </button>
-      </div>
+        <div class="hero-copy">
+          <h1>Ol&aacute;, Lucas! <span>&#x1F44A;</span></h1>
+          <p>Pronto para mais<br />um treino?</p>
+        </div>
+      </section>
 
-      <div class="hero-copy">
-        <h1>Ol&aacute;, Lucas! <span>&#x1F44A;</span></h1>
-        <p>Pronto para mais<br />um treino?</p>
-      </div>
-    </section>
+      <section class="next-workout">
+        <div class="workout-copy">
+          <span class="eyebrow">Pr&oacute;ximo treino</span>
+          <h2>Costas e B&iacute;ceps</h2>
+          <p>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 2v4" />
+              <path d="M16 2v4" />
+              <rect width="18" height="18" x="3" y="4" rx="2" />
+              <path d="M3 10h18" />
+            </svg>
+            Hoje &bull; 18:00
+          </p>
+        </div>
 
-    <section class="next-workout">
-      <div class="workout-copy">
-        <span class="eyebrow">Pr&oacute;ximo treino</span>
-        <h2>Costas e B&iacute;ceps</h2>
-        <p>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8 2v4" />
-            <path d="M16 2v4" />
-            <rect width="18" height="18" x="3" y="4" rx="2" />
-            <path d="M3 10h18" />
-          </svg>
-          Hoje &bull; 18:00
-        </p>
-      </div>
+        <a href="#" class="workout-action" aria-label="Ver treino" data-tab="workouts">
+          <span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6.5 6.5v11" />
+              <path d="M17.5 6.5v11" />
+              <path d="M3.5 9v6" />
+              <path d="M20.5 9v6" />
+              <path d="M6.5 12h11" />
+            </svg>
+          </span>
+          Ver treino
+        </a>
+      </section>
 
-      <a href="#" class="workout-action" aria-label="Ver treino">
-        <span>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6.5 6.5v11" />
-            <path d="M17.5 6.5v11" />
-            <path d="M3.5 9v6" />
-            <path d="M20.5 9v6" />
-            <path d="M6.5 12h11" />
-          </svg>
+      <section class="section-heading">
+        <h2>Resumo semanal</h2>
+        <a href="#" data-tab="progress">Ver mais</a>
+      </section>
+
+      <section class="stats-grid" aria-label="Resumo semanal">
+        <article class="stat-card">
+          <span class="stat-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m9 12 2 2 4-5" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+          </span>
+          <strong>4/5</strong>
+          <p>Treinos<br />conclu&iacute;dos</p>
+        </article>
+        <article class="stat-card">
+          <span class="stat-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8.5 14.5A4.5 4.5 0 0 0 13 19a5 5 0 0 0 5-5c0-4-3-6.5-3-6.5S13 10 11 10c-1.5 0-2.5-1-2.5-2.5C6.5 9 4 11 4 14a6 6 0 0 0 6 6" />
+            </svg>
+          </span>
+          <strong>2.450</strong>
+          <p>Kcal<br />queimadas</p>
+        </article>
+        <article class="stat-card">
+          <span class="stat-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+          </span>
+          <strong>4h 30m</strong>
+          <p>Tempo total<br />de treino</p>
+        </article>
+        <article class="stat-card">
+          <span class="stat-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m4 16 5-5 4 4 7-8" />
+              <path d="M15 7h5v5" />
+            </svg>
+          </span>
+          <strong>85%</strong>
+          <p>Meta semanal<br />conclu&iacute;da</p>
+        </article>
+      </section>
+
+      <section class="quick-section">
+        <h2>Acesso r&aacute;pido</h2>
+        <div class="quick-grid">
+          <a href="#" class="quick-item" data-tab="agenda">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3h7v7H3z" />
+              <path d="M14 3h7v7h-7z" />
+              <path d="M3 14h7v7H3z" />
+              <path d="M14 14h7v7h-7z" />
+              <path d="M7 7h10v10H7z" />
+            </svg>
+            <span><strong>Check-in</strong><small>Marcar presen&ccedil;a</small></span>
+          </a>
+          <a href="#" class="quick-item" data-tab="profile">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 6h8" />
+              <path d="M8 10h8" />
+              <path d="M8 14h6" />
+              <rect width="14" height="18" x="5" y="3" rx="2" />
+              <path d="M9 3h6v3H9z" />
+            </svg>
+            <span><strong>Planos</strong><small>Ver seu plano</small></span>
+          </a>
+          <a href="#" class="quick-item" data-tab="progress">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20V9" />
+              <path d="M10 20V5" />
+              <path d="M16 20v-8" />
+              <path d="M22 20V3" />
+            </svg>
+            <span><strong>Avalia&ccedil;&otilde;es</strong><small>Acompanhe seus resultados</small></span>
+          </a>
+          <a href="#" class="quick-item" data-tab="profile">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 6c-3-3-8-1-8 5 0 5 3 10 8 10s8-5 8-10c0-6-5-8-8-5Z" />
+              <path d="M12 6c1-3 3-4 6-4" />
+            </svg>
+            <span><strong>Dieta</strong><small>Ver sua dieta</small></span>
+          </a>
+          <a href="#" class="quick-item" data-tab="agenda">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 2v4" />
+              <path d="M16 2v4" />
+              <rect width="18" height="18" x="3" y="4" rx="2" />
+              <path d="M3 10h18" />
+              <path d="M8 14h.01" />
+              <path d="M12 14h.01" />
+              <path d="M16 14h.01" />
+            </svg>
+            <span><strong>Agendamentos</strong><small>Aulas e servi&ccedil;os</small></span>
+          </a>
+          <a href="#" class="quick-item" data-tab="profile">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 8h12l-1 13H7Z" />
+              <path d="M9 8a3 3 0 0 1 6 0" />
+            </svg>
+            <span><strong>Compras</strong><small>Suplementos e planos</small></span>
+          </a>
+        </div>
+      </section>
+
+      <a href="#" class="referral-card">
+        <span class="referral-visual"><span>R1</span></span>
+        <span class="referral-copy">
+          <strong>Indique e ganhe!</strong>
+          <small>Traga um amigo e ganhe benef&iacute;cios exclusivos.</small>
         </span>
-        Ver treino
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
       </a>
     </section>
 
-    <section class="section-heading">
-      <h2>Resumo semanal</h2>
-      <a href="#">Ver mais</a>
-    </section>
+    <section class="app-page" data-page="workouts" aria-label="Treinos">
+      <header class="page-header compact">
+        <span>Treinos</span>
+        <h1>Seu plano de hoje</h1>
+        <p>Costas, b&iacute;ceps e finaliza&ccedil;&atilde;o cardiovascular.</p>
+      </header>
 
-    <section class="stats-grid" aria-label="Resumo semanal">
-      <article class="stat-card">
-        <span class="stat-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m9 12 2 2 4-5" />
-            <circle cx="12" cy="12" r="9" />
-          </svg>
-        </span>
-        <strong>4/5</strong>
-        <p>Treinos<br />conclu&iacute;dos</p>
+      <article class="feature-card workout-hero-card">
+        <span class="image-slot workout-plan-image" aria-hidden="true"></span>
+        <div>
+          <span class="eyebrow">Plano ativo</span>
+          <h2>Hipertrofia R1</h2>
+          <p>5 treinos por semana &bull; foco em progress&atilde;o de carga.</p>
+        </div>
       </article>
-      <article class="stat-card">
-        <span class="stat-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8.5 14.5A4.5 4.5 0 0 0 13 19a5 5 0 0 0 5-5c0-4-3-6.5-3-6.5S13 10 11 10c-1.5 0-2.5-1-2.5-2.5C6.5 9 4 11 4 14a6 6 0 0 0 6 6" />
-          </svg>
-        </span>
-        <strong>2.450</strong>
-        <p>Kcal<br />queimadas</p>
-      </article>
-      <article class="stat-card">
-        <span class="stat-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3 2" />
-          </svg>
-        </span>
-        <strong>4h 30m</strong>
-        <p>Tempo total<br />de treino</p>
-      </article>
-      <article class="stat-card">
-        <span class="stat-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m4 16 5-5 4 4 7-8" />
-            <path d="M15 7h5v5" />
-          </svg>
-        </span>
-        <strong>85%</strong>
-        <p>Meta semanal<br />conclu&iacute;da</p>
-      </article>
-    </section>
 
-    <section class="quick-section">
-      <h2>Acesso r&aacute;pido</h2>
-      <div class="quick-grid">
-        <a href="#" class="quick-item">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 3h7v7H3z" />
-            <path d="M14 3h7v7h-7z" />
-            <path d="M3 14h7v7H3z" />
-            <path d="M14 14h7v7h-7z" />
-            <path d="M7 7h10v10H7z" />
-          </svg>
-          <span><strong>Check-in</strong><small>Marcar presen&ccedil;a</small></span>
-        </a>
-        <a href="#" class="quick-item">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8 6h8" />
-            <path d="M8 10h8" />
-            <path d="M8 14h6" />
-            <rect width="14" height="18" x="5" y="3" rx="2" />
-            <path d="M9 3h6v3H9z" />
-          </svg>
-          <span><strong>Planos</strong><small>Ver seu plano</small></span>
-        </a>
-        <a href="#" class="quick-item">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 20V9" />
-            <path d="M10 20V5" />
-            <path d="M16 20v-8" />
-            <path d="M22 20V3" />
-          </svg>
-          <span><strong>Avalia&ccedil;&otilde;es</strong><small>Acompanhe seus resultados</small></span>
-        </a>
-        <a href="#" class="quick-item">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 6c-3-3-8-1-8 5 0 5 3 10 8 10s8-5 8-10c0-6-5-8-8-5Z" />
-            <path d="M12 6c1-3 3-4 6-4" />
-          </svg>
-          <span><strong>Dieta</strong><small>Ver sua dieta</small></span>
-        </a>
-        <a href="#" class="quick-item">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8 2v4" />
-            <path d="M16 2v4" />
-            <rect width="18" height="18" x="3" y="4" rx="2" />
-            <path d="M3 10h18" />
-            <path d="M8 14h.01" />
-            <path d="M12 14h.01" />
-            <path d="M16 14h.01" />
-          </svg>
-          <span><strong>Agendamentos</strong><small>Aulas e servi&ccedil;os</small></span>
-        </a>
-        <a href="#" class="quick-item">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 8h12l-1 13H7Z" />
-            <path d="M9 8a3 3 0 0 1 6 0" />
-          </svg>
-          <span><strong>Compras</strong><small>Suplementos e planos</small></span>
-        </a>
+      <div class="segmented-control" role="tablist" aria-label="Semana de treino">
+        <button class="selected" type="button">Hoje</button>
+        <button type="button">Semana</button>
+        <button type="button">Hist&oacute;rico</button>
       </div>
+
+      <section class="stack-list" aria-label="Exercicios do treino">
+        <article class="routine-item current">
+          <span>01</span>
+          <div>
+            <h3>Puxada alta pronada</h3>
+            <p>4 s&eacute;ries &bull; 10-12 reps &bull; 60s descanso</p>
+          </div>
+          <strong>32kg</strong>
+        </article>
+        <article class="routine-item">
+          <span>02</span>
+          <div>
+            <h3>Remada baixa</h3>
+            <p>4 s&eacute;ries &bull; 8-10 reps &bull; 75s descanso</p>
+          </div>
+          <strong>45kg</strong>
+        </article>
+        <article class="routine-item">
+          <span>03</span>
+          <div>
+            <h3>Rosca direta</h3>
+            <p>3 s&eacute;ries &bull; 10 reps &bull; controle total</p>
+          </div>
+          <strong>18kg</strong>
+        </article>
+        <article class="routine-item">
+          <span>04</span>
+          <div>
+            <h3>Esteira inclinada</h3>
+            <p>15 min &bull; zona 2 &bull; finaliza&ccedil;&atilde;o</p>
+          </div>
+          <strong>15m</strong>
+        </article>
+      </section>
     </section>
 
-    <a href="#" class="referral-card">
-      <span class="referral-visual"><span>R1</span></span>
-      <span class="referral-copy">
-        <strong>Indique e ganhe!</strong>
-        <small>Traga um amigo e ganhe benef&iacute;cios exclusivos.</small>
-      </span>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m9 18 6-6-6-6" />
-      </svg>
-    </a>
+    <section class="app-page" data-page="progress" aria-label="Evolucao">
+      <header class="page-header">
+        <span>Evolu&ccedil;&atilde;o</span>
+        <h1>Resultados em ritmo forte</h1>
+        <p>Acompanhe sua consist&ecirc;ncia, volume e medidas.</p>
+      </header>
+
+      <section class="progress-summary">
+        <article>
+          <small>Carga total</small>
+          <strong>12.8t</strong>
+          <span>+8% vs semana anterior</span>
+        </article>
+        <article>
+          <small>Frequ&ecirc;ncia</small>
+          <strong>92%</strong>
+          <span>13 dias ativos no m&ecirc;s</span>
+        </article>
+      </section>
+
+      <article class="chart-card">
+        <div class="chart-heading">
+          <div>
+            <span class="eyebrow">Volume semanal</span>
+            <h2>Treino por grupo</h2>
+          </div>
+          <strong>4h 30m</strong>
+        </div>
+        <div class="bar-chart" aria-label="Grafico de volume semanal">
+          <span style="--bar: 62%"><i>Seg</i></span>
+          <span style="--bar: 82%"><i>Ter</i></span>
+          <span style="--bar: 38%"><i>Qua</i></span>
+          <span style="--bar: 74%"><i>Qui</i></span>
+          <span style="--bar: 92%"><i>Sex</i></span>
+        </div>
+      </article>
+
+      <section class="measurement-list">
+        <article>
+          <span>Peitoral</span>
+          <strong>101 cm</strong>
+          <small>+1.4 cm</small>
+        </article>
+        <article>
+          <span>Cintura</span>
+          <strong>82 cm</strong>
+          <small>-2.1 cm</small>
+        </article>
+        <article>
+          <span>Peso</span>
+          <strong>78.4 kg</strong>
+          <small>-0.8 kg</small>
+        </article>
+      </section>
+    </section>
+
+    <section class="app-page" data-page="agenda" aria-label="Agenda">
+      <header class="page-header compact">
+        <span>Agenda</span>
+        <h1>Pr&oacute;ximos hor&aacute;rios</h1>
+        <p>Aulas, servi&ccedil;os e check-in da academia.</p>
+      </header>
+
+      <section class="date-strip" aria-label="Dias da semana">
+        <button type="button"><small>Seg</small><strong>03</strong></button>
+        <button class="selected" type="button"><small>Ter</small><strong>04</strong></button>
+        <button type="button"><small>Qua</small><strong>05</strong></button>
+        <button type="button"><small>Qui</small><strong>06</strong></button>
+        <button type="button"><small>Sex</small><strong>07</strong></button>
+      </section>
+
+      <section class="agenda-list">
+        <article class="agenda-item active">
+          <time>18:00</time>
+          <div>
+            <h3>Treino livre</h3>
+            <p>Muscula&ccedil;&atilde;o &bull; sala principal</p>
+          </div>
+          <button type="button">Check-in</button>
+        </article>
+        <article class="agenda-item">
+          <time>19:30</time>
+          <div>
+            <h3>Funcional R1</h3>
+            <p>Professor Marcos &bull; 8 vagas</p>
+          </div>
+          <button type="button">Reservar</button>
+        </article>
+        <article class="agenda-item">
+          <time>20:15</time>
+          <div>
+            <h3>Avalia&ccedil;&atilde;o f&iacute;sica</h3>
+            <p>Bioimped&acirc;ncia &bull; sala 2</p>
+          </div>
+          <button type="button">Agendar</button>
+        </article>
+      </section>
+
+      <article class="feature-card muted-card">
+        <span class="image-slot agenda-image" aria-hidden="true"></span>
+        <div>
+          <h2>Hor&aacute;rios especiais</h2>
+          <p>Receba avisos quando novas aulas abrirem na grade.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="app-page" data-page="profile" aria-label="Perfil">
+      <header class="profile-header">
+        <span class="profile-avatar image-slot" aria-hidden="true"></span>
+        <div>
+          <span>Plano Black</span>
+          <h1>Lucas Andrade</h1>
+          <p>Aluno desde janeiro de 2025</p>
+        </div>
+      </header>
+
+      <section class="profile-plan">
+        <span class="eyebrow">Seu plano</span>
+        <h2>R1 Club mensal</h2>
+        <p>Renova&ccedil;&atilde;o em 12 dias &bull; acesso completo.</p>
+        <div>
+          <button type="button">Ver contrato</button>
+          <button type="button">Alterar plano</button>
+        </div>
+      </section>
+
+      <section class="settings-list" aria-label="Configuracoes">
+        <a href="#">
+          <span>Dados pessoais</span>
+          <small>Contato, senha e informa&ccedil;&otilde;es da conta</small>
+        </a>
+        <a href="#">
+          <span>Dieta</span>
+          <small>Plano alimentar e prefer&ecirc;ncias</small>
+        </a>
+        <a href="#">
+          <span>Compras</span>
+          <small>Suplementos, planos e hist&oacute;rico</small>
+        </a>
+        <a href="#">
+          <span>Notifica&ccedil;&otilde;es</span>
+          <small>Avisos de treino, agenda e promo&ccedil;&otilde;es</small>
+        </a>
+      </section>
+    </section>
   </main>
 
   <nav class="bottom-nav is-hidden" aria-label="Navegacao principal" data-view="home-nav">
-    <a href="#" class="active">
+    <a href="#home" class="active" data-tab="home">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="m3 11 9-8 9 8" />
         <path d="M5 10v10h14V10" />
       </svg>
       In&iacute;cio
     </a>
-    <a href="#">
+    <a href="#workouts" data-tab="workouts">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M6.5 6.5v11" />
         <path d="M17.5 6.5v11" />
@@ -260,7 +467,7 @@
       </svg>
       Treinos
     </a>
-    <a href="#">
+    <a href="#progress" data-tab="progress">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 20V9" />
         <path d="M10 20V5" />
@@ -269,7 +476,7 @@
       </svg>
       Evolu&ccedil;&atilde;o
     </a>
-    <a href="#">
+    <a href="#agenda" data-tab="agenda">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M8 2v4" />
         <path d="M16 2v4" />
@@ -278,7 +485,7 @@
       </svg>
       Agenda
     </a>
-    <a href="#">
+    <a href="#profile" data-tab="profile">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="8" r="4" />
         <path d="M4 21a8 8 0 0 1 16 0" />

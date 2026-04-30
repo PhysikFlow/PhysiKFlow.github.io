@@ -353,6 +353,430 @@ svg {
   overflow: hidden;
 }
 
+.app-page {
+  display: none;
+}
+
+.app-page.active {
+  display: block;
+}
+
+.page-header,
+.profile-header {
+  padding-top: 1.2rem;
+}
+
+.page-header span,
+.profile-header span {
+  display: block;
+  color: var(--primary-bright);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.page-header h1,
+.profile-header h1 {
+  margin-top: 0.55rem;
+  color: var(--text);
+  font-size: 2.15rem;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.page-header p,
+.profile-header p {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.page-header.compact {
+  padding-top: 0.55rem;
+}
+
+.feature-card,
+.chart-card,
+.profile-plan {
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.feature-card {
+  display: grid;
+  grid-template-columns: 6.2rem 1fr;
+  gap: 1rem;
+  align-items: center;
+  min-height: 7.1rem;
+  margin-top: 1.5rem;
+  padding: 0.9rem;
+}
+
+.feature-card h2,
+.chart-heading h2,
+.profile-plan h2 {
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.feature-card p,
+.profile-plan p {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.image-slot {
+  display: block;
+  background:
+    radial-gradient(circle at 28% 78%, rgba(25, 119, 255, 0.72), transparent 3.5rem),
+    linear-gradient(145deg, rgba(12, 24, 45, 0.94), rgba(2, 5, 10, 0.96));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.workout-plan-image {
+  width: 6.1rem;
+  height: 6.1rem;
+  border-radius: 0.75rem;
+  background-image:
+    linear-gradient(160deg, rgba(3, 6, 11, 0.3), rgba(3, 6, 11, 0.92)),
+    url("assets/navigation/workout-plan.png");
+}
+
+.agenda-image {
+  width: 6.1rem;
+  height: 5.15rem;
+  border-radius: 0.7rem;
+  background-image:
+    linear-gradient(160deg, rgba(3, 6, 11, 0.2), rgba(3, 6, 11, 0.85)),
+    url("assets/navigation/agenda-card.png");
+}
+
+.profile-avatar {
+  width: 5.2rem;
+  height: 5.2rem;
+  border: 1px solid rgba(25, 119, 255, 0.4);
+  border-radius: 999px;
+  background-image:
+    linear-gradient(160deg, rgba(3, 6, 11, 0.1), rgba(3, 6, 11, 0.68)),
+    url("assets/navigation/profile-avatar.png");
+  box-shadow: 0 0.9rem 1.9rem rgba(25, 119, 255, 0.18);
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-top: 1.3rem;
+  padding: 0.28rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.segmented-control button,
+.date-strip button,
+.agenda-item button,
+.profile-plan button {
+  border-radius: 0.65rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.segmented-control button {
+  min-height: 2.55rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.segmented-control button.selected {
+  background: var(--primary);
+  color: white;
+}
+
+.stack-list,
+.agenda-list,
+.settings-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.routine-item,
+.agenda-item,
+.settings-list a {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: linear-gradient(145deg, rgba(8, 12, 19, 0.88), rgba(3, 6, 11, 0.7));
+}
+
+.routine-item {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  min-height: 5rem;
+  padding: 0.95rem;
+}
+
+.routine-item > span {
+  display: grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 999px;
+  color: var(--primary-bright);
+  background: rgba(25, 119, 255, 0.13);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.routine-item.current {
+  border-color: rgba(25, 119, 255, 0.42);
+}
+
+.routine-item h3,
+.agenda-item h3 {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.routine-item p,
+.agenda-item p {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.routine-item strong {
+  color: var(--primary-bright);
+  font-size: 0.95rem;
+}
+
+.progress-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.progress-summary article,
+.measurement-list article {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.7));
+}
+
+.progress-summary article {
+  min-height: 7rem;
+  padding: 1rem;
+}
+
+.progress-summary small,
+.measurement-list span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.progress-summary strong {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--primary-bright);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.progress-summary span,
+.measurement-list small {
+  display: block;
+  margin-top: 0.65rem;
+  color: #d9dbe0;
+  font-size: 0.78rem;
+}
+
+.chart-card {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.chart-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-heading strong {
+  color: var(--primary-bright);
+  font-size: 1.15rem;
+}
+
+.bar-chart {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  gap: 0.7rem;
+  height: 12rem;
+  margin-top: 1.2rem;
+}
+
+.bar-chart span {
+  position: relative;
+  display: grid;
+  align-items: end;
+  height: 100%;
+}
+
+.bar-chart span::before {
+  content: "";
+  min-height: 2rem;
+  height: var(--bar);
+  border-radius: 999px 999px 0.35rem 0.35rem;
+  background: linear-gradient(180deg, var(--primary-bright), rgba(25, 119, 255, 0.22));
+}
+
+.bar-chart i {
+  margin-top: 0.45rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  text-align: center;
+}
+
+.measurement-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.measurement-list article {
+  padding: 0.85rem;
+}
+
+.measurement-list strong {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.date-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 1.4rem;
+}
+
+.date-strip button {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  min-height: 4.6rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.date-strip button.selected {
+  border-color: rgba(25, 119, 255, 0.55);
+  background: rgba(25, 119, 255, 0.17);
+  color: white;
+}
+
+.date-strip small {
+  font-size: 0.72rem;
+}
+
+.date-strip strong {
+  font-size: 1.15rem;
+}
+
+.agenda-item {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  min-height: 5.2rem;
+  padding: 0.9rem;
+}
+
+.agenda-item.active {
+  border-color: rgba(25, 119, 255, 0.42);
+}
+
+.agenda-item time {
+  color: var(--primary-bright);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.agenda-item button,
+.profile-plan button {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  background: rgba(25, 119, 255, 0.15);
+  color: var(--primary-bright);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.muted-card {
+  margin-top: 1rem;
+}
+
+.profile-header {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.profile-header h1 {
+  font-size: 1.8rem;
+}
+
+.profile-plan {
+  margin-top: 1.5rem;
+  padding: 1.15rem;
+}
+
+.profile-plan div {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.settings-list a {
+  display: grid;
+  min-height: 4.7rem;
+  padding: 0.95rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.settings-list span {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.settings-list small {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .hero {
   position: relative;
   min-height: 25rem;
