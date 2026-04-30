@@ -1,0 +1,21 @@
+{
+  "name": "R1 Body Center",
+  "short_name": "R1",
+  "description": "Aplicativo R1 Body Center para treinos, agenda e acompanhamento semanal.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#03060b",
+  "theme_color": "#03060b",
+  "categories": ["health", "fitness", "lifestyle"],
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

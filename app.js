@@ -1,68 +1,62 @@
-import { getDashboardData, getMonthlyRevenue } from "./services.js";
+let deferredInstallPrompt = null;
 
-// THEME
-const toggle = document.getElementById("themeToggle");
-toggle.addEventListener("change", () => {
-    document.body.classList.toggle("dark", toggle.checked);
+const loginView = document.querySelector('[data-view="login"]');
+const homeView = document.querySelector('[data-view="home"]');
+const homeNav = document.querySelector('[data-view="home-nav"]');
+const enterButton = document.querySelector("[data-enter-app]");
+const installButton = document.querySelector("[data-install-app]");
+
+const isStandalone = () => {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+};
+
+const showHome = () => {
+  loginView?.classList.add("is-hidden");
+  homeView?.classList.remove("is-hidden");
+  homeNav?.classList.remove("is-hidden");
+  window.scrollTo({ top: 0, behavior: "instant" });
+};
+
+const updateInstallButton = () => {
+  if (!installButton) {
+    return;
+  }
+
+  installButton.hidden = isStandalone() || !deferredInstallPrompt;
+};
+
+enterButton?.addEventListener("click", showHome);
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallButton();
 });
 
-// CARDS
-async function loadCards() {
-    const data = await getDashboardData();
+installButton?.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) {
+    updateInstallButton();
+    return;
+  }
 
-    document.getElementById("cards").innerHTML = `
-        <div class="card">
-            <div class="card-title">Total</div>
-            <div class="card-value">${data.total.toFixed(2)}</div>
-        </div>
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  updateInstallButton();
+});
 
-        <div class="card">
-            <div class="card-title">Alunos</div>
-            <div class="card-value">${data.alunos}</div>
-        </div>
-    `;
-}
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallButton();
+});
 
-// RELATÓRIOS
-const reports = [
-    { id: "mensal", label: "Faturamento Mensal" },
-    { id: "ranking", label: "Ranking Alunos" },
-    { id: "atraso", label: "Em Atraso" }
-];
+window.matchMedia("(display-mode: standalone)").addEventListener("change", updateInstallButton);
+updateInstallButton();
 
-function loadReportButtons() {
-    const el = document.getElementById("reportButtons");
-
-    reports.forEach(r => {
-        const btn = document.createElement("button");
-        btn.textContent = r.label;
-
-        btn.onclick = () => loadReport(r.id);
-
-        el.appendChild(btn);
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // The app can still run as a static page when no service worker exists.
     });
+  });
 }
-
-async function loadReport(type) {
-    const area = document.getElementById("reportArea");
-
-    if (type === "mensal") {
-        const data = await getMonthlyRevenue();
-
-        area.innerHTML = Object.entries(data)
-            .map(([mes, valor]) => `<div>${mes}: ${valor}</div>`)
-            .join("");
-    }
-
-    if (type === "ranking") {
-        area.innerHTML = "Ranking (a fazer)";
-    }
-
-    if (type === "atraso") {
-        area.innerHTML = "Atrasados (a fazer)";
-    }
-}
-
-// INIT
-loadCards();
-loadReportButtons();

@@ -1,230 +1,317 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>PhysikShow • Dashboard</title>
-
-  <link rel="icon" href="favicon.png">
-  <link rel="stylesheet" href="style.css">
-
-  <script src="script.js" defer></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#03060b" />
+  <title>R1 Body Center</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="app.js" defer></script>
 </head>
-
 <body>
-  <header class="header">
-    <div class="header-inner" style="flex-direction: row !important;">
-      <div class="brand">
-        <div class="brand-mark">P</div>
+  <section class="login-screen" data-view="login">
+    <div class="login-art" aria-hidden="true">
+      <span class="outline-one">1</span>
+      <span class="login-athlete"></span>
+    </div>
 
-        <div class="brand-text">
-          <div class="brand-title">PhysikShow</div>
-          <div class="brand-sub">Dashboard rápido</div>
+    <div class="login-content">
+      <div class="login-brand" aria-label="R1 Body Center">
+        <span class="login-brand-mark">R<span>1</span></span>
+        <span class="login-brand-subtitle"><span>Body</span> Center</span>
+      </div>
+
+      <div class="login-headline">
+        <h1>Mais que treino.<br /><span>Resultados.</span></h1>
+        <i aria-hidden="true"></i>
+        <p>Acompanhe sua evolu&ccedil;&atilde;o,<br />consulte seu treino, hor&aacute;rios<br />e muito mais.</p>
+      </div>
+
+      <div class="login-features" aria-label="Recursos do aplicativo">
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.5 6.5v11" />
+            <path d="M17.5 6.5v11" />
+            <path d="M3.5 9v6" />
+            <path d="M20.5 9v6" />
+            <path d="M6.5 12h11" />
+          </svg>
+          <strong>Treinos</strong>
+          <small>Personalizados</small>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 2v4" />
+            <path d="M16 2v4" />
+            <rect width="18" height="18" x="3" y="4" rx="2" />
+            <path d="M3 10h18" />
+            <path d="M8 14h.01" />
+            <path d="M12 14h.01" />
+            <path d="M16 14h.01" />
+          </svg>
+          <strong>Hor&aacute;rios</strong>
+          <small>Das aulas</small>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 20V9" />
+            <path d="M10 20V5" />
+            <path d="M16 20v-8" />
+            <path d="M22 20V3" />
+          </svg>
+          <strong>Evolu&ccedil;&atilde;o</strong>
+          <small>De resultados</small>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <strong>Avisos</strong>
+          <small>E novidades</small>
         </div>
       </div>
 
-      <div class="header-actions">
-        <button class="btn google-btn">
-Entrar 
-  <svg width="18" height="18" viewBox="0 0 48 48">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
-    <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
-    <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
-    <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
-  </svg>
-</button>
+      <div class="login-actions">
+        <button class="primary-action" type="button" data-enter-app>Entrar</button>
+        <button class="secondary-action" type="button">Cadastrar</button>
+        <button class="install-action" type="button" data-install-app hidden>Instalar app</button>
+      </div>
 
-        <select class="select" aria-label="Selecionar unidade">
-          <option>Itaporanga</option>
-          <option>Conceição</option>
-        </select>
+      <p class="secure-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+          <path d="m9 12 2 2 4-5" />
+        </svg>
+        Seus dados seguros<br />e protegidos
+      </p>
+    </div>
+  </section>
 
-        <button class="icon-btn btn" id="themeToggle" title="Alternar tema" aria-label="Alternar tema">
-          ☾
+  <main class="app-shell is-hidden" data-view="home">
+    <section class="hero" aria-label="Boas-vindas">
+      <div class="top-bar">
+        <button class="icon-button" type="button" aria-label="Abrir menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <div class="brand" aria-label="R1 Body Center">
+          <span class="brand-mark">R<span>1</span></span>
+          <span class="brand-subtitle">Body Center</span>
+        </div>
+
+        <button class="bell-button" type="button" aria-label="Notificacoes">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span></span>
         </button>
       </div>
-    </div>
-  </header>
 
-  <main class="page">
-    <section class="panel card" style="margin-bottom:16px;">
-      <div class="panel-head">
-        <div>
-          <h2 class="panel-title">Indicadores principais</h2>
-          <div class="panel-sub">
-Veja o que realmente importa: receita e alunos. Tudo em um único painel, atualizado em tempo real.
-          </div>
-        </div>
-
-        <span class="badge">Dados Gerais</span>
-      </div>
-
-      <div class="metrics">
-        <div class="metric good">
-          <div class="metric-label">Total Geral</div>
-          <div class="metric-value" id="totalGeral">R$ 0,00</div>
-          <div class="metric-help">Acumulado da unidade</div>
-        </div>
-
-        <div class="metric">
-          <div class="metric-label">Últimos 30 dias</div>
-          <div class="metric-value" id="total30">R$ 0,00</div>
-          <div class="metric-help">Base para leitura mensal</div>
-        </div>
-
-        <div class="metric small">
-          <div class="metric-label">Últimos 3 meses</div>
-          <div class="metric-value" id="total3m">R$ 0,00</div>
-          <div class="metric-help">Tendência de curto prazo</div>
-        </div>
-
-        <div class="metric warn">
-          <div class="metric-label">Total de alunos</div>
-          <div class="metric-value" id="totalAlunos">—</div>
-          <div class="metric-help">Base atual cadastrada</div>
-        </div>
-
-        <div class="metric good">
-          <div class="metric-label">Alunos em dia</div>
-          <div class="metric-value" id="totalAtivos">—</div>
-          <div class="metric-help"></div>
-        </div>
-
-        <div class="metric bad">
-          <div class="metric-label">Alunos em atraso</div>
-          <div class="metric-value" id="totalAtrasados">0</div>
-          <div class="metric-help"></div>
-        </div>
+      <div class="hero-copy">
+        <h1>Ol&aacute;, Lucas! <span>&#x1F44A;</span></h1>
+        <p>Pronto para mais<br />um treino?</p>
       </div>
     </section>
 
-    <section class="section-grid">
-      <div class="stack">
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Faturamento por mês</h2>
-            </div>
-
-            <span class="badge">Ordenado por data</span>
-          </div>
-
-          <div class="chart-shell">
-            <div class="chart-bars" id="graficoMensal"></div>
-          </div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Top pessoas</h2>
-              <div class="panel-sub">
-                Clientes com maior gasto acumulado.
-              </div>
-            </div>
-
-            <span class="badge">Ranking</span>
-          </div>
-
-          <table class="table-lite">
-            <thead>
-              <tr>
-                <th>Pessoa</th>
-                <th>Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="rankingPessoas">
-              <tr>
-                <td colspan="3" class="mini-note">Sem dados carregados ainda.</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+    <section class="next-workout">
+      <div class="workout-copy">
+        <span class="eyebrow">Pr&oacute;ximo treino</span>
+        <h2>Costas e B&iacute;ceps</h2>
+        <p>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 2v4" />
+            <path d="M16 2v4" />
+            <rect width="18" height="18" x="3" y="4" rx="2" />
+            <path d="M3 10h18" />
+          </svg>
+          Hoje &bull; 18:00
+        </p>
       </div>
 
-      <div class="stack">
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Alunos</h2>
-              <div class="panel-sub">
-                Percentual de inadimplentes e ativos
-              </div>
-            </div>
+      <a href="#" class="workout-action" aria-label="Ver treino">
+        <span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.5 6.5v11" />
+            <path d="M17.5 6.5v11" />
+            <path d="M3.5 9v6" />
+            <path d="M20.5 9v6" />
+            <path d="M6.5 12h11" />
+          </svg>
+        </span>
+        Ver treino
+      </a>
+    </section>
 
-            <span class="badge">%</span>
-          </div>
+    <section class="section-heading">
+      <h2>Resumo semanal</h2>
+      <a href="#">Ver mais</a>
+    </section>
 
-          <div class="progress-wrap">
-            <div class="progress-line">
-              <span>Ativos</span>
-              <div class="bar"><i style="width:72%"></i></div>
-              <strong id="pctAtivos">—</strong>
-            </div>
+    <section class="stats-grid" aria-label="Resumo semanal">
+      <article class="stat-card">
+        <span class="stat-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m9 12 2 2 4-5" />
+            <circle cx="12" cy="12" r="9" />
+          </svg>
+        </span>
+        <strong>4/5</strong>
+        <p>Treinos<br />conclu&iacute;dos</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8.5 14.5A4.5 4.5 0 0 0 13 19a5 5 0 0 0 5-5c0-4-3-6.5-3-6.5S13 10 11 10c-1.5 0-2.5-1-2.5-2.5C6.5 9 4 11 4 14a6 6 0 0 0 6 6" />
+          </svg>
+        </span>
+        <strong>2.450</strong>
+        <p>Kcal<br />queimadas</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </span>
+        <strong>4h 30m</strong>
+        <p>Tempo total<br />de treino</p>
+      </article>
+      <article class="stat-card">
+        <span class="stat-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m4 16 5-5 4 4 7-8" />
+            <path d="M15 7h5v5" />
+          </svg>
+        </span>
+        <strong>85%</strong>
+        <p>Meta semanal<br />conclu&iacute;da</p>
+      </article>
+    </section>
 
-            <div class="progress-line">
-              <span>Em atraso</span>
-              <div class="bar"><i style="width:28%"></i></div>
-              <strong id="pctAtrasados">—</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Distribuição por valor</h2>
-              <div class="panel-sub">
-                Lista pronta para mostrar frequência por faixa/valor de pagamento.
-              </div>
-            </div>
-
-            <span class="badge">Detalhe</span>
-          </div>
-
-          <div class="list" id="listaValores">
-            <div class="list-item">
-              <strong>Sem dados</strong>
-              <span>aguardando carregamento</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Observações rápidas</h2>
-              <div class="panel-sub">
-                Card leve para alertas, notas ou indicadores que não merecem virar métrica grande.
-              </div>
-            </div>
-
-            <span class="badge">Notas</span>
-          </div>
-
-          <div class="list">
-            <div class="list-item">
-              <strong>Última sincronização</strong>
-              <span id="ultimaSync">—</span>
-            </div>
-
-            <div class="list-item">
-              <strong>Status do cache</strong>
-              <span id="statusCache">carregando</span>
-            </div>
-
-            <div class="list-item">
-              <strong>Unidade ativa</strong>
-              <span>Itaporanga</span>
-            </div>
-          </div>
-        </section>
+    <section class="quick-section">
+      <h2>Acesso r&aacute;pido</h2>
+      <div class="quick-grid">
+        <a href="#" class="quick-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 3h7v7H3z" />
+            <path d="M14 3h7v7h-7z" />
+            <path d="M3 14h7v7H3z" />
+            <path d="M14 14h7v7h-7z" />
+            <path d="M7 7h10v10H7z" />
+          </svg>
+          <span><strong>Check-in</strong><small>Marcar presen&ccedil;a</small></span>
+        </a>
+        <a href="#" class="quick-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 6h8" />
+            <path d="M8 10h8" />
+            <path d="M8 14h6" />
+            <rect width="14" height="18" x="5" y="3" rx="2" />
+            <path d="M9 3h6v3H9z" />
+          </svg>
+          <span><strong>Planos</strong><small>Ver seu plano</small></span>
+        </a>
+        <a href="#" class="quick-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 20V9" />
+            <path d="M10 20V5" />
+            <path d="M16 20v-8" />
+            <path d="M22 20V3" />
+          </svg>
+          <span><strong>Avalia&ccedil;&otilde;es</strong><small>Acompanhe seus resultados</small></span>
+        </a>
+        <a href="#" class="quick-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 6c-3-3-8-1-8 5 0 5 3 10 8 10s8-5 8-10c0-6-5-8-8-5Z" />
+            <path d="M12 6c1-3 3-4 6-4" />
+          </svg>
+          <span><strong>Dieta</strong><small>Ver sua dieta</small></span>
+        </a>
+        <a href="#" class="quick-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 2v4" />
+            <path d="M16 2v4" />
+            <rect width="18" height="18" x="3" y="4" rx="2" />
+            <path d="M3 10h18" />
+            <path d="M8 14h.01" />
+            <path d="M12 14h.01" />
+            <path d="M16 14h.01" />
+          </svg>
+          <span><strong>Agendamentos</strong><small>Aulas e servi&ccedil;os</small></span>
+        </a>
+        <a href="#" class="quick-item">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 8h12l-1 13H7Z" />
+            <path d="M9 8a3 3 0 0 1 6 0" />
+          </svg>
+          <span><strong>Compras</strong><small>Suplementos e planos</small></span>
+        </a>
       </div>
     </section>
 
-    <div class="footer-space"></div>
+    <a href="#" class="referral-card">
+      <span class="referral-visual"><span>R1</span></span>
+      <span class="referral-copy">
+        <strong>Indique e ganhe!</strong>
+        <small>Traga um amigo e ganhe benef&iacute;cios exclusivos.</small>
+      </span>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    </a>
   </main>
+
+  <nav class="bottom-nav is-hidden" aria-label="Navegacao principal" data-view="home-nav">
+    <a href="#" class="active">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10" />
+      </svg>
+      In&iacute;cio
+    </a>
+    <a href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.5 6.5v11" />
+        <path d="M17.5 6.5v11" />
+        <path d="M3.5 9v6" />
+        <path d="M20.5 9v6" />
+        <path d="M6.5 12h11" />
+      </svg>
+      Treinos
+    </a>
+    <a href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20V9" />
+        <path d="M10 20V5" />
+        <path d="M16 20v-8" />
+        <path d="M22 20V3" />
+      </svg>
+      Evolu&ccedil;&atilde;o
+    </a>
+    <a href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <path d="M3 10h18" />
+      </svg>
+      Agenda
+    </a>
+    <a href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </svg>
+      Perfil
+    </a>
+  </nav>
 </body>
 </html>
