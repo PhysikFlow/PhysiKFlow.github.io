@@ -75,6 +75,245 @@ svg {
   stroke-linejoin: round;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
+.login-screen {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(100%, 28rem);
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), #000 88%),
+    radial-gradient(circle at 80% 9%, rgba(25, 119, 255, 0.24), transparent 11rem),
+    linear-gradient(120deg, rgba(0, 0, 0, 0.12), rgba(5, 10, 17, 0.94) 62%, #000);
+}
+
+.login-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(165deg, transparent 0 38%, rgba(25, 119, 255, 0.42) 38.4% 39%, transparent 39.5% 100%),
+    linear-gradient(180deg, transparent, #000 74%);
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.login-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.outline-one {
+  position: absolute;
+  top: -2.4rem;
+  left: -0.8rem;
+  color: transparent;
+  font-size: 26rem;
+  font-weight: 900;
+  line-height: 0.78;
+  -webkit-text-stroke: 2px rgba(25, 119, 255, 0.72);
+  opacity: 0.8;
+  transform: skewX(-9deg);
+}
+
+.login-athlete {
+  position: absolute;
+  top: 1.3rem;
+  right: -4.4rem;
+  width: 18rem;
+  height: 34rem;
+  background:
+    radial-gradient(circle at 52% 10%, #05070a 0 2.65rem, transparent 2.72rem),
+    radial-gradient(ellipse at 48% 28%, #101721 0 6rem, transparent 6.1rem),
+    radial-gradient(ellipse at 26% 30%, #312118 0 2.15rem, transparent 2.25rem),
+    radial-gradient(ellipse at 30% 46%, #4a2e22 0 2.1rem, transparent 2.18rem),
+    linear-gradient(100deg, transparent 0 44%, #05070b 44% 75%, transparent 76% 100%);
+  filter: drop-shadow(-2rem 0.7rem 2rem rgba(25, 119, 255, 0.34));
+  opacity: 0.95;
+}
+
+.login-content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: end;
+  min-height: 100vh;
+  padding: 13rem 1.75rem 2.35rem;
+}
+
+.login-brand {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 4.25rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.login-brand-mark {
+  font-size: clamp(6rem, 27vw, 8.4rem);
+  font-weight: 900;
+  font-style: italic;
+  color: #f5f5f4;
+  text-shadow: 0 1.2rem 2.4rem rgba(0, 0, 0, 0.72);
+}
+
+.login-brand-mark span {
+  color: var(--primary);
+}
+
+.login-brand-subtitle {
+  margin-top: -0.8rem;
+  color: #f2f2f4;
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  font-style: italic;
+  letter-spacing: 0.32em;
+}
+
+.login-brand-subtitle span {
+  color: var(--primary-bright);
+}
+
+.login-headline {
+  text-align: center;
+}
+
+.login-headline h1 {
+  color: #f5f5f4;
+  font-size: clamp(2rem, 8vw, 2.65rem);
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.login-headline h1 span {
+  color: var(--primary);
+  font-size: 1.18em;
+}
+
+.login-headline i {
+  display: block;
+  width: 4.7rem;
+  height: 0.18rem;
+  margin: 1.55rem auto 1.7rem;
+  background:
+    linear-gradient(90deg, #f4f4f5 0 43%, transparent 43% 49%, var(--primary) 49% 61%, transparent 61% 67%, #f4f4f5 67% 100%);
+}
+
+.login-headline p {
+  color: #c6c7cc;
+  font-size: clamp(1.24rem, 5vw, 1.55rem);
+  line-height: 1.45;
+}
+
+.login-features {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 3.8rem;
+  text-align: center;
+}
+
+.login-features div {
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+  padding: 0 0.55rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.42);
+}
+
+.login-features div:last-child {
+  border-right: 0;
+}
+
+.login-features svg {
+  width: 2.9rem;
+  height: 2.9rem;
+  margin-bottom: 0.85rem;
+  color: var(--primary-bright);
+  stroke-width: 1.85;
+}
+
+.login-features strong,
+.login-features small {
+  display: block;
+  text-transform: uppercase;
+}
+
+.login-features strong {
+  color: #f7f8fb;
+  font-size: 0.82rem;
+  line-height: 1.08;
+}
+
+.login-features small {
+  margin-top: 0.2rem;
+  color: #babcc4;
+  font-size: 0.68rem;
+  line-height: 1.12;
+}
+
+.login-actions {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 3.3rem;
+}
+
+.primary-action,
+.secondary-action,
+.install-action {
+  min-height: 4.35rem;
+  border-radius: 1.35rem;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.primary-action {
+  background: linear-gradient(135deg, #1682ff, #1973eb);
+  color: #fff;
+  box-shadow: 0 1.3rem 2.2rem rgba(25, 119, 255, 0.22);
+}
+
+.secondary-action,
+.install-action {
+  border: 2px solid var(--primary);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--primary-bright);
+}
+
+.install-action {
+  min-height: 3.45rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+}
+
+.secure-note {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.1rem;
+  margin-top: 2.1rem;
+  color: #c8c9ce;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.secure-note svg {
+  width: 2.95rem;
+  height: 2.95rem;
+  color: var(--primary-bright);
+}
+
 .app-shell {
   position: relative;
   z-index: 1;
@@ -528,7 +767,10 @@ svg {
 .referral-card:active,
 .bottom-nav a:active,
 .icon-button:active,
-.bell-button:active {
+.bell-button:active,
+.primary-action:active,
+.secondary-action:active,
+.install-action:active {
   transform: scale(0.98);
   opacity: 0.84;
 }
@@ -549,6 +791,28 @@ textarea {
 }
 
 @media (max-width: 360px) {
+  .login-content {
+    padding-right: 1.1rem;
+    padding-left: 1.1rem;
+  }
+
+  .login-features {
+    margin-top: 2.7rem;
+  }
+
+  .login-features svg {
+    width: 2.45rem;
+    height: 2.45rem;
+  }
+
+  .login-features strong {
+    font-size: 0.72rem;
+  }
+
+  .login-features small {
+    font-size: 0.61rem;
+  }
+
   .app-shell {
     padding-right: 0.95rem;
     padding-left: 0.95rem;

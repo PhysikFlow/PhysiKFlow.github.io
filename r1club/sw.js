@@ -1,4 +1,4 @@
-const CACHE_NAME = "r1-body-center-v1";
+const CACHE_NAME = "r1-body-center-v2";
 const APP_ASSETS = [
   "./",
   "./index.html",
