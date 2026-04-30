@@ -1,11 +1,15 @@
-const CACHE_NAME = "r1-body-center-v2";
+const CACHE_NAME = "r1-club-v6";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.json",
-  "./favicon.png"
+  "./favicon.png",
+  "./assets/icons/r1-logo.png",
+  "./assets/login/login-bg-athlete.png",
+  "./assets/icons/calendar.png",
+  "./assets/icons/shield-check.png"
 ];
 
 self.addEventListener("install", (event) => {

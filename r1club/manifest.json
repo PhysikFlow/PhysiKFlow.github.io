@@ -1,7 +1,7 @@
 {
-  "name": "R1 Body Center",
-  "short_name": "R1",
-  "description": "Aplicativo R1 Body Center para treinos, agenda e acompanhamento semanal.",
+  "name": "R1 Club",
+  "short_name": "R1 Club",
+  "description": "Aplicativo R1 Club para treinos, agenda e acompanhamento semanal.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
