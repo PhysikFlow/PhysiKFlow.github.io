@@ -26,24 +26,21 @@
 
       <div class="header-actions">
         <button class="btn google-btn">
-Entrar 
-  <svg width="18" height="18" viewBox="0 0 48 48">
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
-    <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
-    <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
-    <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
-  </svg>
-</button>
+            Entrar 
+            <svg width="18" height="18" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
+                <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
+                <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
+                <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
+            </svg>
+        </button>
 
         <select class="select" aria-label="Selecionar unidade">
           <option>Itaporanga</option>
           <option>Conceição</option>
         </select>
 
-        <button class="icon-btn btn" id="themeToggle" title="Alternar tema" aria-label="Alternar tema">
-          ☾
-        </button>
-      </div>
+              </div>
     </div>
   </header>
 
@@ -104,6 +101,33 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
         <section class="panel card">
           <div class="panel-head">
             <div>
+              <h2 class="panel-title">Alunos</h2>
+              <div class="panel-sub">
+                Percentual de inadimplentes e ativos
+              </div>
+            </div>
+
+            <span class="badge">%</span>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-line">
+              <span>Ativos</span>
+              <div class="bar"><i style="width:72%"></i></div>
+              <strong id="pctAtivos">—</strong>
+            </div>
+
+            <div class="progress-line">
+              <span>Em atraso</span>
+              <div class="bar"><i style="width:28%"></i></div>
+              <strong id="pctAtrasados">—</strong>
+            </div>
+          </div>
+        </section>
+        
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
               <h2 class="panel-title">Faturamento por mês</h2>
             </div>
 
@@ -145,32 +169,6 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
       </div>
 
       <div class="stack">
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Alunos</h2>
-              <div class="panel-sub">
-                Percentual de inadimplentes e ativos
-              </div>
-            </div>
-
-            <span class="badge">%</span>
-          </div>
-
-          <div class="progress-wrap">
-            <div class="progress-line">
-              <span>Ativos</span>
-              <div class="bar"><i style="width:72%"></i></div>
-              <strong id="pctAtivos">—</strong>
-            </div>
-
-            <div class="progress-line">
-              <span>Em atraso</span>
-              <div class="bar"><i style="width:28%"></i></div>
-              <strong id="pctAtrasados">—</strong>
-            </div>
-          </div>
-        </section>
 
         <section class="panel card">
           <div class="panel-head">
@@ -195,9 +193,9 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
         <section class="panel card">
           <div class="panel-head">
             <div>
-              <h2 class="panel-title">Observações rápidas</h2>
+              <h2 class="panel-title">Técnico</h2>
               <div class="panel-sub">
-                Card leve para alertas, notas ou indicadores que não merecem virar métrica grande.
+                  Informações técnicas sobre o sistema
               </div>
             </div>
 

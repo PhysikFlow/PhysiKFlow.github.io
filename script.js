@@ -82,7 +82,7 @@ function aplicarTudo(data) {
   aplicarResumo(data.resumo || {});
   aplicarMensal(data.mesAMes || {});
   aplicarRanking(data.topPessoas || []);
-  aplicarDistribuicao(data.topPlanos || []);
+  aplicarDistribuicao(data.topPlanosGlobal || []);
   atualizarSync(data.meta || {});
 }
 
@@ -252,16 +252,6 @@ function init() {
   }
 }
 
-// ==========================
-// THEME
-// ==========================
-const themeBtn = document.getElementById("themeToggle");
-
-if (themeBtn) {
-  themeBtn.addEventListener("click", () => {
-    document.body.classList.toggle("dark");
-  });
-}
 
 // ==========================
 // START

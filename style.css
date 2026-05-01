@@ -1,22 +1,26 @@
 
 :root{
-  --bg:#f4ede2;
-  --bg2:#efe4d3;
-  --surface:#fffaf3;
-  --surface-2:#f3e8d9;
-  --surface-3:#ead8c2;
-  --line:rgba(80,60,40,.10);
-  --shadow:0 10px 30px rgba(60,40,20,.08);
-  --shadow-soft:0 6px 18px rgba(60,40,20,.06);
-  --text:#2d231a;
-  --muted:#7d6c5d;
-  --accent:#b8743f;
-  --accent-2:#e3a15f;
-  --good:#3e8a55;
-  --warn:#c17a1b;
-  --bad:#b44a44;
-  --info:#4b78b8;
-  --radius:18px;
+  --bg:#03060b;
+  --bg-soft:#080d15;
+  --card:rgba(7, 11, 18, 0.78);
+  --card-strong:rgba(9, 15, 26, 0.94);
+  --surface:rgba(10, 14, 22, 0.88);
+  --surface-2:rgba(8, 12, 19, 0.88);
+  --surface-3:rgba(3, 6, 11, 0.7);
+  --line:rgba(255, 255, 255, 0.1);
+  --line-blue:rgba(34, 119, 255, 0.24);
+  --shadow:rgba(0, 0, 0, 0.45);
+  --shadow-soft:rgba(0, 0, 0, 0.35);
+  --text:#f7f8fb;
+  --muted:#a8abb4;
+  --muted-soft:#7e8491;
+  --accent:#1977ff;
+  --accent-2:#2d86ff;
+  --good:#61c07a;
+  --warn:#e2a23a;
+  --bad:#ef6b63;
+  --info:#74a8f0;
+  --radius:14px;
   --radius-sm:12px;
 }
 
@@ -44,10 +48,30 @@ html{scroll-behavior:smooth}
 body{
   margin:0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(255,255,255,.35), transparent 28%),
-    linear-gradient(180deg, var(--bg), var(--bg2));
+    radial-gradient(circle at 86% 16%, rgba(25, 119, 255, 0.28), transparent 21rem),
+    radial-gradient(circle at 14% 72%, rgba(25, 119, 255, 0.1), transparent 18rem),
+    linear-gradient(180deg, #05080d 0%, #03060b 38%, #05080d 100%);
   color:var(--text);
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 0 52%, rgba(0, 0, 0, 0.55) 52% 100%),
+    radial-gradient(ellipse at 70% 18%, rgba(255, 255, 255, 0.08), transparent 4rem),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: auto, auto, 6rem 6rem, 6rem 6rem;
+  opacity: 0.55;
 }
 
 button,input,select{
@@ -63,9 +87,9 @@ button, .chip, .icon-btn, select, input{
   text-align: center;
   top:0;
   z-index:20;
-  backdrop-filter: blur(10px);
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  border-bottom:1px solid var(--line);
+  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg, rgba(3, 6, 11, 0.72), rgba(3, 6, 11, 0.98) 34%);
+  border-bottom:1px solid rgba(255, 255, 255, 0.04);
 }
 
 .header-inner{
@@ -90,7 +114,7 @@ button, .chip, .icon-btn, select, input{
   height:42px;
   border-radius:14px;
   background: linear-gradient(145deg, var(--accent), var(--accent-2));
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 1.3rem 2.2rem rgba(25, 119, 255, 0.22);
   display:grid;
   place-items:center;
   color:white;
@@ -128,18 +152,47 @@ button, .chip, .icon-btn, select, input{
   height:42px;
   border-radius: 14px;
   border:1px solid var(--line);
-  background: var(--surface);
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
   color:var(--text);
-  box-shadow: var(--shadow-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  font-weight: 500;
+  transition: all 0.18s ease;
 }
 
 .select, .input{
   padding:0 14px;
   min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8abb4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+  cursor: pointer;
 }
 
 .input{
   width:min(320px, 42vw);
+}
+
+.select option {
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px;
+  border: none;
+}
+
+.select:hover, .input:hover, .btn:hover{
+  border-color: rgba(25, 119, 255, 0.55);
+  transform: translateY(-1px);
+}
+
+.select:focus, .input:focus, .btn:focus{
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 0 3px rgba(25, 119, 255, 0.1);
 }
 
 .btn{
@@ -149,17 +202,6 @@ button, .chip, .icon-btn, select, input{
   align-items:center;
   gap:8px;
   font-weight:600;
-}
-
-.btn:hover, .chip:hover, .icon-btn:hover{
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
-}
-
-.icon-btn{
-  width:42px;
-  padding:0;
-  justify-content:center;
 }
 
 .page{
@@ -177,10 +219,10 @@ button, .chip, .icon-btn, select, input{
 }
 
 .card{
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white), var(--surface));
   border:1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .hero-main{
@@ -199,31 +241,49 @@ button, .chip, .icon-btn, select, input{
   pointer-events:none;
 }
 
+.hero-main::before {
+  content: "";
+  position: absolute;
+  right: -2.8rem;
+  bottom: 0;
+  width: 15.5rem;
+  height: 20rem;
+  background:
+    radial-gradient(circle at 58% 20%, #05070a 0 2.3rem, transparent 2.35rem),
+    radial-gradient(ellipse at 49% 57%, #111821 0 4.9rem, transparent 5rem),
+    radial-gradient(ellipse at 26% 47%, #2b1d16 0 2rem, transparent 2.1rem),
+    linear-gradient(102deg, transparent 0 42%, #05080d 42% 71%, transparent 72% 100%);
+  filter: drop-shadow(-2.2rem 1.2rem 2.5rem rgba(25, 119, 255, 0.28));
+  opacity: 0.92;
+}
+
 .kicker{
   display:inline-flex;
   align-items:center;
   gap:8px;
   padding:8px 12px;
   border-radius:999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color:var(--accent);
+  background: rgba(25, 119, 255, 0.15);
+  color:var(--accent-2);
   font-weight:700;
   font-size:.9rem;
-  border:1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border:1px solid rgba(25, 119, 255, 0.42);
 }
 
 .hero h1{
   margin:14px 0 10px;
-  font-size: clamp(1.4rem, 2.4vw, 2.4rem);
-  line-height:1.05;
-  letter-spacing:-.03em;
+  font-size: clamp(2.25rem, 10vw, 2.95rem);
+  line-height:1.08;
+  letter-spacing:0;
+  font-weight:800;
 }
 
 .hero p{
   margin:0;
   max-width: 70ch;
   color:var(--muted);
-  line-height:1.55;
+  line-height:1.42;
+  font-weight:500;
 }
 
 .hero-side{
@@ -233,6 +293,10 @@ button, .chip, .icon-btn, select, input{
 
 .side-box{
   padding:18px;
+  border:1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .side-top{
@@ -262,7 +326,7 @@ button, .chip, .icon-btn, select, input{
 
 .chip{
   border:1px solid var(--line);
-  background:var(--surface-2);
+  background:rgba(255, 255, 255, 0.035);
   color:var(--text);
   border-radius:999px;
   padding:8px 12px;
@@ -271,9 +335,9 @@ button, .chip, .icon-btn, select, input{
 }
 
 .chip.active{
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
-  color:var(--text);
+  background: rgba(25, 119, 255, 0.17);
+  border-color: rgba(25, 119, 255, 0.55);
+  color:white;
 }
 
 .section-grid{
@@ -291,6 +355,10 @@ button, .chip, .icon-btn, select, input{
 
 .panel{
   padding:18px;
+  border:1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .panel-head{
@@ -303,7 +371,9 @@ button, .chip, .icon-btn, select, input{
 
 .panel-title{
   margin:0;
-  font-size:1.06rem;
+  font-size:1.45rem;
+  line-height:1.2;
+  font-weight:800;
 }
 
 .panel-sub{
@@ -316,7 +386,7 @@ button, .chip, .icon-btn, select, input{
 .badge{
   padding:8px 10px;
   border-radius:999px;
-  background:var(--surface-2);
+  background:rgba(255, 255, 255, 0.035);
   border:1px solid var(--line);
   color:var(--muted);
   font-size:.85rem;
@@ -332,10 +402,8 @@ button, .chip, .icon-btn, select, input{
 .metric{
   padding:16px;
   border-radius:16px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface) 85%, white), var(--surface-2));
   border:1px solid var(--line);
-  box-shadow: var(--shadow-soft);
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.86), rgba(3, 6, 11, 0.68));
   position:relative;
   overflow:hidden;
 }
@@ -360,9 +428,10 @@ button, .chip, .icon-btn, select, input{
 }
 .metric-value{
   margin-top:8px;
-  font-size:1.65rem;
+  font-size:2rem;
   font-weight:800;
-  letter-spacing:-.03em;
+  letter-spacing:0;
+  line-height:1;
 }
 .metric-help{
   margin-top:8px;
@@ -388,8 +457,8 @@ button, .chip, .icon-btn, select, input{
   gap:12px;
   padding:12px 14px;
   border-radius:14px;
-  background:var(--surface-2);
   border:1px solid var(--line);
+  background: linear-gradient(145deg, rgba(8, 12, 19, 0.88), rgba(3, 6, 11, 0.7));
 }
 
 .list-item strong{
@@ -412,7 +481,7 @@ button, .chip, .icon-btn, select, input{
 }
 .bar{
   height:11px;
-  background: color-mix(in srgb, var(--surface-3) 85%, transparent);
+  background: rgba(255, 255, 255, 0.035);
   border-radius:999px;
   overflow:hidden;
   border:1px solid var(--line);
@@ -481,7 +550,7 @@ button, .chip, .icon-btn, select, input{
 .chart-track{
   height:16px;
   border-radius:999px;
-  background:var(--surface-2);
+  background:rgba(255, 255, 255, 0.035);
   border:1px solid var(--line);
   overflow:hidden;
 }
@@ -507,7 +576,7 @@ button, .chip, .icon-btn, select, input{
 .day{
   aspect-ratio: 1 / 1;
   border-radius:14px;
-  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  background: rgba(255, 255, 255, 0.035);
   border:1px solid var(--line);
   display:flex;
   flex-direction:column;
@@ -538,7 +607,7 @@ button, .chip, .icon-btn, select, input{
 .table-lite th{
   color:var(--muted);
   font-weight:600;
-  background:var(--surface-2);
+  background:rgba(255, 255, 255, 0.035);
 }
 .table-lite tr:last-child td{border-bottom:none}
 
@@ -567,6 +636,21 @@ button, .chip, .icon-btn, select, input{
 
   .select, .input, .btn{
     width:auto;              
+  }
+
+  .select {
+    min-width: 120px;
+    font-size: 0.9rem;
+  }
+
+  .google-btn {
+    padding: 0 10px;
+    font-size: 0.9rem;
+  }
+
+  .google-btn svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
