@@ -23,15 +23,7 @@
           <div id="wheel-overlay-top" class="wheel-overlay wheel-overlay--top"></div>
           
           <!-- Scrollable List -->
-          <div class="wheel-list" role="listbox" aria-label="Lista de pessoas">
-            <div class="wheel-item wheel-spacer" aria-hidden="true"></div>
-            <div class="wheel-item" role="option" aria-selected="true" data-selected="true">Registrar aqui</div>
-            <div class="wheel-item" role="option" aria-selected="false">Pessoa 1</div>
-            <div class="wheel-item" role="option" aria-selected="false">Pessoa 2</div>
-            <div class="wheel-item" role="option" aria-selected="false">Pessoa 3</div>
-            <div class="wheel-item" role="option" aria-selected="false">Pessoa 4</div>
-            <div class="wheel-item wheel-spacer" aria-hidden="true"></div>
-          </div>
+          <div id="wheel-list" class="wheel-list" role="listbox" aria-label="Lista de pessoas" tabindex="0"></div>
           
           <!-- Bottom Gradient Overlay -->
           <div id="wheel-overlay-bottom" class="wheel-overlay wheel-overlay--bottom"></div>
@@ -42,11 +34,61 @@
       <main class="camera-stage" aria-label="Área de visualização da câmera">
         <div id="camera-preview" class="camera-preview" aria-label="Preview em tempo real da câmera">
           <video id="camera-video" class="camera-video" autoplay muted playsinline></video>
+          <canvas id="capture-canvas" class="capture-canvas" aria-hidden="true"></canvas>
           <div class="preview-overlay">
             <p>Preview da câmera</p>
           </div>
         </div>
       </main>
+
+      <section id="confirm-panel" class="confirm-panel" aria-live="polite" aria-hidden="true">
+        <div class="confirm-card">
+          <header class="confirm-header">
+            <h2 id="confirm-title">Confirmar comprovante</h2>
+            <button id="close-confirm-panel" type="button" class="close-btn" aria-label="Fechar confirmação">X</button>
+          </header>
+
+          <div class="captured-thumb-wrap">
+            <img id="captured-thumb" class="captured-thumb" alt="Pré-visualização do comprovante capturado" />
+          </div>
+
+          <form id="receipt-form" class="receipt-form">
+            <label class="field">
+              <span>Nome</span>
+              <input id="person-name" name="personName" type="text" autocomplete="name" required />
+            </label>
+
+            <label class="field">
+              <span>Plano</span>
+              <select id="plan-select" name="plan" required>
+                <option value="">Selecione</option>
+                <option value="Plano Mensal">Plano Mensal</option>
+                <option value="Plano Trimestral">Plano Trimestral</option>
+                <option value="Plano Semestral">Plano Semestral</option>
+                <option value="Plano Anual">Plano Anual</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Forma de pagamento</span>
+              <select id="payment-method-select" name="paymentMethod" required>
+                <option value="">Selecione</option>
+                <option value="PIX">PIX</option>
+                <option value="Cartão">Cartão</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Transferência">Transferência</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Valor</span>
+              <input id="amount-input" name="amount" type="number" min="0" step="0.01" required />
+            </label>
+
+            <button id="save-receipt-btn" type="submit" class="confirm-btn">Confirmar e continuar</button>
+          </form>
+        </div>
+      </section>
 
       <!-- FOOTER: Action Buttons -->
       <footer class="action-bar" aria-label="Controles de captura">
@@ -58,12 +100,14 @@
             type="button" 
             class="action-btn gallery-btn" 
             aria-label="Abrir galeria de fotos"
+            title="Ver fotos capturadas"
           >
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <circle cx="8.5" cy="8.5" r="1.5"></circle>
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
+            <span class="sr-only">Galeria</span>
           </button>
 
           <!-- Capture Button (Centered) -->
@@ -72,11 +116,13 @@
             type="button" 
             class="action-btn capture-btn" 
             aria-label="Capturar foto"
+            title="Tirar foto agora"
           >
-            <svg class="btn-icon capture-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="btn-icon capture-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="10"></circle>
               <circle cx="12" cy="12" r="6"></circle>
             </svg>
+            <span class="sr-only">Capturar</span>
           </button>
 
         </nav>

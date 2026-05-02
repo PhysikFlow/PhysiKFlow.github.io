@@ -61,7 +61,6 @@ button,
 input,
 select {
   -webkit-tap-highlight-color: transparent;
-  tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   outline: none;
   border: none;
@@ -115,14 +114,14 @@ button {
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  overflow-y: scroll;
+  justify-content: flex-start;
+  overflow-y: auto;
   scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   flex-direction: column;
   position: relative;
-  padding: 24px 0;
+  padding: 70px 0;
   margin: 0;
   
   /* Hide scrollbar */
@@ -152,12 +151,15 @@ button {
   letter-spacing: 0.2px;
   transform: scale(0.94);
   padding: 0 14px;
+  cursor: pointer;
+  position: relative;
 }
 
 .wheel-item.wheel-spacer {
-  height: 40px;
+  height: 70px;
   opacity: 0;
   pointer-events: none;
+  scroll-snap-align: none;
 }
 
 /* Selected Item */
@@ -254,6 +256,17 @@ button {
   height: 100%;
   object-fit: cover;
   background: #000;
+}
+
+.capture-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .preview-overlay {
@@ -482,4 +495,173 @@ button {
     width: 26px;
     height: 26px;
   }
+}
+
+
+@media (max-width: 640px) {
+  /* Enhanced touch targets for mobile */
+  .action-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better wheel scrolling on mobile */
+  .wheel-list {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Improve camera preview on mobile */
+  .camera-stage::before {
+    opacity: 0.2;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Additional mobile optimizations can go here */
+}
+
+/* Enhanced accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --line: rgba(255, 255, 255, 0.3);
+  }
+  
+  .action-btn {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+  }
+  
+  .wheel-selector::after {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Focus styles for better keyboard navigation */
+.action-btn:focus-visible,
+.wheel-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Screen reader improvements */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Confirm panel */
+.confirm-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 4, 8, 0.86);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1100;
+  padding: 12px;
+}
+
+.confirm-panel.is-open {
+  display: flex;
+}
+
+.confirm-card {
+  width: min(620px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  border-radius: 16px 16px 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0a1018;
+  padding: 14px;
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.confirm-header h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.close-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.captured-thumb-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  margin-bottom: 12px;
+  min-height: 150px;
+}
+
+.captured-thumb {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.receipt-form {
+  display: grid;
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  padding: 8px 10px;
+}
+
+.confirm-btn {
+  min-height: 46px;
+  margin-top: 4px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(25, 119, 255, 0.45), rgba(25, 119, 255, 0.24));
+  color: #fff;
+  border: 1px solid rgba(25, 119, 255, 0.7);
+  font-weight: 700;
+  cursor: pointer;
 }
