@@ -2,6 +2,7 @@ const app = document.getElementById('app');
 const wheelList = document.querySelector('.wheel-list');
 const items = Array.from(document.querySelectorAll('.wheel-item:not(.wheel-spacer)'));
 const cameraPreview = document.getElementById('camera-preview');
+const cameraVideo = document.getElementById('camera-video');
 const galleryButton = document.getElementById('gallery-button');
 const captureButton = document.getElementById('capture-button');
 
@@ -55,6 +56,28 @@ function initActions() {
   }
 }
 
+function startCameraPreview() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.warn('Navegador não suporta câmera');
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    .then((stream) => {
+      cameraVideo.srcObject = stream;
+      cameraVideo.play().catch(() => {});
+    })
+    .catch((error) => {
+      console.error('Erro ao iniciar câmera:', error);
+      const fallbackText = document.createElement('p');
+      fallbackText.textContent = 'Câmera indisponível';
+      fallbackText.style.position = 'relative';
+      fallbackText.style.zIndex = '4';
+      fallbackText.style.color = 'var(--text)';
+      cameraPreview.appendChild(fallbackText);
+    });
+}
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -68,5 +91,6 @@ function registerServiceWorker() {
 window.addEventListener('DOMContentLoaded', () => {
   initWheelSelector();
   initActions();
+  startCameraPreview();
   registerServiceWorker();
 });
