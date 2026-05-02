@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>PhysikCam • Captura de Fotos</title>
+    <meta name="theme-color" content="#03060b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="reference.css">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div id="app" aria-label="Aplicativo de captura de fotos">
+      
+      <!-- HEADER: Wheel Selector -->
+      <header class="header" aria-label="Seletor de pessoa">
+        <section class="wheel-selector" aria-labelledby="selector-title">
+          <h1 id="selector-title" class="visually-hidden">Selecione uma pessoa</h1>
+          
+          <!-- Top Gradient Overlay -->
+          <div id="wheel-overlay-top" class="wheel-overlay wheel-overlay--top"></div>
+          
+          <!-- Scrollable List -->
+          <div class="wheel-list" role="listbox" aria-label="Lista de pessoas">
+            <div class="wheel-item wheel-spacer" aria-hidden="true"></div>
+            <div class="wheel-item" role="option" aria-selected="true" data-selected="true">Registrar aqui</div>
+            <div class="wheel-item" role="option" aria-selected="false">Pessoa 1</div>
+            <div class="wheel-item" role="option" aria-selected="false">Pessoa 2</div>
+            <div class="wheel-item" role="option" aria-selected="false">Pessoa 3</div>
+            <div class="wheel-item" role="option" aria-selected="false">Pessoa 4</div>
+            <div class="wheel-item wheel-spacer" aria-hidden="true"></div>
+          </div>
+          
+          <!-- Bottom Gradient Overlay -->
+          <div id="wheel-overlay-bottom" class="wheel-overlay wheel-overlay--bottom"></div>
+        </section>
+      </header>
+
+      <!-- MAIN: Camera Preview -->
+      <main class="camera-stage" aria-label="Área de visualização da câmera">
+        <div id="camera-preview" class="camera-preview" aria-label="Preview em tempo real da câmera">
+          <p>Preview da câmera</p>
+        </div>
+      </main>
+
+      <!-- FOOTER: Action Buttons -->
+      <footer class="action-bar" aria-label="Controles de captura">
+        <nav class="action-nav" aria-label="Botões de ação">
+          
+          <!-- Gallery Button -->
+          <button 
+            id="gallery-button" 
+            type="button" 
+            class="action-btn gallery-btn" 
+            aria-label="Abrir galeria de fotos"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+          </button>
+
+          <!-- Capture Button (Centered) -->
+          <button 
+            id="capture-button" 
+            type="button" 
+            class="action-btn capture-btn" 
+            aria-label="Capturar foto"
+          >
+            <svg class="btn-icon capture-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="6"></circle>
+            </svg>
+          </button>
+
+        </nav>
+      </footer>
+
+    </div>
+    <script src="script.js" defer></script>
+  </body>
+</html>
