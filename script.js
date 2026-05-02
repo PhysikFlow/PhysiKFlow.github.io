@@ -71,11 +71,47 @@ function carregarCache() {
 }
 
 // ==========================
+// AUTHORIZATION CHECK
+// ==========================
+async function checkAuthorization() {
+  const user = auth.currentUser;
+  if (!user) {
+    return false;
+  }
+
+  try {
+    // Check if user is in authorized_users list
+    const authorizedRef = firebase.database().ref('authorized_users/' + user.uid);
+    const snapshot = await authorizedRef.once('value');
+    return snapshot.exists();
+  } catch (error) {
+    console.error("❌ Authorization check failed:", error);
+    return false;
+  }
+}
+
+// ==========================
 // FETCH
 // ==========================
 async function buscarFirebase() {
+  // Check if user is authenticated and authorized
+  const isAuthorized = await checkAuthorization();
+  if (!isAuthorized) {
+    console.warn("⚠ User not authorized to access data");
+    showUnauthorizedMessage();
+    return;
+  }
+
   try {
-    const res = await fetch(API_URL);
+    // Add auth token to request
+    const user = auth.currentUser;
+    const token = await user.getIdToken();
+    
+    const res = await fetch(API_URL, {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
 
     if (!res.ok) throw new Error("HTTP " + res.status);
 
@@ -91,7 +127,22 @@ async function buscarFirebase() {
 
   } catch (err) {
     console.warn("⚠ usando cache (erro fetch):", err.message);
+    if (err.message.includes('401') || err.message.includes('403')) {
+      showUnauthorizedMessage();
+    }
   }
+}
+
+function showUnauthorizedMessage() {
+  // Clear existing data
+  document.querySelectorAll('.metric-value').forEach(el => el.textContent = '—');
+  document.getElementById('graficoMensal').innerHTML = '<div class="mini-note">Acesso restrito</div>';
+  document.getElementById('rankingPessoas').innerHTML = '<tr><td colspan="3" class="mini-note">Acesso restrito</td></tr>';
+  document.getElementById('listaValores').innerHTML = '<div class="list-item"><strong>Acesso restrito</strong><span>Sem permissão</span></div>';
+  
+  // Show message in technical section
+  document.getElementById('ultimaSync').textContent = 'Acesso restrito';
+  document.getElementById('statusCache').textContent = 'Não autorizado';
 }
 
 // ==========================
@@ -255,14 +306,50 @@ function atualizarSync(meta) {
 // AUTHENTICATION
 // ==========================
 function signInWithGoogle() {
+  // Try popup first (better UX)
   auth.signInWithPopup(provider)
     .then((result) => {
       console.log("✅ User signed in:", result.user.displayName);
       updateUIForSignedInUser(result.user);
     })
     .catch((error) => {
-      console.error("❌ Sign in error:", error);
+      console.error("❌ Popup sign-in failed, trying redirect:", error);
+      
+      // If popup is blocked, try redirect
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+        console.log("🔄 Using redirect fallback for mobile/popup blocked");
+        signInWithGoogleRedirect();
+      } else {
+        alert("Erro ao fazer login: " + error.message);
+      }
+    });
+}
+
+function signInWithGoogleRedirect() {
+  auth.signInWithRedirect(provider)
+    .then(() => {
+      console.log("🔄 Redirecting to Google sign-in...");
+    })
+    .catch((error) => {
+      console.error("❌ Redirect sign-in error:", error);
       alert("Erro ao fazer login: " + error.message);
+    });
+}
+
+// Handle redirect result when returning from Google
+function handleRedirectResult() {
+  auth.getRedirectResult()
+    .then((result) => {
+      if (result.user) {
+        console.log("✅ User signed in via redirect:", result.user.displayName);
+        updateUIForSignedInUser(result.user);
+      }
+    })
+    .catch((error) => {
+      console.error("❌ Redirect result error:", error);
+      if (error.code !== 'auth/no-credential') {
+        alert("Erro ao fazer login: " + error.message);
+      }
     });
 }
 
@@ -308,14 +395,37 @@ function updateUIForSignedOutUser() {
 // INIT
 // ==========================
 function init() {
+  // Handle redirect result first (for mobile fallback)
+  handleRedirectResult();
+
   // Set up authentication state listener
-  auth.onAuthStateChanged((user) => {
+  auth.onAuthStateChanged(async (user) => {
     if (user) {
       console.log("👤 User is signed in:", user.displayName);
       updateUIForSignedInUser(user);
+      
+      // Check authorization and fetch data
+      const isAuthorized = await checkAuthorization();
+      if (isAuthorized) {
+        console.log("✅ User authorized, loading data...");
+        
+        // Try cache first
+        const cache = carregarCache();
+        if (cache) {
+          aplicarTudo(cache);
+          setTimeout(buscarFirebase, 2000);
+          console.log("⚡ carregado do cache");
+        } else {
+          buscarFirebase();
+        }
+      } else {
+        console.log("⚠ User not authorized");
+        showUnauthorizedMessage();
+      }
     } else {
       console.log("🔓 No user is signed in");
       updateUIForSignedOutUser();
+      showUnauthorizedMessage();
     }
   });
 
@@ -323,21 +433,6 @@ function init() {
   const googleBtn = document.querySelector('.google-btn');
   if (googleBtn) {
     googleBtn.onclick = signInWithGoogle;
-  }
-
-  // 1. tenta cache (instantâneo)
-  const cache = carregarCache();
-
-  if (cache) {
-    aplicarTudo(cache);
-
-    // opcional: atualizar em background sem pressa
-    setTimeout(buscarFirebase, 2000);
-
-    console.log("⚡ carregado do cache");
-  } else {
-    // sem cache → busca direto
-    buscarFirebase();
   }
 }
 

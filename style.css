@@ -113,8 +113,9 @@ button, .chip, .icon-btn, select, input{
   width:42px;
   height:42px;
   border-radius:14px;
-  background: linear-gradient(145deg, var(--accent), var(--accent-2));
-  box-shadow: 0 1.3rem 2.2rem rgba(25, 119, 255, 0.22);
+  background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border:1px solid var(--line);
   display:grid;
   place-items:center;
   color:white;
