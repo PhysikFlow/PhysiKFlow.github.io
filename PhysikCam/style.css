@@ -1,5 +1,24 @@
 /* PhysikCam Custom Styles */
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #03060b;
+  color: var(--text);
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  background: #03060b;
+}
+
 /* Utility Classes */
 .visually-hidden {
   position: absolute;
@@ -11,6 +30,17 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+:root {
+  --bg: #03060b;
+  --text: #f7f8fb;
+  --muted: #a8abb4;
+  --muted-soft: #7e8491;
+  --accent: #1977ff;
+  --accent-2: #2d86ff;
+  --radius: 14px;
+  --line: rgba(255, 255, 255, 0.1);
 }
 
 /* Main App Layout */
@@ -48,8 +78,8 @@ button {
 .header {
   flex-shrink: 0;
   height: 140px;
-  background: linear-gradient(180deg, rgba(3, 6, 11, 0.95), rgba(3, 6, 11, 0.88));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(3, 6, 11, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(18px);
   z-index: 20;
   padding: 0;
@@ -65,6 +95,18 @@ button {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.wheel-selector::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 /* Scrollable Wheel List */
@@ -102,17 +144,18 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 500;
-  color: var(--muted);
+  color: rgba(247, 248, 251, 0.5);
   transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease;
   opacity: 0.65;
   letter-spacing: 0.2px;
-  transform: scale(0.93);
+  transform: scale(0.94);
+  padding: 0 14px;
 }
 
 .wheel-item.wheel-spacer {
-  height: 32px;
+  height: 40px;
   opacity: 0;
   pointer-events: none;
 }
@@ -123,8 +166,12 @@ button {
   font-weight: 700;
   color: var(--text);
   opacity: 1;
-  text-shadow: 0 0 20px rgba(25, 119, 255, 0.3);
-  transform: scale(1.1);
+  text-shadow: 0 0 16px rgba(25, 119, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.wheel-item:not([data-selected="true"]) {
+  color: rgba(247, 248, 251, 0.38);
 }
 
 /* Wheel Overlays - Gradient effect */
