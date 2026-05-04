@@ -75,13 +75,16 @@ button {
    ============================================================================ */
 
 .header {
-  flex-shrink: 0;
-  height: 140px;
-  background: rgba(3, 6, 11, 0.96);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(124px + env(safe-area-inset-top, 0px));
+  background: rgba(3, 6, 11, 0.48);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
   z-index: 20;
-  padding: 0;
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex;
   align-items: center;
 }
@@ -211,11 +214,12 @@ button {
    ============================================================================ */
 
 .camera-stage {
-  flex: 1;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   padding: 0;
   background: linear-gradient(180deg, #05080d 0%, #03060b 50%, #05080d 100%);
-  position: relative;
+  z-index: 1;
 }
 
 .camera-stage::before {
@@ -321,12 +325,12 @@ button {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 100px;
-  padding: 16px 18px 24px;
-  background: linear-gradient(180deg, rgba(3, 6, 11, 0) 0%, rgba(3, 6, 11, 0.98) 40%);
-  backdrop-filter: blur(12px);
+  height: calc(102px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(3, 6, 11, 0) 0%, rgba(3, 6, 11, 0.72) 45%);
+  backdrop-filter: blur(8px);
   z-index: 100;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -429,7 +433,7 @@ button {
 
 @media (max-width: 640px) {
   .header {
-    height: 120px;
+    height: calc(112px + env(safe-area-inset-top, 0px));
   }
 
   .wheel-item {
@@ -442,8 +446,8 @@ button {
   }
 
   .action-bar {
-    height: 90px;
-    padding: 12px 14px 20px;
+    height: calc(92px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px));
   }
 
   .action-nav {
