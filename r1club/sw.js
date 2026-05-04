@@ -1,4 +1,4 @@
-const VERSION = "r1-club-v7";
+const VERSION = "r1-club-v8";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 const MAX_RUNTIME_ENTRIES = 80;
@@ -10,10 +10,10 @@ const CORE_ASSETS = [
   "./app.js",
   "./manifest.json",
   "./favicon.png",
-  "./assets/icons/r1-logo.png",
-  "./assets/login/login-bg-athlete.png",
-  "./assets/icons/calendar.png",
-  "./assets/icons/shield-check.png"
+  "./assets/icons/r1-logo.webp",
+  "./assets/login/login-bg-athlete.webp",
+  "./assets/icons/calendar.svg",
+  "./assets/icons/shield-check.svg"
 ];
 
 const isSameOrigin = (request) => {

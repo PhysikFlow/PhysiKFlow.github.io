@@ -108,7 +108,7 @@ svg {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("assets/login/login-bg-athlete.png");
+  background-image: url("assets/login/login-bg-athlete.webp");
   background-position: center top;
   background-repeat: no-repeat;
   background-size: cover;
@@ -142,7 +142,7 @@ svg {
   right: -3.2rem;
   width: 15.8rem;
   height: 24rem;
-  background-image: url("assets/login/athlete-cutout.png");
+  background-image: url("assets/login/athlete-cutout.webp");
   background-position: center top;
   background-repeat: no-repeat;
   background-size: contain;
@@ -256,19 +256,19 @@ svg {
 }
 
 .feature-icon-workout {
-  background-image: url("assets/icons/workout.png");
+  background-image: url("assets/icons/workout.svg");
 }
 
 .feature-icon-calendar {
-  background-image: url("assets/icons/calendar.png");
+  background-image: url("assets/icons/calendar.svg");
 }
 
 .feature-icon-progress {
-  background-image: url("assets/icons/progress.png");
+  background-image: url("assets/icons/progress.svg");
 }
 
 .feature-icon-bell {
-  background-image: url("assets/icons/bell.png");
+  background-image: url("assets/icons/bell.svg");
 }
 
 .login-features strong,
@@ -340,7 +340,7 @@ svg {
 .secure-icon {
   width: 4.3rem;
   height: 4.3rem;
-  background-image: url("assets/icons/shield-check.png");
+  background-image: url("assets/icons/shield-check.svg");
 }
 
 .app-shell {
@@ -786,23 +786,8 @@ svg {
     linear-gradient(90deg, rgba(3, 6, 11, 0.98) 0 34%, rgba(3, 6, 11, 0.66) 58%, rgba(3, 6, 11, 0.98) 100%),
     radial-gradient(circle at 83% 48%, rgba(25, 119, 255, 0.9), transparent 3.5rem),
     linear-gradient(160deg, transparent 0 44%, rgba(20, 88, 178, 0.85) 45% 46%, transparent 47% 100%),
-    linear-gradient(125deg, transparent 0 61%, rgba(18, 28, 43, 0.9) 61% 73%, transparent 73% 100%);
-}
-
-.hero::before {
-  content: "";
-  position: absolute;
-  right: -2.8rem;
-  bottom: 0;
-  width: 15.5rem;
-  height: 20rem;
-  background:
-    radial-gradient(circle at 58% 20%, #05070a 0 2.3rem, transparent 2.35rem),
-    radial-gradient(ellipse at 49% 57%, #111821 0 4.9rem, transparent 5rem),
-    radial-gradient(ellipse at 26% 47%, #2b1d16 0 2rem, transparent 2.1rem),
-    linear-gradient(102deg, transparent 0 42%, #05080d 42% 71%, transparent 72% 100%);
-  filter: drop-shadow(-2.2rem 1.2rem 2.5rem rgba(25, 119, 255, 0.28));
-  opacity: 0.92;
+    linear-gradient(125deg, transparent 0 61%, rgba(18, 28, 43, 0.9) 61% 73%, transparent 73% 100%),
+    url("assets/home/hero-bg.webp") center top / cover no-repeat;
 }
 
 .hero::after {
@@ -888,8 +873,12 @@ svg {
   letter-spacing: 0;
 }
 
-.hero-copy h1 span {
-  filter: saturate(1.25);
+.fist-emoji {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  vertical-align: -0.18em;
+  object-fit: contain;
 }
 
 .hero-copy p {
