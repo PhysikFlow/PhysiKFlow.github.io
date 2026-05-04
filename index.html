@@ -1,235 +1,491 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>PhysikFlow • Dashboard</title>
-
-  <link rel="icon" href="favicon.png">
-  <link rel="stylesheet" href="style.css">
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-
-  <script src="script.js" defer></script>
-</head>
-
-<body>
-  <header class="header">
-    <div class="header-inner" style="flex-direction: row !important;">
-      <div class="brand">
-        <div class="brand-mark">
-          <img src="favicon.png" alt="PhysikShow" style="width: 85%; height: 85%; object-fit: contain;">
-        </div>
-
-        <div class="brand-text">
-          <div class="brand-title">PhysikFlow</div>
-          <div class="brand-sub">Dashboard rápido</div>
-        </div>
-      </div>
-
-      <div class="header-actions">
-        <button class="btn google-btn">
-            Entrar 
-            <svg width="18" height="18" viewBox="0 0 48 48">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
-                <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
-                <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
-                <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
-            </svg>
-        </button>
-
-        <select class="select" aria-label="Selecionar unidade">
-          <option>Itaporanga</option>
-          <option>Conceição</option>
-        </select>
-
-              </div>
-    </div>
-  </header>
-
-  <main class="page">
-    <section class="panel card" style="margin-bottom:16px;">
-      <div class="panel-head">
-        <div>
-          <h2 class="panel-title">Indicadores principais</h2>
-          <div class="panel-sub">
-Veja o que realmente importa: receita e alunos. Tudo em um único painel, atualizado em tempo real.
-          </div>
-        </div>
-
-        <span class="badge">Dados Gerais</span>
-      </div>
-
-      <div class="metrics">
-        <div class="metric good">
-          <div class="metric-label">Total Geral</div>
-          <div class="metric-value" id="totalGeral">R$ 0,00</div>
-          <div class="metric-help">Acumulado da unidade</div>
-        </div>
-
-        <div class="metric">
-          <div class="metric-label">Últimos 30 dias</div>
-          <div class="metric-value" id="total30">R$ 0,00</div>
-          <div class="metric-help">Base para leitura mensal</div>
-        </div>
-
-        <div class="metric small">
-          <div class="metric-label">Últimos 3 meses</div>
-          <div class="metric-value" id="total3m">R$ 0,00</div>
-          <div class="metric-help">Tendência de curto prazo</div>
-        </div>
-
-        <div class="metric warn">
-          <div class="metric-label">Total de alunos</div>
-          <div class="metric-value" id="totalAlunos">—</div>
-          <div class="metric-help">Base atual cadastrada</div>
-        </div>
-
-        <div class="metric good">
-          <div class="metric-label">Alunos em dia</div>
-          <div class="metric-value" id="totalAtivos">—</div>
-          <div class="metric-help"></div>
-        </div>
-
-        <div class="metric bad">
-          <div class="metric-label">Alunos em atraso</div>
-          <div class="metric-value" id="totalAtrasados">0</div>
-          <div class="metric-help"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section-grid">
-      <div class="stack">
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Alunos</h2>
-              <div class="panel-sub">
-                Percentual de inadimplentes e ativos
-              </div>
-            </div>
-
-            <span class="badge">%</span>
-          </div>
-
-          <div class="progress-wrap">
-            <div class="progress-line">
-              <span>Ativos</span>
-              <div class="bar"><i style="width:72%"></i></div>
-              <strong id="pctAtivos">—</strong>
-            </div>
-
-            <div class="progress-line">
-              <span>Em atraso</span>
-              <div class="bar"><i style="width:28%"></i></div>
-              <strong id="pctAtrasados">—</strong>
-            </div>
-          </div>
-        </section>
+  <title>PhysikFlow — Gestão de Academia com Controle de Acesso</title>
+  <meta name="description" content="Sistema completo para gestão de academias com controle de catraca, caderno de pagamentos, relatórios online, auditoria e planos personalizáveis." />
+  <!-- Landing page data attributes: data-version, data-animate, data-* elements ready for JS -->
+  <link rel="stylesheet" href="landing.css">
+  <style>
+        .warning {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
         
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Faturamento por mês</h2>
-            </div>
-
-            <span class="badge">Ordenado por data</span>
-          </div>
-
-          <div class="chart-shell">
-            <div class="chart-bars" id="graficoMensal"></div>
-          </div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Top pessoas</h2>
-              <div class="panel-sub">
-                Clientes com maior gasto acumulado.
-              </div>
-            </div>
-
-            <span class="badge">Ranking</span>
-          </div>
-
-          <table class="table-lite">
-            <thead>
-              <tr>
-                <th>Pessoa</th>
-                <th>Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="rankingPessoas">
-              <tr>
-                <td colspan="3" class="mini-note">Sem dados carregados ainda.</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        .warning-icon {
+            width: 24px;
+            height: 24px;
+            background: #2196f3;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .warning-text {
+            color: #1565c0;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar panel">
+      <div class="brand">
+        <div class="logo">PF</div>
+        <div>
+          <h1>PhysikFlow</h1>
+          <p>Controle total sem erro, sem papel e sem retrabalho</p>
+        </div>
       </div>
 
-      <div class="stack">
+      <nav class="nav" data-nav>
+        <a class="chip" href="#diferenciais" data-nav-link="features">Velocidade</a>
+        <a class="chip" href="#precisao" data-nav-link="why">Precisão</a>
+        <a class="chip" href="#auditoria" data-nav-link="details">Auditoria</a>
+        <a class="chip" href="#gestao" data-nav-link="management">Gestão</a>
+        <a class="chip" href="#download" data-nav-link="download">Download</a>
+      </nav>
+    </header>
 
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Distribuição por valor</h2>
-              <div class="panel-sub">
-                Lista pronta para mostrar frequência por faixa/valor de pagamento.
+    <div class="warning">
+            <div class="warning-icon">i</div>
+            <div class="warning-text">A página de relatórios mudou para outro local</div>
+        </div>
+
+    <main>
+      <section class="hero">
+        
+        <div class="panel hero-copy">
+          <div class="eyebrow" data-animate="fade"><b></b> ⚠️ Pare de perder dinheiro agora</div>
+          <h2 data-animate="slide-up">Pare de perder dinheiro com erro de recepção. Controle total da sua academia em segundos.</h2>
+          <p class="lead" data-animate="slide-up" data-delay="100">
+            <strong>Todo erro de pagamento = dinheiro perdido.</strong> Todo atendimento lento = cliente irritado. Todo controle manual = risco de fraude.
+            <br><br>
+            O <strong>PhysikFlow</strong> elimina 100% desses problemas. <strong>Garantido.</strong>
+          </p>
+
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#download">⚡ Baixar agora</a>
+            <a class="btn btn-secondary" href="#diferenciais">Ver quanto estou perdendo</a>
+          </div>
+
+          <div class="stats" data-stats>
+            <div class="stat" data-stat="speed">
+              <strong>⚡ 10x Mais Rápido</strong>
+              <span>Cadastro em 10 segundos, pagamentos em 1 segundo. Atendimento fluido e profissional.</span>
+            </div>
+            <div class="stat" data-stat="accuracy">
+              <strong>🎯 Zero Erros</strong>
+              <span>Cálculo automático, identificação visual com fotos, padronização que elimina falhas.</span>
+            </div>
+            <div class="stat" data-stat="control">
+              <strong>🔍 Controle Total</strong>
+              <span>Auditoria completa, histórico detalhado, relatórios em tempo real para decisões inteligentes.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel mockup">
+          <div class="device">
+            <div class="windowbar">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+            <div class="screen">
+              <div class="screen-head">
+                <div class="mini-brand">
+                  <div class="mini-badge">PF</div>
+                  <div>
+                    PhysikFlow
+                    <div style="font-size:.8rem;color:var(--textDisabled);font-weight:600;">Painel principal</div>
+                  </div>
+                </div>
+                <div class="pill" data-status="online">● Online</div>
+              </div>
+
+              <div class="hero-card" data-card="command">
+                <h3>Centro de comando da academia</h3>
+                <p>
+                  Controle quem entra, quem pagou, quem vence em breve. Tudo em uma interface clara que não exige treinamento.
+                </p>
+              </div>
+
+              <div class="feature-grid" id="recursos" data-features>
+                <div class="feature" data-feature="catraca">
+                  <div class="icon">🔓</div>
+                  <h4>Controle de catraca</h4>
+                  <p>Libere a catraca com um atalho. O sistema verifica vencimento automaticamente antes de permitir o acesso.</p>
+                </div>
+                <div class="feature" data-feature="caderno">
+                  <div class="icon">�</div>
+                  <h4>Caderno organizacional</h4>
+                  <p>Registro em tempo real de todos os pagamentos do dia. Total automático, badges de plano e forma de pagamento.</p>
+                </div>
+                <div class="feature" data-feature="relatorio">
+                  <div class="icon">�</div>
+                  <h4>Relatórios online</h4>
+                  <p>Painel com faturamento, gráficos mensais, horários de pico e distribuição por planos. Enviado em tempo real.</p>
+                </div>
+                <div class="feature" data-feature="pagamento">
+                  <div class="icon">💳</div>
+                  <h4>Pagamento instantâneo</h4>
+                  <p>Atalhos rápidos para PIX, débito e crédito na tela inicial. Pagamentos avulsos para visitantes.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="perdas">
+        <div class="section-head">
+          <div>
+            <h3>💸 Quanto você está perdendo TODOS OS DIAS</h3>
+            <p>
+              <strong>⚠️ Cada erro custa caro. Cada minuto perdido = cliente insatisfeito.</strong>
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="loss-1">
+            <strong>💰 Erro de pagamento = R$ 50-200 perdidos</strong>
+            <p>Valor errado, aluno errado, esquecimento. <strong>Dinheiro que nunca volta.</strong></p>
+            <div class="badge-line">
+              <span class="badge">Perda diária</span>
+              <span class="badge">Acumulativo</span>
+            </div>
+          </div>
+          <div class="card" data-card="loss-2">
+            <strong>⏰ Atendimento lento = Cliente cancelando</strong>
+            <p>Fila na recepção, cadastro demorado. <strong>Cliente vai pra concorrência.</strong></p>
+            <div class="badge-line">
+              <span class="badge">Má reputação</span>
+              <span class="badge">Cancelamento</span>
+            </div>
+          </div>
+          <div class="card" data-card="loss-3">
+            <strong>📝 Controle manual = Fraude garantida</strong>
+            <p>Caderno, planilha, papel. <strong>Facilidade para roubo e erros.</strong></p>
+            <div class="badge-line">
+              <span class="badge">Risco legal</span>
+              <span class="badge">Prejuízo certo</span>
+            </div>
+          </div>
+          <div class="card" data-card="solution-urgent">
+            <strong>🚨 <u>Solução IMEDIATA:</u></strong>
+            <p><strong>PhysikFlow elimina 100% dessas perdas HOJE.</strong> Instala em 5 minutos. Recupera o investimento rapidamente.</p>
+            <div class="badge-line">
+              <span class="badge">Retorno rápido</span>
+              <span class="badge">Sem risco</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="diferenciais">
+        <div class="section-head">
+          <div>
+            <h3>⚡ Velocidade Operacional</h3>
+            <p>
+              Mais eficiência e melhor experiência para o cliente
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="before-speed">
+            <strong>🐌 Antes: Lento e manual</strong>
+            <p>Cadastro demorado. Atendimento com fila. Processos que atrasam tudo.</p>
+            <div class="badge-line">
+              <span class="badge">Perde tempo</span>
+              <span class="badge">Cliente irritado</span>
+            </div>
+          </div>
+          <div class="card" data-card="after-speed">
+            <strong>⚡ Agora: 10x mais rápido</strong>
+            <p>Cadastro 10s. Pagamento 1s. Atendimento instantâneo. Sem filas.</p>
+            <div class="badge-line">
+              <span class="badge">Economia real</span>
+              <span class="badge">Cliente feliz</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="precisao">
+        <div class="section-head">
+          <div>
+            <h3>🎯 Precisão e Redução de Erros</h3>
+            <p>
+              Praticamente zero erro humano
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="before-accuracy">
+            <strong>❌ Antes: Erros todos os dias</strong>
+            <p>Valor errado. Aluno errado. Falta de controle. Dinheiro perdido.</p>
+            <div class="badge-line">
+              <span class="badge">Prejuízo certo</span>
+              <span class="badge">Estresse</span>
+            </div>
+          </div>
+          <div class="card" data-card="after-accuracy">
+            <strong>✅ Agora: Zero erros</strong>
+            <p>Cálculo automático. ID visual. Padronização total. Sem perdas.</p>
+            <div class="badge-line">
+              <span class="badge">100% preciso</span>
+              <span class="badge">Sem retrabalho</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="auditoria">
+        <div class="section-head">
+          <div>
+            <h3>🧾 Auditoria e Controle Total</h3>
+            <p>
+              Total transparência e segurança na operação
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="before-audit">
+            <strong>📝 Antes: Sem controle nenhum</strong>
+            <p>Papel perdido. Sem histórico. Sem provas. Risco de fraude alto.</p>
+            <div class="badge-line">
+              <span class="badge">Opaco</span>
+              <span class="badge">Inseguro</span>
+            </div>
+          </div>
+          <div class="card" data-card="after-audit">
+            <strong>🔍 Agora: Controle total</strong>
+            <p>Tudo registrado. Histórico completo. Auditoria automática. 100% seguro.</p>
+            <div class="badge-line">
+              <span class="badge">Transparência</span>
+              <span class="badge">Segurança total</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="gestao">
+        <div class="section-head">
+          <div>
+            <h3>📊 Gestão Inteligente</h3>
+            <p>
+              Decisões mais rápidas e baseadas em dados reais
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="before-management">
+            <strong>📈 Antes: Relatórios inúteis</strong>
+            <p>Dados desorganizados. Decisões cegas. Controle manual demorado.</p>
+            <div class="badge-line">
+              <span class="badge">Sem visão</span>
+              <span class="badge">Perda de tempo</span>
+            </div>
+          </div>
+          <div class="card" data-card="after-management">
+            <strong>📊 Agora: Inteligência real</strong>
+            <p>Dashboard online. Relatórios automáticos. Decisões baseadas em dados.</p>
+            <div class="badge-line">
+              <span class="badge">Tempo real</span>
+              <span class="badge">Decisão certa</span>
+            </div>
+          </div>
+          <div class="card" data-card="search">
+            <strong>🔍 Busca instantânea</strong>
+            <p>Encontra qualquer aluno em 2 segundos. Vencimentos visíveis. Status claro.</p>
+            <div class="badge-line">
+              <span class="badge">Ultra-rápido</span>
+              <span class="badge">Sem erro</span>
+            </div>
+          </div>
+          <div class="card" data-card="security">
+            <strong>📸 Segurança visual</strong>
+            <p>Foto do aluno. ID instantâneo. Zero confusão. Mais confiança.</p>
+            <div class="badge-line">
+              <span class="badge">100% seguro</span>
+              <span class="badge">Sem fraude</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="integracao">
+        <div class="section-head">
+          <div>
+            <h3>🧩 Integração e Comunicação</h3>
+            <p>
+              Operação integrada e comunicação eficiente
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="integration">
+            <strong>🏢 Unidades integradas</strong>
+            <p>Dados unificados. Acesso instantâneo. Validação rápida entre unidades.</p>
+            <div class="badge-line">
+              <span class="badge">Sincronizado</span>
+              <span class="badge">Sem conflito</span>
+            </div>
+          </div>
+          <div class="card" data-card="communication">
+            <strong>💬 WhatsApp direto</strong>
+            <p>Botão automático. Mensagem pronta. Contato em massa. Comunicação instantânea.</p>
+            <div class="badge-line">
+              <span class="badge">Um clique</span>
+              <span class="badge">Eficiente</span>
+            </div>
+          </div>
+          <div class="card" data-card="automation">
+            <strong>🧠 100% automático</strong>
+            <p>Caderno digital. Tudo organizado. Sem trabalho manual. Zero erros.</p>
+            <div class="badge-line">
+              <span class="badge">Sem papel</span>
+              <span class="badge">Inteligente</span>
+            </div>
+          </div>
+          <div class="card" data-card="access">
+            <strong>🔓 Catraca instantânea</strong>
+            <p>Liberação no topo. Atalho global. Sem fricção. Entrada em 1 segundo.</p>
+            <div class="badge-line">
+              <span class="badge">Sem fila</span>
+              <span class="badge">Fluxo perfeito</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="conclusao">
+        <div class="section-head">
+          <div>
+            <h3>🎯 Conclusão</h3>
+            <p>
+              O PhysiKFlow transforma a operação da sua academia
+            </p>
+          </div>
+        </div>
+
+        <div class="cards" data-cards>
+          <div class="card" data-card="benefit-1">
+            <strong>⚡ 10x mais rápido</strong>
+            <p>Cadastro 10s. Pagamento 1s. Sem filas. Atendimento perfeito.</p>
+          </div>
+          <div class="card" data-card="benefit-2">
+            <strong>🎯 Zero erros</strong>
+            <p>Cálculo automático. ID visual. Padronização total. Sem perdas.</p>
+          </div>
+          <div class="card" data-card="benefit-3">
+            <strong>🔐 100% seguro</strong>
+            <p>Auditoria completa. Histórico detalhado. Controle total. Transparência.</p>
+          </div>
+          <div class="card" data-card="benefit-4">
+            <strong>📊 Inteligência real</strong>
+            <p>Dashboard online. Relatórios automáticos. Decisões baseadas em dados.</p>
+          </div>
+          <div class="card" data-card="benefit-5">
+            <strong>📈 <u>Retorno rápido</u></strong>
+            <p>Instala 5 minutos. Recupera investimento rapidamente. Sem risco. Garantido.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section" id="download">
+        <div class="download-box">
+          <div class="download-panel panel" style="box-shadow:none;">
+            <div class="section-head" style="margin-bottom:10px;">
+              <div>
+                <h3>Instale agora!</h3>
+                <p><strong>Última chance:</strong>Requisitos mínimos: Windows.</p>
               </div>
             </div>
 
-            <span class="badge">Detalhe</span>
-          </div>
-
-          <div class="list" id="listaValores">
-            <div class="list-item">
-              <strong>Sem dados</strong>
-              <span>aguardando carregamento</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel card">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Técnico</h2>
-              <div class="panel-sub">
-                  Informações técnicas sobre o sistema
+            <div class="download-list">
+              <div class="step" data-step="1">
+                <div class="step-num">1</div>
+                <div>
+                  <strong>⚡ Baixe agora (2 minutos)</strong>
+                  <span>Escolha instalador ou portátil. <strong>Não perca mais dinheiro hoje.</strong></span>
+                </div>
+              </div>
+              <div class="step" data-step="2">
+                <div class="step-num">2</div>
+                <div>
+                  <strong>🔧 Configure em 3 minutos</strong>
+                  <span>Conecte catraca ou use simulador. <strong>Interface intuitiva.</strong></span>
+                </div>
+              </div>
+              <div class="step" data-step="3">
+                <div class="step-num">3</div>
+                <div>
+                  <strong>💰 Comece a economizar HOJE</strong>
+                  <span>Comece a gerir sua academia de forma eficiente hoje.</span>
+                </div>
               </div>
             </div>
-
-            <span class="badge">Notas</span>
           </div>
 
-          <div class="list">
-            <div class="list-item">
-              <strong>Última sincronização</strong>
-              <span id="ultimaSync">—</span>
-            </div>
+          <aside class="panel side-box" data-download-panel>
+            <h3>Downloado</h3>
+            <p>
+              <strong>Versão atual: 0.7</strong>. Sistema Windows x64. <strong>Instala em 5 minutos. Economiza a partir do dia 1.</strong>
+            </p>
 
-            <div class="list-item">
-              <strong>Status do cache</strong>
-              <span id="statusCache">carregando</span>
+            <div class="download-btns">
+              <a class="download-btn" href="#" data-download="installer">
+                <div>
+                  <strong>⚡ Baixar .msi - Windows</strong>
+                  <small>Instalador (~15MB) - <strong>Opção temporariamente indisponível.</strong></small>
+                </div>
+                <div>⬇</div>
+              </a>
+              <a class="download-btn" href="#" data-download="portable">
+                <div>
+                  <strong>🚀 Versão Portátil RÁPIDA</strong>
+                  <small>Extrair e usar - <strong>Sem espera</strong></small>
+                </div>
+                <div>↗</div>
+              </a>
+              <a class="download-btn" href="#" data-download="changelog">
+                <div>
+                  <strong>📋 Prova de Resultados</strong>
+                  <small>Veja o que mudou - <strong>Transparência total</strong></small>
+                </div>
+                <div>i</div>
+              </a>
             </div>
+          </aside>
+        </div>
+      </section>
+    </main>
 
-            <div class="list-item">
-              <strong>Unidade ativa</strong>
-              <span>Itaporanga</span>
-            </div>
-          </div>
-        </section>
-      </div>
-    </section>
+    <footer class="footer" data-footer>
+      <span data-footer-brand>PhysikFlow</span> • <span data-footer-year>2026</span> • gestão de academia com controle de acesso integrado<br>
+      <span data-footer-copyright>Todos os direitos reservados</span>
+    </footer>
+  </div>
 
-    <div class="footer-space"></div>
-  </main>
+  <!-- JS entry point -->
+  <script src="landing.js"></script>
 </body>
 </html>
