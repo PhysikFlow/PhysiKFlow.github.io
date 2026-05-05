@@ -76,16 +76,19 @@ function carregarCache() {
 async function checkAuthorization() {
   const user = auth.currentUser;
   if (!user) {
+    console.warn("⚠ checkAuthorization: nenhum usuário logado");
     return false;
   }
 
+  console.log("🔍 Verificando autorização para UID:", user.uid, "| Email:", user.email);
+
   try {
-    // Check if user is in authorized_users list
     const authorizedRef = firebase.database().ref('authorized_users/' + user.uid);
     const snapshot = await authorizedRef.once('value');
+    console.log("🔍 Snapshot exists:", snapshot.exists(), "| Valor:", snapshot.val());
     return snapshot.exists();
   } catch (error) {
-    console.error("❌ Authorization check failed:", error);
+    console.error("❌ Authorization check failed:", error.code, error.message);
     return false;
   }
 }
