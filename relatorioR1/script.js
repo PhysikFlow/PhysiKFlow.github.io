@@ -110,11 +110,7 @@ async function buscarFirebase() {
     const user = auth.currentUser;
     const token = await user.getIdToken();
     
-    const res = await fetch(API_URL, {
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
-    });
+    const res = await fetch(API_URL + "?auth=" + token);
 
     if (!res.ok) throw new Error("HTTP " + res.status);
 
