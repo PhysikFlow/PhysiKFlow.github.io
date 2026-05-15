@@ -42,9 +42,11 @@
             </svg>
         </button>
 
-        <select class="select" aria-label="Selecionar unidade">
-          <option>Itaporanga</option>
+        <select class="select" id="unitSelect" aria-label="Selecionar unidade" disabled>
+          <option value="">Carregando...</option>
+          <!-- Legacy static option kept inert until script populates the selector.
           <option>Conceição</option>
+          -->
         </select>
 
               </div>
@@ -222,7 +224,7 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
 
             <div class="list-item">
               <strong>Unidade ativa</strong>
-              <span>Itaporanga</span>
+              <span id="unidadeAtiva">---</span>
             </div>
           </div>
         </section>
