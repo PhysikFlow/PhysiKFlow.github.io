@@ -73,13 +73,19 @@ function isReportNode(value) {
 function normalizarRelatorios(data) {
   if (!data || typeof data !== "object") return {};
 
+  const unidades = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => isReportNode(value))
+  );
+
+  if (Object.keys(unidades).length) {
+    return unidades;
+  }
+
   if (isReportNode(data)) {
     return { geral: data };
   }
 
-  return Object.fromEntries(
-    Object.entries(data).filter(([, value]) => isReportNode(value))
-  );
+  return {};
 }
 
 function nomeUnidade(unitId) {
