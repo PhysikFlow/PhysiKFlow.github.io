@@ -85,6 +85,24 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
           <div class="metric-help">Tendência de curto prazo</div>
         </div>
 
+        <div class="metric">
+          <div class="metric-label">Ticket 30 dias</div>
+          <div class="metric-value" id="ticket30">R$ 0,00</div>
+          <div class="metric-help">Media recente por aluno</div>
+        </div>
+
+        <div class="metric small">
+          <div class="metric-label">Ticket geral</div>
+          <div class="metric-value" id="ticketGeral">R$ 0,00</div>
+          <div class="metric-help">Media historica</div>
+        </div>
+
+        <div class="metric good">
+          <div class="metric-label">Frequencia 30d</div>
+          <div class="metric-value" id="frequencia30">0</div>
+          <div class="metric-help">Media por aluno</div>
+        </div>
+
         <div class="metric warn">
           <div class="metric-label">Total de alunos</div>
           <div class="metric-value" id="totalAlunos">—</div>
@@ -132,6 +150,41 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
               <strong id="pctAtrasados">—</strong>
             </div>
           </div>
+
+          <div class="quick-stats">
+            <div>
+              <span>Pico</span>
+              <strong id="horaPico">--:00</strong>
+              <small id="mediaPico">--</small>
+            </div>
+            <div>
+              <span>Vale</span>
+              <strong id="horaVale">--:00</strong>
+              <small id="mediaVale">--</small>
+            </div>
+            <div>
+              <span>Janela</span>
+              <strong id="janelaDias">-- dias</strong>
+              <small id="versaoRelatorio">v--</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Pico por hora</h2>
+              <div class="panel-sub">
+                Media registrada em cada faixa horaria.
+              </div>
+            </div>
+
+            <span class="badge">Horas</span>
+          </div>
+
+          <div class="hour-grid" id="graficoHoras">
+            <div class="mini-note">Sem dados carregados ainda.</div>
+          </div>
         </section>
         
         <section class="panel card">
@@ -165,7 +218,7 @@ Veja o que realmente importa: receita e alunos. Tudo em um único painel, atuali
               <tr>
                 <th>Pessoa</th>
                 <th>Total</th>
-                <th>Status</th>
+                <th>%</th>
               </tr>
             </thead>
             <tbody id="rankingPessoas">

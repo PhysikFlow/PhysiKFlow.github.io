@@ -474,6 +474,37 @@ button, .chip, .icon-btn, select, input{
   display:grid;
   gap:10px;
 }
+
+.quick-stats{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:10px;
+  margin-top:16px;
+}
+
+.quick-stats > div{
+  min-width:0;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:rgba(255, 255, 255, 0.035);
+}
+
+.quick-stats span,
+.quick-stats small{
+  display:block;
+  color:var(--muted);
+  font-size:.78rem;
+}
+
+.quick-stats strong{
+  display:block;
+  margin:4px 0 2px;
+  font-size:1.05rem;
+  line-height:1.1;
+  overflow-wrap:anywhere;
+}
+
 .progress-line{
   display:grid;
   grid-template-columns: 92px 1fr 54px;
@@ -562,6 +593,57 @@ button, .chip, .icon-btn, select, input{
   background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent-2) 75%, white));
 }
 
+.hour-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap:10px;
+}
+
+.hour-item{
+  min-width:0;
+  display:grid;
+  grid-template-rows:auto 76px auto;
+  gap:8px;
+  justify-items:center;
+  padding:10px 8px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:rgba(255, 255, 255, 0.03);
+}
+
+.hour-item span,
+.hour-item strong{
+  font-size:.78rem;
+  color:var(--muted);
+}
+
+.hour-track{
+  width:14px;
+  height:76px;
+  display:flex;
+  align-items:flex-end;
+  border-radius:999px;
+  overflow:hidden;
+  border:1px solid var(--line);
+  background:rgba(255, 255, 255, 0.04);
+}
+
+.hour-track i{
+  display:block;
+  width:100%;
+  border-radius:inherit;
+  background:linear-gradient(180deg, var(--accent-2), var(--accent));
+}
+
+.hour-item.hot{
+  border-color: color-mix(in srgb, var(--good) 42%, var(--line));
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+}
+
+.hour-item.cold{
+  border-color: color-mix(in srgb, var(--bad) 34%, var(--line));
+}
+
 .mini-note{
   color:var(--muted);
   font-size:.86rem;
@@ -604,6 +686,7 @@ button, .chip, .icon-btn, select, input{
   padding:12px 14px;
   border-bottom:1px solid var(--line);
   font-size:.92rem;
+  vertical-align:top;
 }
 .table-lite th{
   color:var(--muted);
@@ -612,19 +695,43 @@ button, .chip, .icon-btn, select, input{
 }
 .table-lite tr:last-child td{border-bottom:none}
 
+.person-name,
+.person-code{
+  display:block;
+}
+
+.person-name{
+  max-width:30ch;
+  overflow-wrap:anywhere;
+}
+
+.person-code{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:.78rem;
+}
+
 .footer-space{height:14px}
 
 /* Mobile */
 @media (max-width: 61.25em){
   .hero, .section-grid{grid-template-columns:1fr}
-  .metrics{grid-template-columns: repeat(2, minmax(0, 1fr))}
+  .metrics{grid-template-columns: repeat(3, minmax(0, 1fr))}
   .subgrid{grid-template-columns:1fr}
   .metric-value{font-size:1.5rem}
 }
 
 @media (max-width: 45em){
+  .page{
+    padding:12px 8px;
+  }
+
+  .panel{
+    padding:14px 10px;
+  }
+
   .header-inner{
-    padding:12px 12px;
+    padding:10px 8px;
     align-items:center;
     flex-direction:row; 
     flex-wrap:nowrap;   
@@ -655,11 +762,85 @@ button, .chip, .icon-btn, select, input{
     height: 16px;
   }
 
+  .metrics{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:8px;
+  }
+
+  .metric{
+    padding:13px 10px;
+    border-radius:14px;
+  }
+
+  .metric-value{
+    font-size:1.28rem;
+    overflow-wrap:anywhere;
+  }
+
+  .panel-head{
+    gap:8px;
+  }
+
+  .panel-title{
+    font-size:1.22rem;
+  }
+
+  .badge{
+    padding:7px 8px;
+    font-size:.78rem;
+  }
+
+  .chart-row{
+    grid-template-columns: 54px minmax(86px, 1fr) minmax(82px, auto);
+    gap:8px;
+  }
+
+  .table-lite th,
+  .table-lite td{
+    padding:10px 8px;
+    font-size:.84rem;
+  }
+
+  .table-lite th:nth-child(2),
+  .table-lite td:nth-child(2){
+    white-space:nowrap;
+  }
+
+  .list-item{
+    padding:11px 10px;
+    align-items:flex-start;
+  }
+
+  .list-item span{
+    text-align:right;
+  }
+
 }
 
 @media (max-width: 28em){
+  .page{
+    padding-left:6px;
+    padding-right:6px;
+  }
+
   .brand-text{
     display:none;
+  }
+
+  .metrics,
+  .quick-stats{
+    grid-template-columns:1fr;
+  }
+
+  .progress-line{
+    grid-template-columns: 78px 1fr 44px;
+    gap:8px;
+    font-size:.88rem;
+  }
+
+  .hour-grid{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap:8px;
   }
 }
 

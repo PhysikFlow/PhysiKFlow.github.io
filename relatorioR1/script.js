@@ -50,6 +50,37 @@ const formatBRL = (v) => {
   });
 };
 
+const formatNumero = (v, digits = 2) => {
+  return Number(v || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  });
+};
+
+const formatPercent = (v, digits = 2) => {
+  const value = Number(v || 0);
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  }) + "%";
+};
+
+const formatRatioPercent = (v, digits = 0) => formatPercent(Number(v || 0) * 100, digits);
+
+const formatHora = (hora) => {
+  const value = Number(hora);
+  if (!Number.isFinite(value)) return "--:00";
+  return String(value).padStart(2, "0") + ":00";
+};
+
+const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#039;"
+}[char]));
+
 function toArray(value) {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== "object") return [];
@@ -72,6 +103,10 @@ function isReportNode(value) {
 
 function normalizarRelatorios(data) {
   if (!data || typeof data !== "object") return {};
+
+  if (data.relatorios && typeof data.relatorios === "object") {
+    return normalizarRelatorios(data.relatorios);
+  }
 
   const unidades = Object.fromEntries(
     Object.entries(data).filter(([, value]) => isReportNode(value))
@@ -112,11 +147,20 @@ function limparDashboard(message = "Sem dados carregados.") {
   setText("totalGeral", formatBRL(0));
   setText("total30", formatBRL(0));
   setText("total3m", formatBRL(0));
+  setText("ticket30", formatBRL(0));
+  setText("ticketGeral", formatBRL(0));
+  setText("frequencia30", "0,00");
   setText("totalAlunos", "---");
   setText("totalAtivos", "---");
   setText("totalAtrasados", "---");
   setText("pctAtivos", "---");
   setText("pctAtrasados", "---");
+  setText("horaPico", "--:00");
+  setText("mediaPico", "--");
+  setText("horaVale", "--:00");
+  setText("mediaVale", "--");
+  setText("janelaDias", "-- dias");
+  setText("versaoRelatorio", "v--");
   setText("ultimaSync", "---");
   setText("statusCache", message);
   setText("unidadeAtiva", "---");
@@ -131,6 +175,9 @@ function limparDashboard(message = "Sem dados carregados.") {
   if (valores) {
     valores.innerHTML = `<div class="list-item"><strong>Sem dados</strong><span>${message}</span></div>`;
   }
+
+  const horas = qs("graficoHoras");
+  if (horas) horas.innerHTML = `<div class="mini-note">${message}</div>`;
 }
 
 function popularComboUnidades() {
@@ -282,7 +329,9 @@ function showUnauthorizedMessage() {
 // ==========================
 function aplicarTudo(data, unitId = unidadeSelecionada) {
   aplicarResumo(data.resumo || {});
+  aplicarFrequencia(data.frequencia || {});
   aplicarMensal(data.mesAMes || {});
+  aplicarHoras(data.picoHoras || {});
   aplicarRanking(data.topPessoas || {});
   aplicarDistribuicao(data.topPlanosGlobal || {});
   atualizarSync(data.meta || {});
@@ -299,6 +348,8 @@ function aplicarResumo(resumo) {
   const alunos = resumo.alunos || 0;
   const total30d = resumo.total30d || 0;
   const total3m = resumo.total3m || 0;
+  const ticket30 = resumo.ticketMedio30d || 0;
+  const ticketGeral = resumo.ticketMedioGeral || 0;
 
   setText("totalGeralHero", formatBRL(totalGeral));
   setText("totalGeral", formatBRL(totalGeral));
@@ -307,6 +358,8 @@ function aplicarResumo(resumo) {
   setText("totalAtivos", ativos);
   setText("total30", formatBRL(total30d));
   setText("total3m", formatBRL(total3m));
+  setText("ticket30", formatBRL(ticket30));
+  setText("ticketGeral", formatBRL(ticketGeral));
 
   const pctAtivos = alunos > 0 ? Math.round((ativos / alunos) * 100) : 0;
   const pctAtrasados = alunos > 0 ? Math.round((atrasados / alunos) * 100) : 0;
@@ -316,6 +369,13 @@ function aplicarResumo(resumo) {
   const bars = document.querySelectorAll(".progress-line .bar i");
   if (bars[0]) bars[0].style.width = pctAtivos + "%";
   if (bars[1]) bars[1].style.width = pctAtrasados + "%";
+}
+
+// ==========================
+// FREQUENCIA
+// ==========================
+function aplicarFrequencia(frequencia) {
+  setText("frequencia30", formatNumero(frequencia.mediaPorAluno30d, 2));
 }
 
 // ==========================
@@ -357,6 +417,51 @@ function aplicarMensal(mesAMes) {
 }
 
 // ==========================
+// HORAS
+// ==========================
+function aplicarHoras(picoHoras) {
+  const container = qs("graficoHoras");
+  if (!container) return;
+
+  const horas = Object.entries(picoHoras || {})
+    .filter(([hora, valor]) => /^\d{1,2}$/.test(hora) && typeof valor !== "object")
+    .map(([hora, valor]) => [Number(hora), Number(valor) || 0])
+    .sort((a, b) => a[0] - b[0]);
+
+  const pico = picoHoras.pico || {};
+  const vale = picoHoras.vale || {};
+
+  setText("horaPico", formatHora(pico.hora));
+  setText("mediaPico", formatRatioPercent(pico.media, 0));
+  setText("horaVale", formatHora(vale.hora));
+  setText("mediaVale", formatRatioPercent(vale.media, 0));
+
+  container.innerHTML = "";
+  if (!horas.length) {
+    container.innerHTML = '<div class="mini-note">Sem dados por hora.</div>';
+    return;
+  }
+
+  const max = Math.max(...horas.map(([, valor]) => valor), 1);
+
+  horas.forEach(([hora, valor]) => {
+    const item = document.createElement("div");
+    item.className = "hour-item";
+    if (hora === Number(pico.hora)) item.classList.add("hot");
+    if (hora === Number(vale.hora)) item.classList.add("cold");
+
+    item.innerHTML = `
+      <span>${formatHora(hora)}</span>
+      <div class="hour-track">
+        <i style="height:${Math.max(8, (valor / max) * 100)}%"></i>
+      </div>
+      <strong>${formatRatioPercent(valor, 0)}</strong>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// ==========================
 // RANKING
 // ==========================
 function aplicarRanking(topPessoas) {
@@ -372,11 +477,16 @@ function aplicarRanking(topPessoas) {
   }
 
   pessoas.forEach((pessoa, idx) => {
+    const codigo = pessoa.codigo || pessoa.id || "-";
+    const nome = pessoa.nome || `Pessoa ${codigo}`;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>#${pessoa.id || pessoa.codigo || "-"}</td>
+      <td>
+        <strong class="person-name">${escapeHTML(nome)}</strong>
+        <span class="person-code">#${escapeHTML(codigo)}</span>
+      </td>
       <td>${formatBRL(pessoa.total)}</td>
-      <td><span class="badge">Top ${idx + 1}</span></td>
+      <td><span class="badge">Top ${idx + 1} - ${formatPercent(pessoa.percentual, 2)}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -397,21 +507,19 @@ function aplicarDistribuicao(topPlanos) {
     return;
   }
 
-  const mapa = {};
-  planos.forEach((plano) => {
-    const valor = Number(plano.valor || 0);
-    if (!mapa[valor]) mapa[valor] = 0;
-    mapa[valor] += Number(plano.qtd || 0);
-  });
-
-  Object.entries(mapa)
-    .sort((a, b) => b[1] - a[1])
-    .forEach(([valor, qtd]) => {
+  planos
+    .map((plano) => ({
+      valor: Number(plano.valor || 0),
+      qtd: Number(plano.qtd || 0),
+      percentual: Number(plano.percentual || 0)
+    }))
+    .sort((a, b) => b.qtd - a.qtd)
+    .forEach((plano) => {
       const item = document.createElement("div");
       item.className = "list-item";
       item.innerHTML = `
-        <strong>${formatBRL(valor)}</strong>
-        <span>${qtd} registros</span>
+        <strong>${formatBRL(plano.valor)}</strong>
+        <span>${plano.qtd} registros - ${formatPercent(plano.percentual, 2)}</span>
       `;
       container.appendChild(item);
     });
@@ -434,6 +542,8 @@ function atualizarSync(meta) {
       });
 
   setText("ultimaSync", formatted);
+  setText("janelaDias", meta.janelaDias ? `${meta.janelaDias} dias` : "-- dias");
+  setText("versaoRelatorio", meta.versao ? `v${meta.versao}` : "v--");
 }
 
 // ==========================
