@@ -73,6 +73,8 @@ const formatHora = (hora) => {
   return String(value).padStart(2, "0") + ":00";
 };
 
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -443,21 +445,134 @@ function aplicarHoras(picoHoras) {
   }
 
   const max = Math.max(...horas.map(([, valor]) => valor), 1);
-
-  horas.forEach(([hora, valor]) => {
-    const item = document.createElement("div");
-    item.className = "hour-item";
-    if (hora === Number(pico.hora)) item.classList.add("hot");
-    if (hora === Number(vale.hora)) item.classList.add("cold");
-
-    item.innerHTML = `
-      <span>${formatHora(hora)}</span>
-      <div class="hour-track">
-        <i style="height:${Math.max(8, (valor / max) * 100)}%"></i>
-      </div>
-      <strong>${formatRatioPercent(valor, 0)}</strong>
+  const padding = { top: 22, right: 28, bottom: 48, left: 52 };
+  const width = 720;
+  const height = 260;
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const denominator = horas.length > 1 ? horas.length - 1 : 1;
+  const points = horas.map(([hora, valor], index) => ({
+    hora,
+    valor,
+    x: padding.left + (plotWidth * index) / denominator,
+    y: padding.top + plotHeight - (clamp(valor / max, 0, 1) * plotHeight)
+  }));
+  const linePath = buildSmoothPath(points);
+  const areaPath = points.length
+    ? `${linePath} L ${points[points.length - 1].x} ${padding.top + plotHeight} L ${points[0].x} ${padding.top + plotHeight} Z`
+    : "";
+  const gridLines = Array.from({ length: 4 }, (_, index) => {
+    const ratio = index / 3;
+    const y = padding.top + plotHeight * ratio;
+    const value = max * (1 - ratio);
+    return `
+      <g class="hour-grid-line">
+        <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line>
+        <text x="${padding.left - 12}" y="${y + 4}">${formatRatioPercent(value, 0)}</text>
+      </g>
     `;
-    container.appendChild(item);
+  }).join("");
+  const labelEvery = Math.max(1, Math.ceil(horas.length / 8));
+  const axisLabels = points.map((point, index) => {
+    if (index % labelEvery !== 0 && index !== points.length - 1) return "";
+    return `<text class="hour-axis-label" x="${point.x}" y="${height - 16}">${formatHora(point.hora)}</text>`;
+  }).join("");
+  const pointMarkup = points.map((point) => {
+    const isHot = point.hora === Number(pico.hora);
+    const isCold = point.hora === Number(vale.hora);
+    const className = ["hour-point", isHot ? "hot" : "", isCold ? "cold" : ""].filter(Boolean).join(" ");
+    return `
+      <g class="${className}" tabindex="0"
+        aria-label="${formatHora(point.hora)} com ${formatRatioPercent(point.valor, 0)}"
+        data-hour="${formatHora(point.hora)}" data-value="${formatRatioPercent(point.valor, 0)}"
+        data-x="${point.x}" data-y="${point.y}">
+        <circle class="hour-hit" cx="${point.x}" cy="${point.y}" r="18"></circle>
+        <circle class="hour-dot halo" cx="${point.x}" cy="${point.y}" r="10"></circle>
+        <circle class="hour-dot core" cx="${point.x}" cy="${point.y}" r="5"></circle>
+      </g>
+    `;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="hour-chart-panel">
+      <svg class="hour-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico de linha por horario">
+        <defs>
+          <linearGradient id="hourLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#61c07a"></stop>
+            <stop offset="48%" stop-color="#2d86ff"></stop>
+            <stop offset="100%" stop-color="#74a8f0"></stop>
+          </linearGradient>
+          <linearGradient id="hourAreaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#2d86ff" stop-opacity="0.28"></stop>
+            <stop offset="100%" stop-color="#2d86ff" stop-opacity="0"></stop>
+          </linearGradient>
+          <filter id="hourGlow" x="-20%" y="-40%" width="140%" height="180%">
+            <feGaussianBlur stdDeviation="4" result="blur"></feGaussianBlur>
+            <feMerge>
+              <feMergeNode in="blur"></feMergeNode>
+              <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+          </filter>
+        </defs>
+        <rect class="hour-plot-bg" x="${padding.left}" y="${padding.top}" width="${plotWidth}" height="${plotHeight}" rx="18"></rect>
+        ${gridLines}
+        <path class="hour-area" d="${areaPath}"></path>
+        <path class="hour-line-glow" d="${linePath}"></path>
+        <path class="hour-line" d="${linePath}"></path>
+        ${axisLabels}
+        ${pointMarkup}
+      </svg>
+      <div class="hour-tooltip" role="status" aria-live="polite"></div>
+    </div>
+  `;
+
+  bindHourTooltip(container);
+}
+
+function buildSmoothPath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  const commands = [`M ${points[0].x} ${points[0].y}`];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const current = points[index];
+    const next = points[index + 1];
+    const previous = points[index - 1] || current;
+    const after = points[index + 2] || next;
+    const tension = 0.18;
+    const cp1x = current.x + (next.x - previous.x) * tension;
+    const cp1y = current.y + (next.y - previous.y) * tension;
+    const cp2x = next.x - (after.x - current.x) * tension;
+    const cp2y = next.y - (after.y - current.y) * tension;
+
+    commands.push(`C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`);
+  }
+
+  return commands.join(" ");
+}
+
+function bindHourTooltip(container) {
+  const tooltip = container.querySelector(".hour-tooltip");
+  const panel = container.querySelector(".hour-chart-panel");
+  if (!tooltip || !panel) return;
+
+  const showTooltip = (target) => {
+    const point = target.closest(".hour-point");
+    if (!point) return;
+
+    const x = Number(point.dataset.x) || 0;
+    const y = Number(point.dataset.y) || 0;
+    tooltip.innerHTML = `<strong>${point.dataset.hour}</strong><span>${point.dataset.value}</span>`;
+    tooltip.style.left = `${clamp((x / 720) * 100, 10, 90)}%`;
+    tooltip.style.top = `${clamp((y / 260) * 100, 16, 90)}%`;
+    tooltip.classList.add("visible");
+  };
+
+  container.querySelectorAll(".hour-point").forEach((point) => {
+    point.addEventListener("mouseenter", () => showTooltip(point));
+    point.addEventListener("focus", () => showTooltip(point));
+    point.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
+    point.addEventListener("blur", () => tooltip.classList.remove("visible"));
   });
 }
 
