@@ -75,6 +75,24 @@ const formatHora = (hora) => {
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+const DISTRIBUTION_COLORS = [
+  "#61c07a",
+  "#2d86ff",
+  "#74a8f0",
+  "#e2a23a",
+  "#ef6b63",
+  "#9b8cff",
+  "#42d2b8",
+  "#f37fba",
+  "#b5d66b",
+  "#f2c94c",
+  "#56ccf2",
+  "#eb5757",
+  "#a3a8ff",
+  "#6fcf97",
+  "#f2994a"
+];
+
 const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -622,22 +640,142 @@ function aplicarDistribuicao(topPlanos) {
     return;
   }
 
-  planos
+  const fatiasBase = planos
     .map((plano) => ({
       valor: Number(plano.valor || 0),
       qtd: Number(plano.qtd || 0),
       percentual: Number(plano.percentual || 0)
     }))
-    .sort((a, b) => b.qtd - a.qtd)
-    .forEach((plano) => {
-      const item = document.createElement("div");
-      item.className = "list-item";
-      item.innerHTML = `
-        <strong>${formatBRL(plano.valor)}</strong>
-        <span>${plano.qtd} registros - ${formatPercent(plano.percentual, 2)}</span>
-      `;
-      container.appendChild(item);
+    .filter((plano) => plano.percentual > 0 || plano.qtd > 0)
+    .sort((a, b) => b.percentual - a.percentual || b.qtd - a.qtd)
+    .slice(0, 15);
+
+  if (!fatiasBase.length) {
+    container.innerHTML = '<div class="list-item"><strong>Sem dados</strong><span>aguardando carregamento</span></div>';
+    return;
+  }
+
+  const somaBase = fatiasBase.reduce((total, fatia) => total + fatia.percentual, 0);
+  const escala = somaBase > 100 ? 100 / somaBase : 1;
+  const fatias = fatiasBase.map((fatia, index) => ({
+    label: formatBRL(fatia.valor),
+    qtd: fatia.qtd,
+    percentualOriginal: fatia.percentual,
+    percentual: fatia.percentual * escala,
+    color: DISTRIBUTION_COLORS[index % DISTRIBUTION_COLORS.length]
+  }));
+  const somaFatias = fatias.reduce((total, fatia) => total + fatia.percentual, 0);
+  const percentualOutros = clamp(100 - somaFatias, 0, 100);
+
+  if (percentualOutros > 0.01) {
+    fatias.push({
+      label: "Outros",
+      qtd: null,
+      percentualOriginal: percentualOutros,
+      percentual: percentualOutros,
+      color: "#777d89",
+      muted: true
     });
+  }
+
+  const totalRegistros = fatiasBase.reduce((total, fatia) => total + fatia.qtd, 0);
+  let cursor = -90;
+  const slices = fatias.map((fatia) => {
+    const start = cursor;
+    const end = cursor + fatia.percentual * 3.6;
+    cursor = end;
+    return { ...fatia, path: describeDonutSlice(120, 120, 88, 52, start, end) };
+  });
+
+  const sliceMarkup = slices.map((fatia) => `
+    <path class="donut-slice${fatia.muted ? " muted" : ""}"
+      d="${fatia.path}"
+      fill="${fatia.color}"
+      tabindex="0"
+      data-label="${escapeHTML(fatia.label)}"
+      data-percent="${formatPercent(fatia.percentualOriginal, 2)}"
+      data-qtd="${fatia.qtd === null ? "" : `${fatia.qtd} registros`}">
+    </path>
+  `).join("");
+  const legendMarkup = fatias.map((fatia) => `
+    <div class="donut-legend-item${fatia.muted ? " muted" : ""}">
+      <i style="--slice-color:${fatia.color}"></i>
+      <strong>${escapeHTML(fatia.label)}</strong>
+      <span>${formatPercent(fatia.percentualOriginal, 2)}</span>
+      <small>${fatia.qtd === null ? "restante" : `${fatia.qtd} registros`}</small>
+    </div>
+  `).join("");
+
+  container.innerHTML = `
+    <div class="donut-dashboard">
+      <div class="donut-stage">
+        <svg class="donut-chart" viewBox="0 0 240 240" role="img" aria-label="Grafico pizza da distribuicao por valor">
+          <circle class="donut-track" cx="120" cy="120" r="88"></circle>
+          ${sliceMarkup}
+          <circle class="donut-hole" cx="120" cy="120" r="50"></circle>
+        </svg>
+        <div class="donut-center">
+          <strong>${formatPercent(somaBase > 100 ? 100 : somaBase, 1)}</strong>
+          <span>top 15</span>
+        </div>
+        <div class="donut-tooltip" role="status" aria-live="polite"></div>
+      </div>
+      <div class="donut-legend" aria-label="Legenda da distribuicao por valor">
+        ${legendMarkup}
+      </div>
+    </div>
+    <div class="donut-foot">
+      <span>Top 15 valores</span>
+      <strong>${totalRegistros} registros</strong>
+    </div>
+  `;
+
+  bindDonutTooltip(container);
+}
+
+function describeDonutSlice(cx, cy, outerRadius, innerRadius, startAngle, endAngle) {
+  if (endAngle - startAngle >= 359.99) endAngle = startAngle + 359.99;
+
+  const outerStart = polarToCartesian(cx, cy, outerRadius, endAngle);
+  const outerEnd = polarToCartesian(cx, cy, outerRadius, startAngle);
+  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+
+  return [
+    "M", outerStart.x, outerStart.y,
+    "A", outerRadius, outerRadius, 0, largeArc, 0, outerEnd.x, outerEnd.y,
+    "L", innerStart.x, innerStart.y,
+    "A", innerRadius, innerRadius, 0, largeArc, 1, innerEnd.x, innerEnd.y,
+    "Z"
+  ].join(" ");
+}
+
+function polarToCartesian(cx, cy, radius, angleInDegrees) {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180;
+
+  return {
+    x: cx + radius * Math.cos(angleInRadians),
+    y: cy + radius * Math.sin(angleInRadians)
+  };
+}
+
+function bindDonutTooltip(container) {
+  const tooltip = container.querySelector(".donut-tooltip");
+  if (!tooltip) return;
+
+  container.querySelectorAll(".donut-slice").forEach((slice) => {
+    const showTooltip = () => {
+      const detail = slice.dataset.qtd ? `<small>${slice.dataset.qtd}</small>` : "<small>restante</small>";
+      tooltip.innerHTML = `<strong>${slice.dataset.label}</strong><span>${slice.dataset.percent}</span>${detail}`;
+      tooltip.classList.add("visible");
+    };
+
+    slice.addEventListener("mouseenter", showTooltip);
+    slice.addEventListener("focus", showTooltip);
+    slice.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
+    slice.addEventListener("blur", () => tooltip.classList.remove("visible"));
+  });
 }
 
 // ==========================
