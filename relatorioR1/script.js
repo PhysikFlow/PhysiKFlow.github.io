@@ -27,7 +27,7 @@ const CACHE_TTL = 1000 * 60 * 60 * 6;
 
 const UNIT_LABELS = {
   "58780-000": "Itaporanga",
-  "58970-000": "Conceicao"
+  "58970-000": "Conceição"
 };
 
 let relatoriosPorUnidade = {};
@@ -158,8 +158,7 @@ function nomeUnidade(unitId) {
 }
 
 function descricaoUnidade(unitId) {
-  const name = nomeUnidade(unitId);
-  return UNIT_LABELS[unitId] ? `${name} (${unitId})` : name;
+  return nomeUnidade(unitId);
 }
 
 function limparDashboard(message = "Sem dados carregados.") {
