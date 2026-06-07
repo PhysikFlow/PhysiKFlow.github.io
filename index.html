@@ -1,491 +1,634 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PhysikFlow — Gestão de Academia com Controle de Acesso</title>
-  <meta name="description" content="Sistema completo para gestão de academias com controle de catraca, caderno de pagamentos, relatórios online, auditoria e planos personalizáveis." />
-  <!-- Landing page data attributes: data-version, data-animate, data-* elements ready for JS -->
-  <link rel="stylesheet" href="landing.css">
-  <style>
-        .warning {
-            background: #e3f2fd;
-            border: 1px solid #90caf9;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin: 16px 0;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .warning-icon {
-            width: 24px;
-            height: 24px;
-            background: #2196f3;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-        
-        .warning-text {
-            color: #1565c0;
-            font-weight: 500;
-        }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PhysikFlow - Documentação oficial de uso</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="user-guide.css">
 </head>
 <body>
-  <div class="wrap">
-    <header class="topbar panel">
-      <div class="brand">
-        <div class="logo">PF</div>
-        <div>
-          <h1>PhysikFlow</h1>
-          <p>Controle total sem erro, sem papel e sem retrabalho</p>
-        </div>
-      </div>
-
-      <nav class="nav" data-nav>
-        <a class="chip" href="#diferenciais" data-nav-link="features">Velocidade</a>
-        <a class="chip" href="#precisao" data-nav-link="why">Precisão</a>
-        <a class="chip" href="#auditoria" data-nav-link="details">Auditoria</a>
-        <a class="chip" href="#gestao" data-nav-link="management">Gestão</a>
-        <a class="chip" href="#download" data-nav-link="download">Download</a>
-      </nav>
-    </header>
-
-    <div class="warning">
-            <div class="warning-icon">i</div>
-            <div class="warning-text">A página de relatórios mudou para outro local</div>
-        </div>
-
-    <main>
-      <section class="hero">
-        
-        <div class="panel hero-copy">
-          <div class="eyebrow" data-animate="fade"><b></b> ⚠️ Pare de perder dinheiro agora</div>
-          <h2 data-animate="slide-up">Pare de perder dinheiro com erro de recepção. Controle total da sua academia em segundos.</h2>
-          <p class="lead" data-animate="slide-up" data-delay="100">
-            <strong>Todo erro de pagamento = dinheiro perdido.</strong> Todo atendimento lento = cliente irritado. Todo controle manual = risco de fraude.
-            <br><br>
-            O <strong>PhysikFlow</strong> elimina 100% desses problemas. <strong>Garantido.</strong>
-          </p>
-
-          <div class="cta-row">
-            <a class="btn btn-primary" href="#download">⚡ Baixar agora</a>
-            <a class="btn btn-secondary" href="#diferenciais">Ver quanto estou perdendo</a>
-          </div>
-
-          <div class="stats" data-stats>
-            <div class="stat" data-stat="speed">
-              <strong>⚡ 10x Mais Rápido</strong>
-              <span>Cadastro em 10 segundos, pagamentos em 1 segundo. Atendimento fluido e profissional.</span>
-            </div>
-            <div class="stat" data-stat="accuracy">
-              <strong>🎯 Zero Erros</strong>
-              <span>Cálculo automático, identificação visual com fotos, padronização que elimina falhas.</span>
-            </div>
-            <div class="stat" data-stat="control">
-              <strong>🔍 Controle Total</strong>
-              <span>Auditoria completa, histórico detalhado, relatórios em tempo real para decisões inteligentes.</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel mockup">
-          <div class="device">
-            <div class="windowbar">
-              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            </div>
-            <div class="screen">
-              <div class="screen-head">
-                <div class="mini-brand">
-                  <div class="mini-badge">PF</div>
-                  <div>
-                    PhysikFlow
-                    <div style="font-size:.8rem;color:var(--textDisabled);font-weight:600;">Painel principal</div>
-                  </div>
+    <div class="shell">
+        <aside class="sidebar" aria-label="Navegação da documentação">
+            <div class="brand">
+                <img src="favicon.png" alt="PhysikFlow">
+                <div>
+                    <strong>PhysikFlow</strong>
+                    <span>Documentação de uso</span>
                 </div>
-                <div class="pill" data-status="online">● Online</div>
-              </div>
+            </div>
 
-              <div class="hero-card" data-card="command">
-                <h3>Centro de comando da academia</h3>
-                <p>
-                  Controle quem entra, quem pagou, quem vence em breve. Tudo em uma interface clara que não exige treinamento.
+            <div class="tree-title">Conteúdo</div>
+            <nav>
+                <ul class="tree">
+                    <li><a class="direct" href="#visao-geral">Visão geral</a></li>
+                    <li>
+                        <details open>
+                            <summary>Usando o app</summary>
+                            <ul>
+                                <li><a href="#primeiro-acesso">Primeiro acesso</a></li>
+                                <li><a href="#barra-superior">Barra superior</a></li>
+                                <li><a href="#atalhos">Atalhos</a></li>
+                            </ul>
+                        </details>
+                    </li>
+                    <li>
+                        <details open>
+                            <summary>Telas principais</summary>
+                            <ul>
+                                <li><a href="#inicio">Início</a></li>
+                                <li><a href="#pessoas">Pessoas</a></li>
+                                <li><a href="#relatorios">Relatórios</a></li>
+                                <li><a href="#report-calculos">Cálculos dos relatórios</a></li>
+                                <li><a href="#configuracoes">Configurações</a></li>
+                                <li><a href="#auditoria">Auditoria</a></li>
+                            </ul>
+                        </details>
+                    </li>
+                    <li>
+                        <details open>
+                            <summary>Rotinas</summary>
+                            <ul>
+                                <li><a href="#rotina-recepcao">Recepção</a></li>
+                                <li><a href="#rotina-financeira">Financeiro</a></li>
+                                <li><a href="#rotina-retencao">Retenção</a></li>
+                                <li><a href="#boas-praticas">Boas práticas</a></li>
+                            </ul>
+                        </details>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header id="visao-geral" class="hero section">
+                <p class="eyebrow">Guia oficial simplificado</p>
+                <h1>Como usar o PhysikFlow no dia a dia da academia</h1>
+                <p class="lead">
+                    O PhysikFlow centraliza atendimento, catraca, pagamentos, cadastro de pessoas,
+                    relatórios e auditoria. Esta documentação explica o app como ferramenta de trabalho:
+                    o que cada Área faz, quando usar e quais cuidados tomar antes de tomar decisões.
                 </p>
-              </div>
+            </header>
 
-              <div class="feature-grid" id="recursos" data-features>
-                <div class="feature" data-feature="catraca">
-                  <div class="icon">🔓</div>
-                  <h4>Controle de catraca</h4>
-                  <p>Libere a catraca com um atalho. O sistema verifica vencimento automaticamente antes de permitir o acesso.</p>
-                </div>
-                <div class="feature" data-feature="caderno">
-                  <div class="icon">�</div>
-                  <h4>Caderno organizacional</h4>
-                  <p>Registro em tempo real de todos os pagamentos do dia. Total automático, badges de plano e forma de pagamento.</p>
-                </div>
-                <div class="feature" data-feature="relatorio">
-                  <div class="icon">�</div>
-                  <h4>Relatórios online</h4>
-                  <p>Painel com faturamento, gráficos mensais, horários de pico e distribuição por planos. Enviado em tempo real.</p>
-                </div>
-                <div class="feature" data-feature="pagamento">
-                  <div class="icon">💳</div>
-                  <h4>Pagamento instantâneo</h4>
-                  <p>Atalhos rápidos para PIX, débito e crédito na tela inicial. Pagamentos avulsos para visitantes.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="perdas">
-        <div class="section-head">
-          <div>
-            <h3>💸 Quanto você está perdendo TODOS OS DIAS</h3>
-            <p>
-              <strong>⚠️ Cada erro custa caro. Cada minuto perdido = cliente insatisfeito.</strong>
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="loss-1">
-            <strong>💰 Erro de pagamento = R$ 50-200 perdidos</strong>
-            <p>Valor errado, aluno errado, esquecimento. <strong>Dinheiro que nunca volta.</strong></p>
-            <div class="badge-line">
-              <span class="badge">Perda diária</span>
-              <span class="badge">Acumulativo</span>
-            </div>
-          </div>
-          <div class="card" data-card="loss-2">
-            <strong>⏰ Atendimento lento = Cliente cancelando</strong>
-            <p>Fila na recepção, cadastro demorado. <strong>Cliente vai pra concorrência.</strong></p>
-            <div class="badge-line">
-              <span class="badge">Má reputação</span>
-              <span class="badge">Cancelamento</span>
-            </div>
-          </div>
-          <div class="card" data-card="loss-3">
-            <strong>📝 Controle manual = Fraude garantida</strong>
-            <p>Caderno, planilha, papel. <strong>Facilidade para roubo e erros.</strong></p>
-            <div class="badge-line">
-              <span class="badge">Risco legal</span>
-              <span class="badge">Prejuízo certo</span>
-            </div>
-          </div>
-          <div class="card" data-card="solution-urgent">
-            <strong>🚨 <u>Solução IMEDIATA:</u></strong>
-            <p><strong>PhysikFlow elimina 100% dessas perdas HOJE.</strong> Instala em 5 minutos. Recupera o investimento rapidamente.</p>
-            <div class="badge-line">
-              <span class="badge">Retorno rápido</span>
-              <span class="badge">Sem risco</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="diferenciais">
-        <div class="section-head">
-          <div>
-            <h3>⚡ Velocidade Operacional</h3>
-            <p>
-              Mais eficiência e melhor experiência para o cliente
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="before-speed">
-            <strong>🐌 Antes: Lento e manual</strong>
-            <p>Cadastro demorado. Atendimento com fila. Processos que atrasam tudo.</p>
-            <div class="badge-line">
-              <span class="badge">Perde tempo</span>
-              <span class="badge">Cliente irritado</span>
-            </div>
-          </div>
-          <div class="card" data-card="after-speed">
-            <strong>⚡ Agora: 10x mais rápido</strong>
-            <p>Cadastro 10s. Pagamento 1s. Atendimento instantâneo. Sem filas.</p>
-            <div class="badge-line">
-              <span class="badge">Economia real</span>
-              <span class="badge">Cliente feliz</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="precisao">
-        <div class="section-head">
-          <div>
-            <h3>🎯 Precisão e Redução de Erros</h3>
-            <p>
-              Praticamente zero erro humano
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="before-accuracy">
-            <strong>❌ Antes: Erros todos os dias</strong>
-            <p>Valor errado. Aluno errado. Falta de controle. Dinheiro perdido.</p>
-            <div class="badge-line">
-              <span class="badge">Prejuízo certo</span>
-              <span class="badge">Estresse</span>
-            </div>
-          </div>
-          <div class="card" data-card="after-accuracy">
-            <strong>✅ Agora: Zero erros</strong>
-            <p>Cálculo automático. ID visual. Padronização total. Sem perdas.</p>
-            <div class="badge-line">
-              <span class="badge">100% preciso</span>
-              <span class="badge">Sem retrabalho</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="auditoria">
-        <div class="section-head">
-          <div>
-            <h3>🧾 Auditoria e Controle Total</h3>
-            <p>
-              Total transparência e segurança na operação
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="before-audit">
-            <strong>📝 Antes: Sem controle nenhum</strong>
-            <p>Papel perdido. Sem histórico. Sem provas. Risco de fraude alto.</p>
-            <div class="badge-line">
-              <span class="badge">Opaco</span>
-              <span class="badge">Inseguro</span>
-            </div>
-          </div>
-          <div class="card" data-card="after-audit">
-            <strong>🔍 Agora: Controle total</strong>
-            <p>Tudo registrado. Histórico completo. Auditoria automática. 100% seguro.</p>
-            <div class="badge-line">
-              <span class="badge">Transparência</span>
-              <span class="badge">Segurança total</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="gestao">
-        <div class="section-head">
-          <div>
-            <h3>📊 Gestão Inteligente</h3>
-            <p>
-              Decisões mais rápidas e baseadas em dados reais
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="before-management">
-            <strong>📈 Antes: Relatórios inúteis</strong>
-            <p>Dados desorganizados. Decisões cegas. Controle manual demorado.</p>
-            <div class="badge-line">
-              <span class="badge">Sem visão</span>
-              <span class="badge">Perda de tempo</span>
-            </div>
-          </div>
-          <div class="card" data-card="after-management">
-            <strong>📊 Agora: Inteligência real</strong>
-            <p>Dashboard online. Relatórios automáticos. Decisões baseadas em dados.</p>
-            <div class="badge-line">
-              <span class="badge">Tempo real</span>
-              <span class="badge">Decisão certa</span>
-            </div>
-          </div>
-          <div class="card" data-card="search">
-            <strong>🔍 Busca instantânea</strong>
-            <p>Encontra qualquer aluno em 2 segundos. Vencimentos visíveis. Status claro.</p>
-            <div class="badge-line">
-              <span class="badge">Ultra-rápido</span>
-              <span class="badge">Sem erro</span>
-            </div>
-          </div>
-          <div class="card" data-card="security">
-            <strong>📸 Segurança visual</strong>
-            <p>Foto do aluno. ID instantâneo. Zero confusão. Mais confiança.</p>
-            <div class="badge-line">
-              <span class="badge">100% seguro</span>
-              <span class="badge">Sem fraude</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="integracao">
-        <div class="section-head">
-          <div>
-            <h3>🧩 Integração e Comunicação</h3>
-            <p>
-              Operação integrada e comunicação eficiente
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="integration">
-            <strong>🏢 Unidades integradas</strong>
-            <p>Dados unificados. Acesso instantâneo. Validação rápida entre unidades.</p>
-            <div class="badge-line">
-              <span class="badge">Sincronizado</span>
-              <span class="badge">Sem conflito</span>
-            </div>
-          </div>
-          <div class="card" data-card="communication">
-            <strong>💬 WhatsApp direto</strong>
-            <p>Botão automático. Mensagem pronta. Contato em massa. Comunicação instantânea.</p>
-            <div class="badge-line">
-              <span class="badge">Um clique</span>
-              <span class="badge">Eficiente</span>
-            </div>
-          </div>
-          <div class="card" data-card="automation">
-            <strong>🧠 100% automático</strong>
-            <p>Caderno digital. Tudo organizado. Sem trabalho manual. Zero erros.</p>
-            <div class="badge-line">
-              <span class="badge">Sem papel</span>
-              <span class="badge">Inteligente</span>
-            </div>
-          </div>
-          <div class="card" data-card="access">
-            <strong>🔓 Catraca instantânea</strong>
-            <p>Liberação no topo. Atalho global. Sem fricção. Entrada em 1 segundo.</p>
-            <div class="badge-line">
-              <span class="badge">Sem fila</span>
-              <span class="badge">Fluxo perfeito</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="conclusao">
-        <div class="section-head">
-          <div>
-            <h3>🎯 Conclusão</h3>
-            <p>
-              O PhysiKFlow transforma a operação da sua academia
-            </p>
-          </div>
-        </div>
-
-        <div class="cards" data-cards>
-          <div class="card" data-card="benefit-1">
-            <strong>⚡ 10x mais rápido</strong>
-            <p>Cadastro 10s. Pagamento 1s. Sem filas. Atendimento perfeito.</p>
-          </div>
-          <div class="card" data-card="benefit-2">
-            <strong>🎯 Zero erros</strong>
-            <p>Cálculo automático. ID visual. Padronização total. Sem perdas.</p>
-          </div>
-          <div class="card" data-card="benefit-3">
-            <strong>🔐 100% seguro</strong>
-            <p>Auditoria completa. Histórico detalhado. Controle total. Transparência.</p>
-          </div>
-          <div class="card" data-card="benefit-4">
-            <strong>📊 Inteligência real</strong>
-            <p>Dashboard online. Relatórios automáticos. Decisões baseadas em dados.</p>
-          </div>
-          <div class="card" data-card="benefit-5">
-            <strong>📈 <u>Retorno rápido</u></strong>
-            <p>Instala 5 minutos. Recupera investimento rapidamente. Sem risco. Garantido.</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel section" id="download">
-        <div class="download-box">
-          <div class="download-panel panel" style="box-shadow:none;">
-            <div class="section-head" style="margin-bottom:10px;">
-              <div>
-                <h3>Instale agora!</h3>
-                <p><strong>Última chance:</strong>Requisitos mínimos: Windows.</p>
-              </div>
-            </div>
-
-            <div class="download-list">
-              <div class="step" data-step="1">
-                <div class="step-num">1</div>
+            <section class="download-callout" aria-label="Baixar PhysikFlow">
                 <div>
-                  <strong>⚡ Baixe agora (2 minutos)</strong>
-                  <span>Escolha instalador ou portátil. <strong>Não perca mais dinheiro hoje.</strong></span>
+                    <strong>Ainda não tem o PhysikFlow instalado?</strong>
+                    <p>Baixe a versão portátil para Windows e comece a usar com a sua unidade.</p>
                 </div>
-              </div>
-              <div class="step" data-step="2">
-                <div class="step-num">2</div>
-                <div>
-                  <strong>🔧 Configure em 3 minutos</strong>
-                  <span>Conecte catraca ou use simulador. <strong>Interface intuitiva.</strong></span>
-                </div>
-              </div>
-              <div class="step" data-step="3">
-                <div class="step-num">3</div>
-                <div>
-                  <strong>💰 Comece a economizar HOJE</strong>
-                  <span>Comece a gerir sua academia de forma eficiente hoje.</span>
-                </div>
-              </div>
-            </div>
-          </div>
+                <a class="download-button" href="#primeiro-acesso">Baixar agora</a>
+            </section>
 
-          <aside class="panel side-box" data-download-panel>
-            <h3>Downloado</h3>
-            <p>
-              <strong>Versão atual: 0.7</strong>. Sistema Windows x64. <strong>Instala em 5 minutos. Economiza a partir do dia 1.</strong>
-            </p>
-
-            <div class="download-btns">
-              <a class="download-btn" href="#" data-download="installer">
-                <div>
-                  <strong>⚡ Baixar .msi - Windows</strong>
-                  <small>Instalador (~15MB) - <strong>Opção temporariamente indisponível.</strong></small>
+            <section class="section">
+                <h2>O que o app resolve</h2>
+                <div class="grid">
+                    <article class="tile">
+                        <strong>Atendimento rápido</strong>
+                        <p>Busca alunos, confere cadastro, registra pagamentos e acompanha vencimentos sem sair da mesma tela.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Controle de entrada</strong>
+                        <p>Mostra as entradas pela catraca e permite liberar a catraca quando o operador tem permissão.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Leitura financeira</strong>
+                        <p>Mostra faturamento, ticket médio, alunos em dia, atraso, diárias e comportamento mês a mês.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Retenção de alunos</strong>
+                        <p>Ajuda a priorizar alunos para contato com base em ausência, vencimento, pagamento e dados de contato.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Configuração da unidade</strong>
+                        <p>Organiza banco da academia, CEP da unidade, operadores, planos, formas de pagamento e avulsos.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Rastreabilidade</strong>
+                        <p>Registra eventos sensíveis para revisão, como alterações, exclusões, falhas e liberações de catraca.</p>
+                    </article>
                 </div>
-                <div>⬇</div>
-              </a>
-              <a class="download-btn" href="#" data-download="portable">
-                <div>
-                  <strong>🚀 Versão Portátil RÁPIDA</strong>
-                  <small>Extrair e usar - <strong>Sem espera</strong></small>
-                </div>
-                <div>↗</div>
-              </a>
-              <a class="download-btn" href="#" data-download="changelog">
-                <div>
-                  <strong>📋 Prova de Resultados</strong>
-                  <small>Veja o que mudou - <strong>Transparência total</strong></small>
-                </div>
-                <div>i</div>
-              </a>
-            </div>
-          </aside>
-        </div>
-      </section>
-    </main>
 
-    <footer class="footer" data-footer>
-      <span data-footer-brand>PhysikFlow</span> • <span data-footer-year>2026</span> • gestão de academia com controle de acesso integrado<br>
-      <span data-footer-copyright>Todos os direitos reservados</span>
-    </footer>
-  </div>
+                <div class="panel note">
+                    <strong>Regra de leitura:</strong> os números do app dependem do que foi registrado.
+                    Se um pagamento, telefone, vencimento ou acesso não estiver correto no banco, a leitura também fica limitada.
+                    O app ajuda a enxergar a operação, mas a decisão final continua sendo humana.
+                </div>
+            </section>
 
-  <!-- JS entry point -->
-  <script src="landing.js"></script>
+            <section id="primeiro-acesso" class="section">
+                <h2>Primeiro acesso</h2>
+                <ol class="workflow">
+                    <li>Ao abrir o app, selecione o operador. Isso identifica quem está usando o sistema e alimenta a auditoria.</li>
+                    <li>Confira se o banco de dados da academia está configurado em <strong>Configurações</strong>.</li>
+                    <li>Confira o CEP ou identificador da unidade. Ele separa cache, histórico e relatórios por unidade.</li>
+                    <li>Revise planos, formas de pagamento e avulsos antes de registrar pagamentos.</li>
+                    <li>Use a aba <strong>Início</strong> para acompanhar o caderno e o monitoramento da catraca.</li>
+                </ol>
+            </section>
+
+            <section id="barra-superior" class="section">
+                <h2>Barra superior</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Área</th>
+                                <th>Para que serve</th>
+                                <th>Como usar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Logo e título</td>
+                                <td>Identifica o app e a janela atual.</td>
+                                <td>Use como referência visual quando o app estiver em tela cheia.</td>
+                            </tr>
+                            <tr>
+                                <td>Liberar catraca</td>
+                                <td>Aciona a liberação manual da catraca.</td>
+                                <td>Use apenas quando houver motivo operacional claro, porque o evento pode aparecer na auditoria.</td>
+                            </tr>
+                            <tr>
+                                <td>Assistente IA</td>
+                                <td>Abre o assistente do PhysikFlow.</td>
+                                <td>Use para navegar, procurar alunos, pedir contexto ou pedir ajuda sobre informações do app.</td>
+                            </tr>
+                            <tr>
+                                <td>Controles da janela</td>
+                                <td>Minimizar, maximizar e fechar.</td>
+                                <td>O app tende a voltar maximizado para manter a operação em tela cheia.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="atalhos" class="section">
+                <h2>Atalhos</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Atalho</th>
+                                <th>Ação</th>
+                                <th>Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Ctrl+1</td>
+                                <td>Ir para Início</td>
+                                <td>Navegação rápida entre telas.</td>
+                            </tr>
+                            <tr>
+                                <td>Ctrl+2</td>
+                                <td>Ir para Pessoas</td>
+                                <td>Atalho útil na recepção.</td>
+                            </tr>
+                            <tr>
+                                <td>Ctrl+3</td>
+                                <td>Ir para Relatórios</td>
+                                <td>Atualiza dados de relatório ao entrar.</td>
+                            </tr>
+                            <tr>
+                                <td>Ctrl+4</td>
+                                <td>Ir para Configurações</td>
+                                <td>Use com cuidado em operação normal.</td>
+                            </tr>
+                            <tr>
+                                <td>Ctrl+5</td>
+                                <td>Ir para Auditoria</td>
+                                <td>A auditoria abre dentro da Área de relatórios.</td>
+                            </tr>
+                            <tr>
+                                <td>Ctrl+Alt+A</td>
+                                <td>Abrir assistente</td>
+                                <td>Atalho local para conversar com o assistente.</td>
+                            </tr>
+                            <tr>
+                                <td>F1 ou UP</td>
+                                <td>Liberar catraca</td>
+                                <td>Depende da configuração escolhida.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="inicio" class="section">
+                <h2>Início</h2>
+                <p>
+                    A tela Início foi pensada para operação de recepção. Ela combina o caderno de pagamentos
+                    do dia, o histórico do caderno e o monitoramento das entradas pela catraca.
+                </p>
+
+                <h3>Caderno</h3>
+                <p>
+                    O caderno mostra pagamentos registrados pelo operador. Cada item pode trazer horário,
+                    tipo de pagamento, nome do aluno, cartão, plano, forma de pagamento, valor e observação.
+                    O total do caderno soma os valores exibidos no dia.
+                </p>
+
+                <h3>Histórico do caderno</h3>
+                <p>
+                    O histórico permite consultar registros de outro dia. Ele agrupa pagamentos por operador
+                    e mostra total, horário, aluno, plano, forma e observação.
+                </p>
+
+                <h3>Monitoramento</h3>
+                <p>
+                    O monitoramento exibe as entradas pela catraca. Use para acompanhar fluxo de alunos
+                    e confirmar se a entrada foi registrada.
+                </p>
+
+                <div class="panel warning">
+                    <strong>Cuidado:</strong> liberação manual de catraca deve ser exceção operacional.
+                    Quando a catraca bloqueia aluno vencido, isso é parte da regra normal do sistema.
+                    Se alguém entrou por outro caminho, isso não deve ser tratado como acesso regular.
+                </div>
+            </section>
+
+            <section id="pessoas" class="section">
+                <h2>Pessoas</h2>
+                <p>
+                    A tela Pessoas é a área de busca, cadastro e pagamento. Ela ajuda a encontrar um aluno,
+                    revisar dados, registrar ou editar informações e conferir pagamentos anteriores.
+                </p>
+
+                <div class="grid">
+                    <article class="tile">
+                        <strong>Busca</strong>
+                        <p>Procure por nome, cartão, contato, CPF ou observação. A busca aproximada ajuda quando há erro de digitação.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Filtros avançados</strong>
+                        <p>Filtre por status, dados faltando, Último pagamento e escopo da busca.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Cadastro</strong>
+                        <p>Edite nome, perfil, cartão, matrícula, inscrição, vencimento, telefone, CPF, nascimento, email e endereço.</p>
+                    </article>
+                </div>
+
+                <h3>Quando usar</h3>
+                <ul class="checklist">
+                    <li>Quando um aluno chega na recepção e precisa ser encontrado rapidamente.</li>
+                    <li>Quando é preciso atualizar telefone, CPF, email, endereço ou observação.</li>
+                    <li>Quando você quer conferir vencimento, Último pagamento ou status do cadastro.</li>
+                    <li>Quando precisa registrar pagamento manual ou revisar pagamentos anteriores.</li>
+                </ul>
+
+                <h3>Pagamentos</h3>
+                <p>
+                    A Área de pagamentos mostra histórico e permite registrar pagamentos conforme planos e formas configuradas.
+                    O valor final pode depender do plano, da forma de pagamento e de ajustes feitos pelo operador.
+                </p>
+            </section>
+
+            <section id="relatorios" class="section">
+                <h2>Relatórios</h2>
+                <p>
+                    A tela Relatórios concentra a leitura de gestáo. Ela tem abas internas: Financeiro, Histórico,
+                    Risco, Pessoas e Auditoria.
+                </p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Aba</th>
+                                <th>Mostra</th>
+                                <th>Uso principal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Financeiro</td>
+                                <td>Total geral, Últimos 30 dias, 3 meses, ticket médio, alunos, diárias, horários e rankings.</td>
+                                <td>Entender receita, base atual e comportamento financeiro.</td>
+                            </tr>
+                            <tr>
+                                <td>Histórico</td>
+                                <td>Snapshots diários de alunos, receita, ticket, frequência e diárias.</td>
+                                <td>Comparar evolução ao longo do tempo.</td>
+                            </tr>
+                            <tr>
+                                <td>Risco</td>
+                                <td>Fila de alunos para recuperação, prioridade, chance de contato e motivos.</td>
+                                <td>Organizar ação de retenção.</td>
+                            </tr>
+                            <tr>
+                                <td>Pessoas</td>
+                                <td>Acessos e pagamentos por pessoa ou grupo em um período.</td>
+                                <td>Investigar atividade individual ou coletiva.</td>
+                            </tr>
+                            <tr>
+                                <td>Auditoria</td>
+                                <td>Eventos sensíveis registrados pelo sistema.</td>
+                                <td>Conferir alterações, falhas e ações de alto impacto.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Leitura correta dos números</h3>
+                <p>
+                    Relatórios financeiros dependem dos pagamentos registrados. Alunos em dia e em atraso dependem
+                    da data de vencimento. Horários de pico dependem das marcações de catraca. Risco de abandono
+                    é uma prioridade operacional, não uma sentença.
+                </p>
+            </section>
+
+            <section id="report-calculos" class="section">
+                <h2>Como ler os cálculos dos relatórios</h2>
+                <p>
+                    Esta parte reúne, dentro da própria documentação do usuário final, o significado dos principais
+                    cards, tabelas e listas da tela Relatórios.
+                </p>
+
+                <h3>Financeiro</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Informação</th>
+                                <th>Como é calculada</th>
+                                <th>Como usar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Total geral</td>
+                                <td>Soma todos os valores registrados em pagamentos da academia.</td>
+                                <td>Mede o acumulado financeiro registrado. Não é previsão; é o que foi lançado.</td>
+                            </tr>
+                            <tr>
+                                <td>Total diárias</td>
+                                <td>Soma os pagamentos locais do caderno marcados como avulso.</td>
+                                <td>Separa a receita de diária/avulso da receita principal de mensalidades.</td>
+                            </tr>
+                            <tr>
+                                <td>Últimos 30 dias</td>
+                                <td>Soma pagamentos com data dentro dos Últimos 30 dias.</td>
+                                <td>Mostra o ritmo financeiro recente da unidade.</td>
+                            </tr>
+                            <tr>
+                                <td>Últimos 3 meses</td>
+                                <td>Soma pagamentos com data dentro dos Últimos 3 meses.</td>
+                                <td>Ajuda a ler tendência sem depender de um único mês.</td>
+                            </tr>
+                            <tr>
+                                <td>Ticket médio geral</td>
+                                <td>Total geral dividido pela quantidade total de pagamentos.</td>
+                                <td>Mostra o valor médio por pagamento registrado.</td>
+                            </tr>
+                            <tr>
+                                <td>Ticket médio 30d</td>
+                                <td>Faturamento dos Últimos 30 dias dividido pela quantidade de pagamentos dos Últimos 30 dias.</td>
+                                <td>Mostra se o valor médio recente subiu, caiu ou ficou abaixo do histórico.</td>
+                            </tr>
+                            <tr>
+                                <td>Total de alunos</td>
+                                <td>Conta todos os cadastros de pessoas no banco externo.</td>
+                                <td>Serve como base cadastrada; não significa necessariamente alunos treinando.</td>
+                            </tr>
+                            <tr>
+                                <td>Alunos em dia</td>
+                                <td>Conta cadastros com vencimento preenchido e maior ou igual a hoje.</td>
+                                <td>Mostra a parte da base regular financeiramente.</td>
+                            </tr>
+                            <tr>
+                                <td>Alunos em atraso</td>
+                                <td>Conta cadastros com vencimento preenchido e anterior a hoje.</td>
+                                <td>Indica pressão de renovação, cobrança e retenção.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>Gráficos e rankings</h3>
+                <ul class="compact-list">
+                    <li><strong>Faturamento mês a mês:</strong> soma pagamentos por ano e mês para mostrar evolução de receita.</li>
+                    <li><strong>Diárias mês a mês:</strong> soma avulsos locais por mês e mostra também a quantidade de lançamentos.</li>
+                    <li><strong>Clientes por faturamento:</strong> soma pagamentos por pessoa e ordena do maior para o menor.</li>
+                    <li><strong>Percentual do cliente:</strong> total pago pela pessoa dividido pelo total geral.</li>
+                    <li><strong>Valores de pagamento:</strong> agrupa pagamentos pelo valor cobrado e conta quantas vezes cada valor apareceu.</li>
+                    <li><strong>Percentual do valor:</strong> valor multiplicado pela quantidade, dividido pelo total geral.</li>
+                    <li><strong>Horários de pico:</strong> calcula a média de entradas por hora nos Últimos 30 dias, usando marcações de catraca.</li>
+                    <li><strong>Valores por mês:</strong> dentro de um mês, mostra quais valores de pagamento formaram o faturamento.</li>
+                </ul>
+
+                <h3>Histórico diário</h3>
+                <p>
+                    O Histórico usa snapshots: fotos diárias dos principais números quando o cache está válido.
+                    Cada snapshot guarda faturamento total, faturamento 30d, faturamento 3m, diárias, alunos,
+                    ticket médio e frequência média. A comparação entre o primeiro e o Último snapshot do período
+                    mostra quanto mudou.
+                </p>
+                <p>
+                    Use 30 dias para mudanças recentes, 90 dias para leitura de trimestre, 180 dias para tendência
+                    mais estável e "Tudo" quando quiser ver o histórico mais amplo disponível.
+                </p>
+
+                <h3>Risco e recuperação</h3>
+                <p>
+                    A fila de risco combina ausência de treino, queda de frequência, atraso financeiro, Último pagamento,
+                    telefone disponível, tempo de casa e confiança da leitura. O resultado não é uma certeza de abandono:
+                    é uma lista para organizar quem deve receber contato primeiro.
+                </p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Significado</th>
+                                <th>Uso prático</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Prioridade</td>
+                                <td>Combina risco, chance de recuperação, contato, confiança e valor do Último pagamento.</td>
+                                <td>Ordena quem deve ser chamado primeiro.</td>
+                            </tr>
+                            <tr>
+                                <td>Risco</td>
+                                <td>Mede sinais de afastamento, como muitos dias sem acesso, queda de frequência e atraso.</td>
+                                <td>Ajuda a entender o motivo do alerta.</td>
+                            </tr>
+                            <tr>
+                                <td>Chance</td>
+                                <td>Indica facilidade de recuperar o aluno, considerando contato, histórico e atraso.</td>
+                                <td>Mostra se a ação tem boa chance de funcionar.</td>
+                            </tr>
+                            <tr>
+                                <td>Sem telefone</td>
+                                <td>Aluno em risco sem telefone válido com pelo menos 10 dígitos.</td>
+                                <td>Vira tarefa de atualização cadastral antes do contato.</td>
+                            </tr>
+                            <tr>
+                                <td>Provavelmente saiu</td>
+                                <td>Vencido há 30 dias ou mais sem pagamento novo depois do vencimento.</td>
+                                <td>Melhor tratar como campanha de reativação, não como contato imediato comum.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="panel note">
+                    <strong>Leitura honesta do risco:</strong> como a catraca bloqueia aluno vencido, a documentação
+                    não deve tratar "treinar mesmo vencido" como comportamento normal esperado. Se acontecer algo fora
+                    da regra, deve ser analisado como exceção operacional, não como sinal comum do relatório.
+                </div>
+
+                <h3>Pessoas dentro dos relatórios</h3>
+                <p>
+                    Essa aba consulta uma pessoa ou grupo em um período. Ela conta acessos de catraca, pagamentos,
+                    pessoas envolvidas, Último acesso e eventos. A linha do tempo mistura catraca e pagamentos para
+                    reconstruir a atividade. A lista de dias agrupa cada dia com quantidade de acessos, pagamentos
+                    e total pago.
+                </p>
+            </section>
+
+            <section id="configuracoes" class="section">
+                <h2>Configurações</h2>
+                <p>
+                    Configurações separa preferências do operador e configurações globais da unidade. É uma tela
+                    poderosa: pequenas mudanças aqui podem afetar como o app funciona para toda a equipe.
+                </p>
+
+                <div class="grid">
+                    <article class="tile">
+                        <strong>Preferências</strong>
+                        <p>Tema, efeitos visuais, expansão da barra lateral, janela no topo, coluna dupla e sugestáo de nomes.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Atalhos</strong>
+                        <p>Define se atalhos funcionam fora do app e quais teclas controlam janela, topo e catraca.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Sistema</strong>
+                        <p>Configura banco externo da academia e CEP/identificador da unidade.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Operadores</strong>
+                        <p>Adiciona, remove e edita operadores, incluindo nome e avatar.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Formas de pagamento</strong>
+                        <p>Configura nome, diferença percentual e ícone das formas usadas nos pagamentos.</p>
+                    </article>
+                    <article class="tile">
+                        <strong>Planos e avulsos</strong>
+                        <p>Define planos, valores base, formas aceitas e pagamentos avulsos do caderno.</p>
+                    </article>
+                </div>
+
+                <div class="panel warning">
+                    <strong>Área sensível:</strong> alterações em banco de dados, planos, formas, operadores e assistente
+                    devem ser feitas por alguém responsável pela operação. Revise antes de salvar.
+                </div>
+            </section>
+
+            <section id="auditoria" class="section">
+                <h2>Auditoria</h2>
+                <p>
+                    Auditoria é a área para conferir o que aconteceu no app. Ela ajuda a responder perguntas como:
+                    quem alterou um pagamento, quem removeu um registro, quando a catraca foi liberada, qual operador
+                    estava ativo e se alguma operação falhou.
+                </p>
+
+                <h3>Como ler</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicador</th>
+                                <th>Significado</th>
+                                <th>Ação sugerida</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="tag warn">Revisar</span></td>
+                                <td>Evento sensível ou fora da rotina.</td>
+                                <td>Leia detalhes, operador, alvo e horário.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag danger">Alto impacto</span></td>
+                                <td>Falha, exclusão, remoção de operador ou troca de banco.</td>
+                                <td>Conferir com prioridade.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag good">Sucesso</span></td>
+                                <td>Evento registrado sem falha.</td>
+                                <td>Normalmente serve para rastreabilidade.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>
+                    Use filtros por período, operador, alvo, evento técnico, resultado e prioridade. Para uma conferência
+                    externa, exporte os registros filtrados para CSV.
+                </p>
+            </section>
+
+            <section id="rotina-recepcao" class="section">
+                <h2>Rotina da recepção</h2>
+                <ol class="workflow">
+                    <li>Comece na tela <strong>Início</strong> para acompanhar caderno e catraca.</li>
+                    <li>Quando um aluno chegar com dúvida, vá para <strong>Pessoas</strong> e busque por nome ou cartão.</li>
+                    <li>Confira vencimento, telefone e histórico de pagamento antes de orientar o aluno.</li>
+                    <li>Registre pagamentos com plano, forma e observação corretos.</li>
+                    <li>Use liberação manual de catraca somente quando houver justificativa operacional.</li>
+                </ol>
+            </section>
+
+            <section id="rotina-financeira" class="section">
+                <h2>Rotina financeira</h2>
+                <ol class="workflow">
+                    <li>Abra <strong>Relatórios</strong> e confira se o cache local está OK.</li>
+                    <li>Compare total geral, Últimos 30 dias, Últimos 3 meses e ticket médio 30d.</li>
+                    <li>Veja alunos em dia e alunos em atraso para medir pressão de renovação.</li>
+                    <li>Analise valores de pagamento para encontrar descontos, planos dominantes e valores fora do padrão.</li>
+                    <li>Use <strong>Histórico</strong> semanalmente para ver tendência, não apenas um dia isolado.</li>
+                </ol>
+            </section>
+
+            <section id="rotina-retencao" class="section">
+                <h2>Rotina de retenção</h2>
+                <ol class="workflow">
+                    <li>Entre em <strong>Relatórios &gt; Risco</strong> e atualize a fila.</li>
+                    <li>Comece por recuperáveis agora com maior prioridade e telefone disponível.</li>
+                    <li>Leia o motivo principal antes de mandar mensagem.</li>
+                    <li>Use a aba <strong>Pessoas</strong> do relatório para conferir acessos e pagamentos do aluno.</li>
+                    <li>Registre a ação combinada na rotina da equipe para não repetir contato desnecessário.</li>
+                </ol>
+                <div class="panel note">
+                    <strong>Importante:</strong> risco e prioridade são sinais para organizar trabalho. Eles não dizem
+                    com certeza que alguém saiu. Em especial, se a catraca bloqueia aluno vencido, "treinar vencido"
+                    não deve ser esperado como comportamento normal.
+                </div>
+            </section>
+
+            <section id="boas-praticas" class="section">
+                <h2>Boas práticas</h2>
+                <ul class="checklist">
+                    <li>Mantenha telefone, CPF, email e vencimento atualizados.</li>
+                    <li>Use observações claras nos pagamentos e cadastros quando houver exceção.</li>
+                    <li>Revise formas de pagamento e planos antes de iniciar operação do dia.</li>
+                    <li>Confira a auditoria quando houver alteração sensível, exclusão ou liberação incomum de catraca.</li>
+                    <li>Não tome decisão financeira com cache inválido ou dados incompletos.</li>
+                    <li>Compare relatórios por período; um único dia pode enganar.</li>
+                </ul>
+            </section>
+
+            <footer class="footer">
+                <p>
+                    Documentação gerada para o PhysikFlow. Esta página é estática e pode ser aberta diretamente no navegador.
+                </p>
+            </footer>
+        </main>
+    </div>
 </body>
 </html>
