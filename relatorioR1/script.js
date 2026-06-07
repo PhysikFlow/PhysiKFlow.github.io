@@ -164,6 +164,8 @@ function descricaoUnidade(unitId) {
 function limparDashboard(message = "Sem dados carregados.") {
   setText("totalGeralHero", formatBRL(0));
   setText("totalGeral", formatBRL(0));
+  setText("totalDiarias", formatBRL(0));
+  setText("diariasCount", "0");
   setText("total30", formatBRL(0));
   setText("total3m", formatBRL(0));
   setText("ticket30", formatBRL(0));
@@ -174,6 +176,8 @@ function limparDashboard(message = "Sem dados carregados.") {
   setText("totalAtrasados", "---");
   setText("pctAtivos", "---");
   setText("pctAtrasados", "---");
+  setText("pctAtivosFinanceiro", "---");
+  setText("pctAtrasadosFinanceiro", "---");
   setText("horaPico", "--:00");
   setText("mediaPico", "--");
   setText("horaVale", "--:00");
@@ -186,6 +190,9 @@ function limparDashboard(message = "Sem dados carregados.") {
 
   const chart = qs("graficoMensal");
   if (chart) chart.innerHTML = `<div class="mini-note">${message}</div>`;
+
+  const diariasChart = qs("graficoDiarias");
+  if (diariasChart) diariasChart.innerHTML = `<div class="mini-note">${message}</div>`;
 
   const ranking = qs("rankingPessoas");
   if (ranking) ranking.innerHTML = `<tr><td colspan="3" class="mini-note">${message}</td></tr>`;
@@ -350,6 +357,7 @@ function aplicarTudo(data, unitId = unidadeSelecionada) {
   aplicarResumo(data.resumo || {});
   aplicarFrequencia(data.frequencia || {});
   aplicarMensal(data.mesAMes || {});
+  aplicarDiarias(data.diarias || {}, data.diariasMensais || {}, data.resumo || {});
   aplicarHoras(data.picoHoras || {});
   aplicarRanking(data.topPessoas || {});
   aplicarDistribuicao(data.topPlanosGlobal || {});
@@ -369,9 +377,13 @@ function aplicarResumo(resumo) {
   const total3m = resumo.total3m || 0;
   const ticket30 = resumo.ticketMedio30d || 0;
   const ticketGeral = resumo.ticketMedioGeral || 0;
+  const diariasTotal = resumo.diariasTotal || 0;
+  const diariasCount = resumo.diariasCount || 0;
 
   setText("totalGeralHero", formatBRL(totalGeral));
   setText("totalGeral", formatBRL(totalGeral));
+  setText("totalDiarias", formatBRL(diariasTotal));
+  setText("diariasCount", diariasCount);
   setText("totalAtrasados", atrasados);
   setText("totalAlunos", alunos);
   setText("totalAtivos", ativos);
@@ -384,6 +396,8 @@ function aplicarResumo(resumo) {
   const pctAtrasados = alunos > 0 ? Math.round((atrasados / alunos) * 100) : 0;
   setText("pctAtivos", pctAtivos + "%");
   setText("pctAtrasados", pctAtrasados + "%");
+  setText("pctAtivosFinanceiro", pctAtivos + "%");
+  setText("pctAtrasadosFinanceiro", pctAtrasados + "%");
 
   const bars = document.querySelectorAll(".progress-line .bar i");
   if (bars[0]) bars[0].style.width = pctAtivos + "%";
@@ -430,6 +444,52 @@ function aplicarMensal(mesAMes) {
         <div class="chart-fill" style="width:${percent}%"></div>
       </div>
       <div class="chart-label">${formatBRL(valor)}</div>
+    `;
+    container.appendChild(row);
+  }
+}
+
+// ==========================
+// DIARIAS
+// ==========================
+function aplicarDiarias(diariasResumo, diariasMensais, resumo = {}) {
+  const container = qs("graficoDiarias");
+  const total = Number(diariasResumo.total ?? resumo.diariasTotal ?? 0);
+  const count = Number(diariasResumo.count ?? resumo.diariasCount ?? 0);
+
+  setText("totalDiarias", formatBRL(total));
+  setText("diariasCount", count.toLocaleString("pt-BR"));
+
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const entries = Array.isArray(diariasMensais)
+    ? diariasMensais.map((item) => [`${item.ano}-${String(item.mesNumero || item.mes).padStart(2, "0")}`, item])
+    : Object.entries(diariasMensais || {});
+
+  if (!entries.length) {
+    container.innerHTML = '<div class="mini-note">Sem diarias sincronizadas.</div>';
+    return;
+  }
+
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+  const valores = entries.map(([, item]) => Number((item && item.valor) || 0));
+  const max = Math.max(...valores, 1);
+
+  for (const [mes, item] of entries) {
+    const valor = Number((item && item.valor) || 0);
+    const qtd = Number((item && item.qtd) || 0);
+    const percent = (valor / max) * 100;
+    const row = document.createElement("div");
+    row.className = "chart-row";
+    row.innerHTML = `
+      <div class="chart-label">${escapeHTML(mes)}</div>
+      <div class="chart-track">
+        <div class="chart-fill diaria-fill" style="width:${percent}%"></div>
+      </div>
+      <div class="chart-label">${formatBRL(valor)}<small>${qtd}x</small></div>
     `;
     container.appendChild(row);
   }
@@ -873,9 +933,47 @@ function updateUIForSignedOutUser() {
 }
 
 // ==========================
+// TABS
+// ==========================
+function setupTabs() {
+  const buttons = Array.from(document.querySelectorAll(".tab-button"));
+  const panels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+  const title = qs("viewTitle");
+  const subtitle = qs("viewSubtitle");
+
+  const activateTab = (tab) => {
+    const button = buttons.find((item) => item.dataset.tab === tab) || buttons[0];
+    if (!button) return;
+
+    buttons.forEach((item) => {
+      const active = item === button;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.toggle("active", panel.dataset.tabPanel === button.dataset.tab);
+    });
+
+    if (title) title.textContent = button.dataset.title || button.textContent.trim();
+    if (subtitle) subtitle.textContent = button.dataset.subtitle || "";
+  };
+
+  buttons.forEach((button) => {
+    button.type = "button";
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
+    button.addEventListener("click", () => activateTab(button.dataset.tab));
+  });
+
+  activateTab((buttons.find((button) => button.classList.contains("active")) || buttons[0])?.dataset.tab);
+}
+
+// ==========================
 // INIT
 // ==========================
 function init() {
+  setupTabs();
   handleRedirectResult();
 
   const select = qs("unitSelect");

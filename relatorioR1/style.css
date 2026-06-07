@@ -20,8 +20,8 @@
   --warn:#e2a23a;
   --bad:#ef6b63;
   --info:#74a8f0;
-  --radius:14px;
-  --radius-sm:12px;
+  --radius:8px;
+  --radius-sm:6px;
 }
 
 body.dark{
@@ -49,10 +49,7 @@ body{
   margin:0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 86% 16%, rgba(25, 119, 255, 0.28), transparent 21rem),
-    radial-gradient(circle at 14% 72%, rgba(25, 119, 255, 0.1), transparent 18rem),
-    linear-gradient(180deg, #05080d 0%, #03060b 38%, #05080d 100%);
+  background: linear-gradient(180deg, #070b12 0%, #03060b 46%, #05080d 100%);
   color:var(--text);
   padding-top: env(safe-area-inset-top);
   padding-right: env(safe-area-inset-right);
@@ -66,12 +63,11 @@ body::before {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(118deg, transparent 0 52%, rgba(0, 0, 0, 0.55) 52% 100%),
-    radial-gradient(ellipse at 70% 18%, rgba(255, 255, 255, 0.08), transparent 4rem),
+    linear-gradient(118deg, transparent 0 52%, rgba(0, 0, 0, 0.38) 52% 100%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: auto, auto, 6rem 6rem, 6rem 6rem;
-  opacity: 0.55;
+  background-size: auto, 6rem 6rem, 6rem 6rem;
+  opacity: 0.42;
 }
 
 button,input,select{
@@ -112,7 +108,7 @@ button, .chip, .icon-btn, select, input{
 .brand-mark{
   width:42px;
   height:42px;
-  border-radius:14px;
+  border-radius:8px;
   background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   border:1px solid var(--line);
@@ -122,6 +118,12 @@ button, .chip, .icon-btn, select, input{
   font-weight:800;
   letter-spacing:.5px;
   flex:0 0 auto;
+}
+
+.brand-mark img{
+  width:85%;
+  height:85%;
+  object-fit:contain;
 }
 
 .brand-text{
@@ -151,7 +153,7 @@ button, .chip, .icon-btn, select, input{
 
 .select, .input, .btn{
   height:42px;
-  border-radius: 14px;
+  border-radius: 8px;
   border:1px solid var(--line);
   background: linear-gradient(145deg, rgba(10, 14, 22, 0.88), rgba(3, 6, 11, 0.72));
   color:var(--text);
@@ -209,6 +211,77 @@ button, .chip, .icon-btn, select, input{
   max-width:1440px;
   margin:0 auto;
   padding:18px;
+}
+
+.report-header{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:18px;
+  align-items:center;
+  margin-bottom:14px;
+  padding:16px;
+}
+
+.report-heading{
+  min-width:0;
+}
+
+.report-heading h1{
+  margin:8px 0 4px;
+  font-size:1.45rem;
+  line-height:1.1;
+  font-weight:800;
+}
+
+.report-heading p{
+  margin:0;
+  color:var(--muted);
+  font-size:.92rem;
+  line-height:1.35;
+}
+
+.tabs{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.tab-button{
+  min-height:34px;
+  padding:0 12px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  background:rgba(255, 255, 255, 0.026);
+  color:var(--muted);
+  cursor:pointer;
+  font-weight:700;
+}
+
+.tab-button:hover,
+.tab-button:focus{
+  outline:none;
+  color:var(--text);
+  border-color:rgba(45, 134, 255, 0.5);
+}
+
+.tab-button.active{
+  color:var(--text);
+  background:linear-gradient(145deg, rgba(25, 119, 255, 0.22), rgba(97, 192, 122, 0.1));
+  border-color:rgba(45, 134, 255, 0.62);
+}
+
+.tab-panel{
+  display:none;
+}
+
+.tab-panel.active{
+  display:block;
+}
+
+.tab-panel > .metrics{
+  margin-bottom:14px;
 }
 
 .hero{
@@ -793,6 +866,13 @@ button, .chip, .icon-btn, select, input{
   font-size:.88rem;
 }
 
+.chart-label small{
+  display:block;
+  margin-top:3px;
+  color:var(--muted-soft);
+  font-size:.72rem;
+}
+
 .chart-track{
   height:16px;
   border-radius:999px;
@@ -807,9 +887,14 @@ button, .chip, .icon-btn, select, input{
   background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent-2) 75%, white));
 }
 
+.chart-fill.diaria-fill{
+  background: linear-gradient(90deg, var(--good), color-mix(in srgb, var(--warn) 48%, var(--good)));
+}
+
 .hour-grid{
   display:block;
   width:100%;
+  margin-top:14px;
 }
 
 .hour-chart-panel{
@@ -1063,6 +1148,8 @@ button, .chip, .icon-btn, select, input{
 /* Mobile */
 @media (max-width: 61.25em){
   .hero, .section-grid{grid-template-columns:1fr}
+  .report-header{grid-template-columns:1fr}
+  .tabs{justify-content:flex-start}
   .metrics{grid-template-columns: repeat(3, minmax(0, 1fr))}
   .subgrid{grid-template-columns:1fr}
   .metric-value{font-size:1.5rem}
@@ -1075,6 +1162,19 @@ button, .chip, .icon-btn, select, input{
 
   .panel{
     padding:14px 10px;
+  }
+
+  .report-header{
+    padding:12px;
+  }
+
+  .tabs{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .tab-button{
+    width:100%;
   }
 
   .header-inner{
