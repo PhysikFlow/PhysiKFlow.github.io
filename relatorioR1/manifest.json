@@ -12,10 +12,16 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "favicon.png",
-      "sizes": "any",
+      "src": "app-icon.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
