@@ -245,6 +245,11 @@ button:focus-visible {
   color: var(--accent-2);
 }
 
+.install-action[hidden],
+.install-action.is-hidden {
+  display: none !important;
+}
+
 .secure-note {
   display: flex;
   align-items: center;

@@ -56,8 +56,27 @@ const setText = (id, value) => {
 };
 
 const isStandalone = () => {
-  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  if (window.navigator.standalone === true) return true;
+
+  return ["standalone", "fullscreen", "minimal-ui"].some((mode) => {
+    return window.matchMedia(`(display-mode: ${mode})`).matches;
+  });
 };
+
+async function isAppInstalled() {
+  if (isStandalone()) return true;
+
+  if (typeof navigator.getInstalledRelatedApps !== "function") {
+    return false;
+  }
+
+  try {
+    const apps = await navigator.getInstalledRelatedApps();
+    return apps.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function updateSyncDot(statusText = "") {
   const dot = qs("syncDot");
@@ -927,6 +946,8 @@ function showLogin({ error = "", info = "" } = {}) {
   if (error) setLoginMessage(error, "error");
   else if (info) setLoginMessage(info, "info");
   else setLoginMessage();
+
+  updateInstallButtons();
 }
 
 function showApp() {
@@ -939,6 +960,7 @@ function showApp() {
   const hashTab = location.hash.replace("#", "");
   const validTabs = appPages().map((page) => page.dataset.page);
   setActiveTab(validTabs.includes(hashTab) ? hashTab : "financeiro", false);
+  updateInstallButtons();
 }
 
 function setActiveTab(tabName, shouldUpdateHash = true) {
@@ -981,12 +1003,14 @@ function setupBottomNav() {
 // ==========================
 // PWA INSTALL
 // ==========================
-function updateInstallButtons() {
+async function updateInstallButtons() {
   const buttons = [...document.querySelectorAll("[data-install-app], [data-install-app-account]")];
-  const canInstall = !isStandalone() && Boolean(deferredInstallPrompt);
+  const installed = await isAppInstalled();
+  const canInstall = !installed && Boolean(deferredInstallPrompt);
 
   buttons.forEach((button) => {
     button.hidden = !canInstall;
+    button.classList.toggle("is-hidden", !canInstall);
   });
 }
 
