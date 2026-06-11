@@ -34,6 +34,7 @@ let relatoriosPorUnidade = {};
 let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let deferredInstallPrompt = null;
 let appAuthorized = false;
+let authStateReady = false;
 
 const loginView = () => document.querySelector('[data-view="login"]');
 const appView = () => document.querySelector('[data-view="app"]');
@@ -108,6 +109,23 @@ function setLoginMessage(message = "", type = "error") {
   el.hidden = false;
   el.textContent = message;
   el.classList.toggle("is-info", type === "info");
+}
+
+function updateLoginButton() {
+  const btn = qs("loginGoogleBtn");
+  if (!btn) return;
+
+  const loginVisible = !loginView()?.classList.contains("is-hidden");
+  const canSignIn = authStateReady && loginVisible && !auth.currentUser;
+
+  btn.disabled = !canSignIn;
+  btn.classList.toggle("is-pending", loginVisible && !authStateReady);
+  btn.setAttribute("aria-busy", loginVisible && !authStateReady ? "true" : "false");
+
+  const label = btn.querySelector(".login-btn-label");
+  if (label) {
+    label.textContent = authStateReady ? "Entrar com Google" : "Verificando sessão...";
+  }
 }
 
 const formatBRL = (v) => {
@@ -916,20 +934,41 @@ function bindDonutTooltip(container) {
 // ==========================
 // SYNC
 // ==========================
+function formatSyncDate(rawTimestamp) {
+  const data = new Date(rawTimestamp);
+  if (Number.isNaN(data.getTime())) return String(rawTimestamp);
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfSyncDay = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+
+  const time = data.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  if (startOfSyncDay.getTime() === startOfToday.getTime()) {
+    return `Hoje, ${time}`;
+  }
+
+  if (startOfSyncDay.getTime() === startOfYesterday.getTime()) {
+    return `Ontem, ${time}`;
+  }
+
+  return data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function atualizarSync(meta) {
   const rawTimestamp = meta.geradoEm || meta.lastUpdate || Date.now();
-  const data = new Date(rawTimestamp);
-  const formatted = Number.isNaN(data.getTime())
-    ? String(rawTimestamp)
-    : data.toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-  setText("ultimaSync", formatted);
+  setText("ultimaSync", formatSyncDate(rawTimestamp));
   setText("janelaDias", meta.janelaDias ? `${meta.janelaDias} dias` : "-- dias");
   setText("versaoRelatorio", meta.versao ? `v${meta.versao}` : "v--");
 }
@@ -948,6 +987,7 @@ function showLogin({ error = "", info = "" } = {}) {
   else setLoginMessage();
 
   updateInstallButtons();
+  updateLoginButton();
 }
 
 function showApp() {
@@ -1061,6 +1101,8 @@ function registerServiceWorker() {
 // AUTHENTICATION
 // ==========================
 function signInWithGoogle() {
+  if (!authStateReady || auth.currentUser) return;
+
   setLoginMessage("Conectando com Google...", "info");
 
   auth.signInWithPopup(provider).catch((error) => {
@@ -1124,14 +1166,21 @@ function updateUIForSignedInUser(user) {
 function updateUIForSignedOutUser() {
   showLogin();
   updateSyncDot("idle");
+  updateLoginButton();
 }
 
 async function handleAuthState(user) {
+  if (!authStateReady) {
+    authStateReady = true;
+  }
+
   if (!user) {
     updateUIForSignedOutUser();
+    updateLoginButton();
     return;
   }
 
+  updateLoginButton();
   updateUIForSignedInUser(user);
   setLoginMessage("Verificando acesso...", "info");
   updateSyncDot("carregando");
@@ -1167,6 +1216,7 @@ function init() {
   handleRedirectResult();
   showLogin();
   updateSyncDot("idle");
+  updateLoginButton();
 
   const select = qs("unitSelect");
   if (select) {
