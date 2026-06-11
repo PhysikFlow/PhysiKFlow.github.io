@@ -32,6 +32,14 @@ const UNIT_LABELS = {
 
 let relatoriosPorUnidade = {};
 let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
+let deferredInstallPrompt = null;
+let appAuthorized = false;
+
+const loginView = () => document.querySelector('[data-view="login"]');
+const appView = () => document.querySelector('[data-view="app"]');
+const appNav = () => document.querySelector('[data-view="app-nav"]');
+const appPages = () => [...document.querySelectorAll("[data-page]")];
+const bottomTabs = () => [...document.querySelectorAll(".bottom-nav [data-tab]")];
 
 // ==========================
 // HELPERS
@@ -41,7 +49,47 @@ const qs = (id) => document.getElementById(id);
 const setText = (id, value) => {
   const el = qs(id);
   if (el) el.textContent = value;
+
+  if (id === "statusCache") {
+    updateSyncDot(value);
+  }
 };
+
+const isStandalone = () => {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+};
+
+function updateSyncDot(statusText = "") {
+  const dot = qs("syncDot");
+  if (!dot) return;
+
+  const text = String(statusText || "").toLowerCase();
+  let status = "idle";
+
+  if (text.includes("online")) status = "online";
+  else if (text.includes("cache")) status = "cache";
+  else if (text.includes("restrito") || text.includes("nao autorizado") || text.includes("não autorizado")) status = "restricted";
+  else if (text.includes("erro") || text.includes("sem dados")) status = "error";
+  else if (text.includes("carregando")) status = "loading";
+
+  dot.dataset.status = status;
+}
+
+function setLoginMessage(message = "", type = "error") {
+  const el = qs("loginMessage");
+  if (!el) return;
+
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    el.classList.remove("is-info");
+    return;
+  }
+
+  el.hidden = false;
+  el.textContent = message;
+  el.classList.toggle("is-info", type === "info");
+}
 
 const formatBRL = (v) => {
   return "R$ " + Number(v || 0).toLocaleString("pt-BR", {
@@ -195,7 +243,9 @@ function limparDashboard(message = "Sem dados carregados.") {
   if (diariasChart) diariasChart.innerHTML = `<div class="mini-note">${message}</div>`;
 
   const ranking = qs("rankingPessoas");
-  if (ranking) ranking.innerHTML = `<tr><td colspan="3" class="mini-note">${message}</td></tr>`;
+  if (ranking) ranking.innerHTML = `<div class="mini-note">${escapeHTML(message)}</div>`;
+
+  updateSyncDot(message);
 
   const valores = qs("listaValores");
   if (valores) {
@@ -321,12 +371,14 @@ async function buscarFirebase() {
     salvarCache(data);
     aplicarRelatorios(data);
     setText("statusCache", "online");
+    updateSyncDot("online");
   } catch (err) {
     console.warn("Usando cache por erro no Firebase:", err.message);
     const cache = carregarCache();
     if (cache) {
       aplicarRelatorios(cache);
       setText("statusCache", "cache local");
+      updateSyncDot("cache local");
       return;
     }
 
@@ -339,6 +391,8 @@ async function buscarFirebase() {
 }
 
 function showUnauthorizedMessage() {
+  appAuthorized = false;
+
   const select = qs("unitSelect");
   if (select) {
     select.innerHTML = '<option value="">Acesso restrito</option>';
@@ -348,6 +402,7 @@ function showUnauthorizedMessage() {
   limparDashboard("Acesso restrito");
   setText("ultimaSync", "Acesso restrito");
   setText("statusCache", "Nao autorizado");
+  showLogin({ error: "Acesso restrito. Solicite autorização ao administrador." });
 }
 
 // ==========================
@@ -657,30 +712,33 @@ function bindHourTooltip(container) {
 // RANKING
 // ==========================
 function aplicarRanking(topPessoas) {
-  const tbody = qs("rankingPessoas");
-  if (!tbody) return;
+  const container = qs("rankingPessoas");
+  if (!container) return;
 
   const pessoas = toArray(topPessoas);
-  tbody.innerHTML = "";
+  container.innerHTML = "";
 
   if (!pessoas.length) {
-    tbody.innerHTML = '<tr><td colspan="3" class="mini-note">Sem dados carregados.</td></tr>';
+    container.innerHTML = '<div class="mini-note">Sem dados carregados.</div>';
     return;
   }
 
   pessoas.forEach((pessoa, idx) => {
     const codigo = pessoa.codigo || pessoa.id || "-";
     const nome = pessoa.nome || `Pessoa ${codigo}`;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>
-        <strong class="person-name">${escapeHTML(nome)}</strong>
-        <span class="person-code">#${escapeHTML(codigo)}</span>
-      </td>
-      <td>${formatBRL(pessoa.total)}</td>
-      <td><span class="badge">Top ${idx + 1} - ${formatPercent(pessoa.percentual, 2)}</span></td>
+    const card = document.createElement("article");
+    card.className = "ranking-card";
+    card.innerHTML = `
+      <div class="ranking-card-top">
+        <div>
+          <strong class="person-name">${escapeHTML(nome)}</strong>
+          <span class="person-code">#${escapeHTML(codigo)}</span>
+        </div>
+        <span class="ranking-total">${formatBRL(pessoa.total)}</span>
+      </div>
+      <span class="ranking-badge">Top ${idx + 1} · ${formatPercent(pessoa.percentual, 2)}</span>
     `;
-    tbody.appendChild(tr);
+    container.appendChild(card);
   });
 }
 
@@ -859,39 +917,150 @@ function atualizarSync(meta) {
 }
 
 // ==========================
+// APP SHELL
+// ==========================
+function showLogin({ error = "", info = "" } = {}) {
+  loginView()?.classList.remove("is-hidden");
+  appView()?.classList.add("is-hidden");
+  appNav()?.classList.add("is-hidden");
+  appAuthorized = false;
+
+  if (error) setLoginMessage(error, "error");
+  else if (info) setLoginMessage(info, "info");
+  else setLoginMessage();
+}
+
+function showApp() {
+  loginView()?.classList.add("is-hidden");
+  appView()?.classList.remove("is-hidden");
+  appNav()?.classList.remove("is-hidden");
+  appAuthorized = true;
+  setLoginMessage();
+
+  const hashTab = location.hash.replace("#", "");
+  const validTabs = appPages().map((page) => page.dataset.page);
+  setActiveTab(validTabs.includes(hashTab) ? hashTab : "financeiro", false);
+}
+
+function setActiveTab(tabName, shouldUpdateHash = true) {
+  const validTabs = appPages().map((page) => page.dataset.page);
+  const targetTab = validTabs.includes(tabName) ? tabName : "financeiro";
+  const activeButton = bottomTabs().find((tab) => tab.dataset.tab === targetTab);
+
+  appPages().forEach((page) => {
+    page.classList.toggle("active", page.dataset.page === targetTab);
+  });
+
+  bottomTabs().forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.tab === targetTab);
+  });
+
+  const title = qs("viewTitle");
+  if (title) {
+    title.textContent = activeButton?.dataset.title || activeButton?.textContent.trim() || "Financeiro";
+  }
+
+  if (shouldUpdateHash) {
+    history.replaceState(null, "", `#${targetTab}`);
+  }
+
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function setupBottomNav() {
+  bottomTabs().forEach((tab) => {
+    tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (!appAuthorized) return;
+    const hashTab = location.hash.replace("#", "");
+    if (hashTab) setActiveTab(hashTab, false);
+  });
+}
+
+// ==========================
+// PWA INSTALL
+// ==========================
+function updateInstallButtons() {
+  const buttons = [...document.querySelectorAll("[data-install-app], [data-install-app-account]")];
+  const canInstall = !isStandalone() && Boolean(deferredInstallPrompt);
+
+  buttons.forEach((button) => {
+    button.hidden = !canInstall;
+  });
+}
+
+async function promptInstall() {
+  if (!deferredInstallPrompt) {
+    updateInstallButtons();
+    return;
+  }
+
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  updateInstallButtons();
+}
+
+function setupPwaInstall() {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallButtons();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    updateInstallButtons();
+  });
+
+  window.matchMedia("(display-mode: standalone)").addEventListener("change", updateInstallButtons);
+
+  document.querySelectorAll("[data-install-app], [data-install-app-account]").forEach((button) => {
+    button.addEventListener("click", promptInstall);
+  });
+
+  updateInstallButtons();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // App still works as a static page without service worker.
+    });
+  });
+}
+
+// ==========================
 // AUTHENTICATION
 // ==========================
 function signInWithGoogle() {
-  auth.signInWithPopup(provider)
-    .then((result) => {
-      updateUIForSignedInUser(result.user);
-    })
-    .catch((error) => {
-      if (error.code === "auth/popup-blocked" || error.code === "auth/popup-closed-by-user") {
-        signInWithGoogleRedirect();
-      } else {
-        alert("Erro ao fazer login: " + error.message);
-      }
-    });
+  setLoginMessage("Conectando com Google...", "info");
+
+  auth.signInWithPopup(provider).catch((error) => {
+    if (error.code === "auth/popup-blocked" || error.code === "auth/popup-closed-by-user") {
+      signInWithGoogleRedirect();
+    } else {
+      setLoginMessage("Erro ao fazer login: " + error.message, "error");
+    }
+  });
 }
 
 function signInWithGoogleRedirect() {
-  auth.signInWithRedirect(provider)
-    .catch((error) => {
-      alert("Erro ao fazer login: " + error.message);
-    });
+  auth.signInWithRedirect(provider).catch((error) => {
+    setLoginMessage("Erro ao fazer login: " + error.message, "error");
+  });
 }
 
 function handleRedirectResult() {
-  auth.getRedirectResult()
-    .then((result) => {
-      if (result.user) updateUIForSignedInUser(result.user);
-    })
-    .catch((error) => {
-      if (error.code !== "auth/no-credential") {
-        alert("Erro ao fazer login: " + error.message);
-      }
-    });
+  auth.getRedirectResult().catch((error) => {
+    if (error.code !== "auth/no-credential") {
+      setLoginMessage("Erro ao fazer login: " + error.message, "error");
+    }
+  });
 }
 
 function signOut() {
@@ -906,108 +1075,85 @@ function signOut() {
 }
 
 function updateUIForSignedInUser(user) {
-  const googleBtn = document.querySelector(".google-btn");
-  if (!googleBtn) return;
+  if (!user) return;
 
-  googleBtn.innerHTML = `
-    ${user.displayName}
-    <img src="${user.photoURL}" alt="Profile" style="width: 18px; height: 18px; border-radius: 50%; margin-left: 8px;">
-  `;
-  googleBtn.onclick = signOut;
+  const name = qs("accountName");
+  const email = qs("accountEmail");
+  const avatar = qs("accountAvatar");
+  const fallback = qs("accountAvatarFallback");
+
+  if (name) name.textContent = user.displayName || "Usuário";
+  if (email) email.textContent = user.email || "---";
+
+  if (avatar && user.photoURL) {
+    avatar.src = user.photoURL;
+    avatar.alt = user.displayName || "Perfil";
+    avatar.hidden = false;
+    if (fallback) fallback.hidden = true;
+  } else if (fallback) {
+    const initial = (user.displayName || user.email || "?").charAt(0).toUpperCase();
+    fallback.textContent = initial;
+    fallback.hidden = false;
+    if (avatar) avatar.hidden = true;
+  }
 }
 
 function updateUIForSignedOutUser() {
-  const googleBtn = document.querySelector(".google-btn");
-  if (!googleBtn) return;
-
-  googleBtn.innerHTML = `
-    Entrar
-    <svg width="18" height="18" viewBox="0 0 48 48">
-      <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
-      <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
-      <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
-      <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
-    </svg>
-  `;
-  googleBtn.onclick = signInWithGoogle;
+  showLogin();
+  updateSyncDot("idle");
 }
 
-// ==========================
-// TABS
-// ==========================
-function setupTabs() {
-  const buttons = Array.from(document.querySelectorAll(".tab-button"));
-  const panels = Array.from(document.querySelectorAll("[data-tab-panel]"));
-  const title = qs("viewTitle");
-  const subtitle = qs("viewSubtitle");
+async function handleAuthState(user) {
+  if (!user) {
+    updateUIForSignedOutUser();
+    return;
+  }
 
-  const activateTab = (tab) => {
-    const button = buttons.find((item) => item.dataset.tab === tab) || buttons[0];
-    if (!button) return;
+  updateUIForSignedInUser(user);
+  setLoginMessage("Verificando acesso...", "info");
+  updateSyncDot("carregando");
 
-    buttons.forEach((item) => {
-      const active = item === button;
-      item.classList.toggle("active", active);
-      item.setAttribute("aria-selected", active ? "true" : "false");
-    });
+  const isAuthorized = await checkAuthorization();
+  if (!isAuthorized) {
+    showUnauthorizedMessage();
+    return;
+  }
 
-    panels.forEach((panel) => {
-      panel.classList.toggle("active", panel.dataset.tabPanel === button.dataset.tab);
-    });
+  showApp();
+  setText("statusCache", "carregando");
+  updateSyncDot("carregando");
 
-    if (title) title.textContent = button.dataset.title || button.textContent.trim();
-    if (subtitle) subtitle.textContent = button.dataset.subtitle || "";
-  };
-
-  buttons.forEach((button) => {
-    button.type = "button";
-    button.setAttribute("role", "tab");
-    button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
-    button.addEventListener("click", () => activateTab(button.dataset.tab));
-  });
-
-  activateTab((buttons.find((button) => button.classList.contains("active")) || buttons[0])?.dataset.tab);
+  const cache = carregarCache();
+  if (cache) {
+    aplicarRelatorios(cache);
+    setText("statusCache", "cache local");
+    updateSyncDot("cache local");
+    setTimeout(buscarFirebase, 1500);
+  } else {
+    buscarFirebase();
+  }
 }
 
 // ==========================
 // INIT
 // ==========================
 function init() {
-  setupTabs();
+  setupBottomNav();
+  setupPwaInstall();
+  registerServiceWorker();
   handleRedirectResult();
+  showLogin();
+  updateSyncDot("idle");
 
   const select = qs("unitSelect");
   if (select) {
     select.addEventListener("change", (event) => selecionarUnidade(event.target.value));
   }
 
-  auth.onAuthStateChanged(async (user) => {
-    if (!user) {
-      updateUIForSignedOutUser();
-      showUnauthorizedMessage();
-      return;
-    }
+  qs("loginGoogleBtn")?.addEventListener("click", signInWithGoogle);
+  qs("logoutBtn")?.addEventListener("click", signOut);
 
-    updateUIForSignedInUser(user);
-    const isAuthorized = await checkAuthorization();
-
-    if (!isAuthorized) {
-      showUnauthorizedMessage();
-      return;
-    }
-
-    const cache = carregarCache();
-    if (cache) {
-      aplicarRelatorios(cache);
-      setText("statusCache", "cache local");
-      setTimeout(buscarFirebase, 1500);
-    } else {
-      buscarFirebase();
-    }
-  });
-
-  const googleBtn = document.querySelector(".google-btn");
-  if (googleBtn) googleBtn.onclick = signInWithGoogle;
+  auth.onAuthStateChanged(handleAuthState);
 }
 
 document.addEventListener("DOMContentLoaded", init);
