@@ -614,7 +614,7 @@ function aplicarHoras(picoHoras) {
     const isCold = point.hora === Number(vale.hora);
     const className = ["hour-point", isHot ? "hot" : "", isCold ? "cold" : ""].filter(Boolean).join(" ");
     return `
-      <g class="${className}" tabindex="0"
+      <g class="${className}"
         aria-label="${formatHora(point.hora)} com ${formatRatioPercent(point.valor, 0)}"
         data-hour="${formatHora(point.hora)}" data-value="${formatRatioPercent(point.valor, 0)}"
         data-x="${point.x}" data-y="${point.y}">
@@ -808,7 +808,6 @@ function aplicarDistribuicao(topPlanos) {
     <path class="donut-slice${fatia.muted ? " muted" : ""}"
       d="${fatia.path}"
       fill="${fatia.color}"
-      tabindex="0"
       data-label="${escapeHTML(fatia.label)}"
       data-percent="${formatPercent(fatia.percentualOriginal, 2)}"
       data-qtd="${fatia.qtd === null ? "" : `${fatia.qtd} registros`}">
