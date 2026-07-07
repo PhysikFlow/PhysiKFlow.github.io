@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-bank-v1";
+const VERSION = "relatorio-r1-bank-v3";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -7,6 +7,7 @@ const CORE_ASSETS = [
   "./index.html",
   "./style.css",
   "./app.js",
+  "./data.js",
   "./manifest.json",
   "./favicon.png",
   "./app-icon.png"

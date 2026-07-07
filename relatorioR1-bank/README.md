@@ -1,12 +1,21 @@
-# PhysikFlow Bank
+# PhysikFlow Gestão (layout fintech)
 
-Protótipo de UI estilo fintech (PicPay / RecargaPay): tela inicial com blocos clicáveis e subpáginas adjacentes com animação lateral.
+Gestão de academia com UX inspirada em apps financeiros modernos: blocos clicáveis, subpáginas com transição lateral e dados reais do Firebase.
 
 - URL: `/relatorioR1-bank/`
-- Dados mockados — sem backend por enquanto
+- Auth: Google + lista `authorized_users` no Realtime Database
+- Cache local: 6 horas
+
+## Conceito
+
+Reutiliza o **layout** familiar (card principal, atalhos, grid, lista de blocos) para métricas de academia — sem imitar um banco de verdade.
+
+## Privacidade financeira
+
+Valores monetários **ocultos por padrão**. O ícone de olho libera todos de uma vez, em qualquer tela.
 
 ## Navegação
 
-- **Home:** saldo, atalhos Pix/Pagar/Recarga, grid de acesso rápido, lista de serviços
-- **Subpáginas:** Pix, Pagar, Recarga, Extrato, Cartões, Cashback, Ofertas, Transferir, Investir, Seguros, Conta
-- Voltar: botão ← ou gesto do browser (history)
+- Subpáginas deslizam da direita
+- Voltar: botão ← ou gesto do browser
+- Unidades: visão consolidada ou individual (como na beta)

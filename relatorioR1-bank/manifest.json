@@ -1,14 +1,14 @@
 {
-  "name": "PhysikFlow Bank",
-  "short_name": "PF Bank",
-  "description": "Protótipo de interface estilo fintech com blocos e subpáginas.",
+  "name": "PhysikFlow Gestão",
+  "short_name": "PF Gestão",
+  "description": "Gestão de academia com layout intuitivo inspirado em apps financeiros modernos.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a1628",
   "theme_color": "#0a1628",
-  "categories": ["finance"],
+  "categories": ["business", "productivity"],
   "lang": "pt-BR",
   "icons": [
     {

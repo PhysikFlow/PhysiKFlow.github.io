@@ -1,5 +1,50 @@
 const pages = [...document.querySelectorAll("[data-page]")];
 const stack = ["home"];
+const FIN_KEY = "pf-financial-visible";
+
+const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const maskFinancial = (value) => {
+  const amount = Number.parseFloat(value);
+  if (!Number.isFinite(amount)) return "R$ ••••";
+  if (amount >= 10000) return "R$ ••••••";
+  if (amount >= 1000) return "R$ ••••";
+  return "R$ •••";
+};
+
+let financialVisible = sessionStorage.getItem(FIN_KEY) === "1";
+
+const applyFinancialToElement = (node) => {
+  const raw = node.dataset.fin;
+  if (raw === undefined) return;
+  node.textContent = financialVisible ? money.format(Number.parseFloat(raw)) : maskFinancial(raw);
+};
+
+const renderFinancialValues = (visible) => {
+  financialVisible = visible;
+  document.body.classList.toggle("financial-visible", visible);
+  document.body.classList.toggle("financial-hidden", !visible);
+  document.querySelectorAll("[data-fin]").forEach(applyFinancialToElement);
+  sessionStorage.setItem(FIN_KEY, visible ? "1" : "0");
+  window.PFGestao?.onFinancialToggle?.(visible);
+};
+
+renderFinancialValues(financialVisible);
+
+window.PFGestao = {
+  ...window.PFGestao,
+  applyFinancialToElement,
+  refreshFinancialDisplay: () => renderFinancialValues(financialVisible),
+  onUnitSelected() {
+    if (stack[stack.length - 1] === "unidades") goBack(false);
+  }
+};
+
+const toggleFinancial = () => renderFinancialValues(!financialVisible);
+
+document.querySelectorAll("[data-toggle-financial]").forEach((button) => {
+  button.addEventListener("click", toggleFinancial);
+});
 
 const getPage = (name) => pages.find((page) => page.dataset.page === name);
 
@@ -15,10 +60,10 @@ const openPage = (name, pushHistory = true) => {
   stack.push(name);
   next.scrollTop = 0;
 
-  window.setTimeout(() => current?.classList.remove("is-leaving"), 280);
+  window.setTimeout(() => current?.classList.remove("is-leaving"), 320);
 
   if (pushHistory) {
-    history.pushState({ page: name }, "", `#${name}`);
+    history.pushState({ page: name, stackDepth: stack.length }, "", `#${name}`);
   }
 };
 
@@ -49,28 +94,18 @@ window.addEventListener("popstate", () => {
   if (stack.length > 1) goBack(true);
 });
 
-document.querySelector("[data-toggle-balance]")?.addEventListener("click", () => {
-  document.querySelector("[data-balance]")?.classList.toggle("is-hidden");
-  document.querySelector("[data-balance-hidden]")?.classList.toggle("is-hidden");
-});
-
-document.querySelectorAll(".chip-row").forEach((row) => {
-  row.querySelectorAll(".chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      row.querySelectorAll(".chip").forEach((item) => item.classList.remove("active"));
-      chip.classList.add("active");
-    });
-  });
-});
-
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch(() => undefined);
   });
 }
 
-const hashPage = location.hash.replace("#", "");
-if (hashPage && hashPage !== "home" && getPage(hashPage)) {
-  openPage(hashPage, false);
-  history.replaceState({ page: hashPage }, "", `#${hashPage}`);
-}
+document.addEventListener("DOMContentLoaded", () => {
+  window.PFGestao?.initAuth?.();
+
+  const hashPage = location.hash.replace("#", "");
+  if (hashPage && hashPage !== "home" && getPage(hashPage)) {
+    openPage(hashPage, false);
+    history.replaceState({ page: hashPage, stackDepth: stack.length }, "", `#${hashPage}`);
+  }
+});
