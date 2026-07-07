@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-bank-v3";
+const VERSION = "relatorio-r1-bank-v4";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 

@@ -11,8 +11,8 @@
     appId: "1:145242057741:web:dfc986550ac1a3d007b944"
   };
 
-  const CACHE_KEY = "relatorio_cache_bank_v1";
-  const SELECTED_UNIT_KEY = "relatorio_unidade_ativa_bank";
+  const CACHE_KEY = "relatorio_cache_v2";
+  const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
   const CACHE_TTL = 1000 * 60 * 60 * 6;
 
   const UNIT_LABELS = {
@@ -99,6 +99,50 @@
     return nomeUnidade(unitId);
   }
 
+  function normalizarResumo(raw = {}) {
+    return {
+      total: Number(raw.total ?? raw.totalGeral ?? 0),
+      total30d: Number(raw.total30d ?? raw.totalUltimos30Dias ?? 0),
+      total3m: Number(raw.total3m ?? raw.totalUltimos3Meses ?? 0),
+      alunos: Number(raw.alunos ?? raw.totalAlunos ?? 0),
+      ativos: Number(raw.ativos ?? raw.totalAlunosAtivos ?? 0),
+      atrasados: Number(raw.atrasados ?? raw.totalAlunosAtrasados ?? 0),
+      diariasTotal: Number(raw.diariasTotal ?? raw.totalDiarias ?? 0),
+      diariasCount: Number(raw.diariasCount ?? raw.qtdDiarias ?? 0),
+      ticketMedio30d: Number(raw.ticketMedio30d ?? raw.ticketMedio30Dias ?? 0),
+      ticketMedioGeral: Number(raw.ticketMedioGeral ?? raw.ticketMedio ?? 0)
+    };
+  }
+
+  function normalizarRelatorio(relatorio) {
+    if (!relatorio || typeof relatorio !== "object") return relatorio;
+
+    const topPessoas = relatorio.topPessoas ?? relatorio.totalPorPessoa ?? [];
+    const pessoas = toArray(topPessoas).map((p) => ({
+      ...p,
+      codigo: p.codigo ?? p.codigoPessoa ?? p.id,
+      total: Number(p.total ?? 0)
+    }));
+
+    return {
+      ...relatorio,
+      resumo: normalizarResumo(relatorio.resumo || {}),
+      topPessoas: pessoas,
+      topPlanosGlobal: relatorio.topPlanosGlobal ?? relatorio.topPlanos ?? []
+    };
+  }
+
+  function normalizarRelatoriosMap(data) {
+    const raw = normalizarRelatorios(data);
+    return Object.fromEntries(
+      Object.entries(raw).map(([key, value]) => [key, normalizarRelatorio(value)])
+    );
+  }
+
+  function formatRatioPercent(v, digits = 0) {
+    return formatNumero(Number(v || 0) * 100, digits) + "%";
+  }
+
   function mergeMesEntries(mesAMes) {
     if (Array.isArray(mesAMes)) {
       return mesAMes.map((item) => [
@@ -144,7 +188,7 @@
   function agregarRelatorioGeral() {
     const unidades = Object.values(relatoriosPorUnidade);
     if (!unidades.length) return {};
-    if (unidades.length === 1) return unidades[0];
+    if (unidades.length === 1) return normalizarRelatorio(unidades[0]);
 
     const resumo = {
       total: 0, total30d: 0, total3m: 0, alunos: 0, ativos: 0, atrasados: 0,
@@ -153,7 +197,7 @@
     let pesoTicket30 = 0, pesoTicketGeral = 0, pesoAlunos = 0, pesoFreq = 0, somaFreq = 0;
 
     unidades.forEach((relatorio) => {
-      const item = relatorio.resumo || {};
+      const item = normalizarResumo(relatorio.resumo || {});
       resumo.total += Number(item.total) || 0;
       resumo.total30d += Number(item.total30d) || 0;
       resumo.total3m += Number(item.total3m) || 0;
@@ -270,8 +314,16 @@
     return label.charAt(0).toUpperCase() + label.slice(1);
   }
 
+  function aggregateMesEntries(mesAMes) {
+    const map = {};
+    mergeMesEntries(mesAMes).forEach(([mes, valor]) => {
+      map[mes] = (map[mes] || 0) + (Number(valor) || 0);
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
   function calcularTendencia(mesAMes) {
-    const entries = mergeMesEntries(mesAMes).sort((a, b) => a[0].localeCompare(b[0]));
+    const entries = aggregateMesEntries(mesAMes);
     if (entries.length < 2) return null;
     const atual = Number(entries[entries.length - 1][1]) || 0;
     const anterior = Number(entries[entries.length - 2][1]) || 0;
@@ -444,20 +496,25 @@
   function renderHistorico(mesAMes) {
     const container = qs("chartHistorico");
     if (!container) return;
-    const entries = mergeMesEntries(mesAMes).sort((a, b) => a[0].localeCompare(b[0]));
+    const entries = aggregateMesEntries(mesAMes);
     if (!entries.length) {
       container.innerHTML = '<div class="empty-note">Sem histórico mensal.</div>';
       return;
     }
 
-    const recent = entries.slice(-6);
+    const recent = entries.slice(-8);
     const max = Math.max(...recent.map(([, v]) => Number(v) || 0), 1);
-    const lastKey = recent[recent.length - 1][0];
 
     container.innerHTML = recent.map(([mes, valor]) => {
-      const h = ((Number(valor) || 0) / max) * 100;
-      const active = mes === lastKey ? " active" : "";
-      return `<div class="chart-bar${active}" style="--h: ${h}%"><span>${escapeHTML(mesLabel(mes))}</span><strong data-fin="${Number(valor) || 0}">R$ ••••</strong></div>`;
+      const amount = Number(valor) || 0;
+      const pct = (amount / max) * 100;
+      return `
+        <div class="chart-row-h">
+          <span class="chart-row-label">${escapeHTML(mesLabel(mes))}</span>
+          <div class="chart-track"><i class="chart-fill" style="width:${pct}%"></i></div>
+          <strong class="chart-row-value" data-fin="${amount}">R$ ••••</strong>
+        </div>
+      `;
     }).join("");
 
     container.querySelectorAll("[data-fin]").forEach((el) => window.PFGestao?.applyFinancialToElement?.(el));
@@ -467,10 +524,10 @@
     const pico = picoHoras.pico || {};
     const vale = picoHoras.vale || {};
     setText("opPico", formatHora(pico.hora));
-    setText("opPicoMedia", formatNumero(pico.media, 1) + " alunos/h");
+    setText("opPicoMedia", formatRatioPercent(pico.media, 0));
     setText("opVale", formatHora(vale.hora));
-    setText("opValeMedia", formatNumero(vale.media, 1) + " alunos/h");
-    setText("opFreq", formatNumero(frequencia.mediaPorAluno30d, 1));
+    setText("opValeMedia", formatRatioPercent(vale.media, 0));
+    setText("opFreq", formatNumero(frequencia.mediaPorAluno30d, 2));
 
     const container = qs("chartHoras");
     if (!container) return;
@@ -484,15 +541,14 @@
       return;
     }
 
-    const sampled = horas.filter((_, i) => i % Math.max(1, Math.floor(horas.length / 8)) === 0 || i === horas.length - 1);
-    const max = Math.max(...sampled.map(([, v]) => v), 1);
+    const max = Math.max(...horas.map(([, v]) => v), 1);
     const picoHora = Number(pico.hora);
 
-    container.innerHTML = sampled.map(([hora, valor]) => {
+    container.innerHTML = `<div class="hour-grid-scroll">${horas.map(([hora, valor]) => {
       const h = (valor / max) * 100;
       const peak = hora === picoHora ? " peak" : "";
       return `<div class="hour-bar${peak}" style="--h: ${h}%"><span>${formatHora(hora).replace(":00", "h")}</span></div>`;
-    }).join("");
+    }).join("")}</div>`;
   }
 
   function renderDetalhes(topPlanos, topPessoas) {
@@ -579,18 +635,19 @@
   }
 
   function aplicarTudo(data, unitId = unidadeSelecionada) {
-    const resumo = data.resumo || {};
-    renderHome(resumo, data.mesAMes || {}, data.meta || {}, unitId);
+    const normalized = normalizarRelatorio(data);
+    const resumo = normalized.resumo || {};
+    renderHome(resumo, normalized.mesAMes || {}, normalized.meta || {}, unitId);
     renderOperacional(resumo, unitId);
-    renderFinanceiro(resumo, data.topPlanosGlobal || []);
+    renderFinanceiro(resumo, normalized.topPlanosGlobal || []);
     renderAlunos(resumo, unitId);
     renderCobrancas(resumo);
-    renderDiarias(data.diarias || {}, data.diariasMensais || {}, resumo);
-    renderHistorico(data.mesAMes || {});
-    renderOperacao(data.picoHoras || {}, data.frequencia || {});
-    renderDetalhes(data.topPlanosGlobal || [], data.topPessoas || []);
+    renderDiarias(normalized.diarias || {}, normalized.diariasMensais || {}, resumo);
+    renderHistorico(normalized.mesAMes || {});
+    renderOperacao(normalized.picoHoras || {}, normalized.frequencia || {});
+    renderDetalhes(normalized.topPlanosGlobal || [], normalized.topPessoas || []);
     renderUnidades();
-    renderConta(data.meta || {}, unitId);
+    renderConta(normalized.meta || {}, unitId);
     window.PFGestao?.refreshFinancialDisplay?.();
   }
 
@@ -621,7 +678,7 @@
   }
 
   function aplicarRelatorios(data) {
-    relatoriosPorUnidade = normalizarRelatorios(data);
+    relatoriosPorUnidade = normalizarRelatoriosMap(data);
     const unitIds = Object.keys(relatoriosPorUnidade);
     if (!unitIds.length) {
       limparDashboard("Nenhum relatório encontrado");
