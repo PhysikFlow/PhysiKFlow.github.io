@@ -1,0 +1,27 @@
+{
+  "name": "PhysikFlow Bank",
+  "short_name": "PF Bank",
+  "description": "Protótipo de interface estilo fintech com blocos e subpáginas.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "categories": ["finance"],
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

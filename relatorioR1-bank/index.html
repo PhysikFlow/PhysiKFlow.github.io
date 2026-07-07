@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1628" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>PhysikFlow Bank</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
+  <link rel="apple-touch-icon" href="app-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <div class="page-stack">
+      <!-- HOME -->
+      <section class="page page-home active" data-page="home">
+        <header class="home-header">
+          <div class="home-header-top">
+            <div class="avatar" aria-hidden="true">PF</div>
+            <button class="icon-btn" type="button" aria-label="Notificações">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+            </button>
+          </div>
+          <p class="home-greeting">Olá, <strong>Carlos</strong></p>
+        </header>
+
+        <article class="balance-card">
+          <div class="balance-card-top">
+            <span>Saldo disponível</span>
+            <button class="eye-btn" type="button" data-toggle-balance aria-label="Mostrar ou ocultar saldo">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+            </button>
+          </div>
+          <p class="balance-value" data-balance>R$ 2.847,32</p>
+          <p class="balance-hidden is-hidden" data-balance-hidden>R$ ••••••</p>
+          <div class="balance-actions">
+            <button type="button" class="pill-btn" data-open="pix">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+              Pix
+            </button>
+            <button type="button" class="pill-btn" data-open="pagar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" /></svg>
+              Pagar
+            </button>
+            <button type="button" class="pill-btn" data-open="recarga">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" /><path d="M12 18h.01" /></svg>
+              Recarga
+            </button>
+          </div>
+        </article>
+
+        <section class="section">
+          <h2 class="section-title">Acesso rápido</h2>
+          <div class="quick-grid">
+            <button type="button" class="quick-tile" data-open="extrato">
+              <span class="tile-icon tile-blue"><svg viewBox="0 0 24 24"><path d="M4 20V9" /><path d="M10 20V5" /><path d="M16 20v-8" /><path d="M22 20V3" /></svg></span>
+              <span class="tile-label">Extrato</span>
+            </button>
+            <button type="button" class="quick-tile" data-open="cartoes">
+              <span class="tile-icon tile-purple"><svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2" /><path d="M2 10h20" /></svg></span>
+              <span class="tile-label">Cartões</span>
+            </button>
+            <button type="button" class="quick-tile" data-open="cashback">
+              <span class="tile-icon tile-green"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>
+              <span class="tile-label">Cashback</span>
+            </button>
+            <button type="button" class="quick-tile" data-open="ofertas">
+              <span class="tile-icon tile-orange"><svg viewBox="0 0 24 24"><path d="m12 3-1.9 5.8H4l4.9 3.5-1.9 5.8L12 14.6l5 3.7-1.9-5.8L20 8.8h-6.1Z" /></svg></span>
+              <span class="tile-label">Ofertas</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Serviços</h2>
+          <div class="block-list">
+            <button type="button" class="block-card" data-open="transferir">
+              <span class="block-icon"><svg viewBox="0 0 24 24"><path d="m7 17 5-5-5-5" /><path d="M12 12h9" /></svg></span>
+              <span class="block-copy">
+                <strong>Transferir</strong>
+                <small>Entre contas e bancos</small>
+              </span>
+              <svg class="block-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+            <button type="button" class="block-card" data-open="investir">
+              <span class="block-icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18" /><path d="M7 16l4-6 4 3 5-7" /></svg></span>
+              <span class="block-copy">
+                <strong>Investir</strong>
+                <small>Rendimentos e metas</small>
+              </span>
+              <svg class="block-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+            <button type="button" class="block-card" data-open="seguros">
+              <span class="block-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7l-8-4z" /></svg></span>
+              <span class="block-copy">
+                <strong>Seguros</strong>
+                <small>Proteção para você e família</small>
+              </span>
+              <svg class="block-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+            <button type="button" class="block-card" data-open="conta">
+              <span class="block-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg></span>
+              <span class="block-copy">
+                <strong>Minha conta</strong>
+                <small>Dados, limites e segurança</small>
+              </span>
+              <svg class="block-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </div>
+        </section>
+      </section>
+
+      <!-- SUBPAGES -->
+      <section class="page page-sub" data-page="pix">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Pix</h1>
+        </header>
+        <div class="sub-body">
+          <p class="sub-lead">Envie ou receba na hora, 24 horas por dia.</p>
+          <div class="action-grid">
+            <button type="button" class="action-card"><strong>Pix Copia e Cola</strong><small>Cole um código</small></button>
+            <button type="button" class="action-card"><strong>QR Code</strong><small>Ler ou gerar</small></button>
+            <button type="button" class="action-card"><strong>Chave Pix</strong><small>CPF, e-mail ou celular</small></button>
+            <button type="button" class="action-card"><strong>Agência e conta</strong><small>Transferência manual</small></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="pagar">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Pagar</h1>
+        </header>
+        <div class="sub-body">
+          <p class="sub-lead">Boletos, contas de consumo e tributos.</p>
+          <label class="input-field">
+            <span>Código de barras</span>
+            <input type="text" inputmode="numeric" placeholder="Digite ou escaneie" />
+          </label>
+          <button type="button" class="primary-btn">Continuar</button>
+          <div class="list-card">
+            <strong>Pagamentos recentes</strong>
+            <div class="list-row"><span>Energia · Itaporanga</span><small>R$ 189,40</small></div>
+            <div class="list-row"><span>Internet · Vivo</span><small>R$ 99,99</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="recarga">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Recarga</h1>
+        </header>
+        <div class="sub-body">
+          <p class="sub-lead">Celular, transporte e gift cards.</p>
+          <div class="chip-row">
+            <button type="button" class="chip active">Celular</button>
+            <button type="button" class="chip">Transporte</button>
+            <button type="button" class="chip">Games</button>
+          </div>
+          <div class="amount-grid">
+            <button type="button" class="amount-btn">R$ 15</button>
+            <button type="button" class="amount-btn">R$ 20</button>
+            <button type="button" class="amount-btn">R$ 30</button>
+            <button type="button" class="amount-btn">R$ 50</button>
+          </div>
+          <button type="button" class="primary-btn">Recarregar</button>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="extrato">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Extrato</h1>
+        </header>
+        <div class="sub-body">
+          <div class="list-card">
+            <div class="list-row"><span><strong>Pix recebido</strong><small>Hoje · 14:32</small></span><small class="credit">+ R$ 350,00</small></div>
+            <div class="list-row"><span><strong>Academia mensalidade</strong><small>Ontem · 09:10</small></span><small class="debit">− R$ 120,00</small></div>
+            <div class="list-row"><span><strong>Recarga TIM</strong><small>08/07 · 18:45</small></span><small class="debit">− R$ 30,00</small></div>
+            <div class="list-row"><span><strong>Transferência</strong><small>07/07 · 11:02</small></span><small class="debit">− R$ 500,00</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="cartoes">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Cartões</h1>
+        </header>
+        <div class="sub-body">
+          <article class="card-visual">
+            <span>PhysikFlow</span>
+            <strong>•••• 4821</strong>
+            <small>Carlos Silva · 09/28</small>
+          </article>
+          <div class="list-card">
+            <div class="list-row"><span>Fatura atual</span><strong>R$ 1.240,18</strong></div>
+            <div class="list-row"><span>Limite disponível</span><strong>R$ 8.759,82</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="cashback">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Cashback</h1>
+        </header>
+        <div class="sub-body">
+          <article class="highlight-card">
+            <span>Total acumulado</span>
+            <strong>R$ 47,80</strong>
+            <small>Resgate a partir de R$ 10</small>
+          </article>
+          <div class="list-card">
+            <div class="list-row"><span>Suplementos</span><small>5% de volta</small></div>
+            <div class="list-row"><span>Farmácias</span><small>3% de volta</small></div>
+            <div class="list-row"><span>Postos parceiros</span><small>2% de volta</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="ofertas">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Ofertas</h1>
+        </header>
+        <div class="sub-body">
+          <article class="promo-card"><span>Cashback extra</span><strong>10% em academias</strong><small>Válido até domingo</small></article>
+          <article class="promo-card promo-alt"><span>Sem juros</span><strong>Parcele em 3x</strong><small>Em parceiros selecionados</small></article>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="transferir">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Transferir</h1>
+        </header>
+        <div class="sub-body">
+          <label class="input-field"><span>Para quem</span><input type="text" placeholder="Nome, CPF ou banco" /></label>
+          <label class="input-field"><span>Valor</span><input type="text" inputmode="decimal" placeholder="R$ 0,00" /></label>
+          <button type="button" class="primary-btn">Transferir</button>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="investir">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Investir</h1>
+        </header>
+        <div class="sub-body">
+          <article class="highlight-card"><span>Reserva de emergência</span><strong>102% CDI</strong><small>Resgate diário</small></article>
+          <div class="list-card">
+            <div class="list-row"><span>CDB PhysikFlow</span><small>110% CDI · 1 ano</small></div>
+            <div class="list-row"><span>Tesouro Selic</span><small>Risco baixo</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="seguros">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Seguros</h1>
+        </header>
+        <div class="sub-body">
+          <div class="block-list">
+            <div class="block-card static"><span class="block-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg></span><span class="block-copy"><strong>Vida</strong><small>A partir de R$ 19/mês</small></span></div>
+            <div class="block-card static"><span class="block-icon"><svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2" /></svg></span><span class="block-copy"><strong>Cartão</strong><small>Proteção contra perda</small></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-sub" data-page="conta">
+        <header class="sub-header">
+          <button type="button" class="back-btn" data-back aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>
+          <h1>Minha conta</h1>
+        </header>
+        <div class="sub-body">
+          <div class="list-card">
+            <div class="list-row"><span>Nome</span><strong>Carlos Silva</strong></div>
+            <div class="list-row"><span>Agência / Conta</span><strong>0001 · 48291-0</strong></div>
+            <div class="list-row"><span>Limite Pix</span><strong>R$ 5.000 / dia</strong></div>
+          </div>
+          <button type="button" class="ghost-btn">Sair da conta</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
