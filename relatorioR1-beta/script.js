@@ -683,7 +683,8 @@ function renderUnitsCards() {
     const ativos = Number(relatoriosPorUnidade[unitId]?.resumo?.ativos) || 0;
     return `
       <div class="inicio-unit-row">
-        <span class="inicio-unit-name">${escapeHTML(nomeUnidade(unitId))}<span class="inicio-unit-sep">—</span></span>
+        <span class="inicio-live-dot" aria-hidden="true"></span>
+        <span class="inicio-unit-name">${escapeHTML(nomeUnidade(unitId))}</span>
         <span class="inicio-unit-count">${ativos.toLocaleString("pt-BR")}</span>
       </div>
     `;
