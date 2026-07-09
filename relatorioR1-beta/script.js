@@ -1,11 +1,6 @@
 const API_URL = "https://itemdest-default-rtdb.firebaseio.com/relatorios.json";
 
 // ==========================
-// TEMP - DEMO MODE (REMOVER EM PRODUÇÃO)
-// ==========================
-const DEMO_MODE = true; // Mudar para false em produção
-
-// ==========================
 // FIREBASE CONFIG
 // ==========================
 const firebaseConfig = {
@@ -43,6 +38,7 @@ let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let deferredInstallPrompt = null;
 let appAuthorized = false;
 let authStateReady = false;
+let pendingLoginError = "";
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
 
@@ -799,74 +795,16 @@ function formatMonthLabel(monthKey) {
   return `${MONTH_SHORT[Number(match[2]) - 1]}/${match[1]}`;
 }
 
-function generateDemoDiaADia(unitId, days = 15) {
-  const resumo = relatoriosPorUnidade[unitId]?.resumo || {};
-  const dailyBase = (Number(resumo.total30d) || 12000) / 30;
-  const entries = [];
-  const today = new Date();
-  const seedBase = [...unitId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - offset);
-    const key = date.toISOString().slice(0, 10);
-    const wave = 0.72 + ((seedBase + offset * 3) % 11) * 0.05;
-    entries.push([key, Math.round(dailyBase * wave * 100) / 100]);
-  }
-
-  return entries;
-}
-
-function expandMesAMesToLimit(mesAMes, limit = 18, unitId = "") {
-  let entries = mergeMesEntries(mesAMes);
-  entries.sort((a, b) => a[0].localeCompare(b[0]));
-
-  if (entries.length >= limit) return entries.slice(-limit);
-
-  const seedBase = [...unitId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const anchor = entries[0]?.[0] || new Date().toISOString().slice(0, 7);
-  let [year, month] = anchor.split("-").map(Number);
-  const avg = entries.length
-    ? entries.reduce((sum, entry) => sum + entry[1], 0) / entries.length
-    : 4000;
-
-  while (entries.length < limit) {
-    month -= 1;
-    if (month < 1) {
-      month = 12;
-      year -= 1;
-    }
-
-    const key = `${year}-${String(month).padStart(2, "0")}`;
-    if (!entries.some((entry) => entry[0] === key)) {
-      const wave = 0.85 + ((seedBase + month) % 9) * 0.04;
-      entries.unshift([key, Math.round(avg * wave * 100) / 100]);
-    }
-  }
-
-  return entries.slice(-limit);
-}
-
 function getFinanceDailyEntries(unitId) {
   const data = relatoriosPorUnidade[unitId] || {};
-  let entries = mergeDiaEntries(data.diaADia);
-
-  if (!entries.length) {
-    entries = generateDemoDiaADia(unitId, 15);
-  }
-
+  const entries = mergeDiaEntries(data.diaADia);
   entries.sort((a, b) => a[0].localeCompare(b[0]));
   return entries.slice(-15);
 }
 
 function getFinanceMonthlyEntries(unitId) {
   const data = relatoriosPorUnidade[unitId] || {};
-  let entries = mergeMesEntries(data.mesAMes || {});
-
-  if (entries.length < 18) {
-    entries = expandMesAMesToLimit(data.mesAMes || {}, 18, unitId);
-  }
-
+  const entries = mergeMesEntries(data.mesAMes || {});
   entries.sort((a, b) => a[0].localeCompare(b[0]));
   return entries.slice(-18);
 }
@@ -1130,7 +1068,7 @@ function renderAlunosUnitsCards() {
   let html = "";
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
-    const alunos = Array.isArray(data.alunos) ? data.alunos : (DEMO_ALUNOS[unitId] || []);
+    const alunos = Array.isArray(data.alunos) ? data.alunos : [];
     const cardsHtml = alunos.length
       ? alunos.map(renderStudentCard).join("")
       : "";
@@ -1230,10 +1168,15 @@ async function checkAuthorization() {
 
   try {
     const authorizedRef = firebase.database().ref("authorized_users/" + user.uid);
-    const snapshot = await authorizedRef.once("value");
+    const snapshot = await Promise.race([
+      authorizedRef.once("value"),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("authorization-timeout")), 10000);
+      })
+    ]);
     return snapshot.exists();
   } catch (error) {
-    console.error("Authorization check failed:", error.code, error.message);
+    console.error("Authorization check failed:", error.code || error.message, error.message);
     return false;
   }
 }
@@ -1292,7 +1235,19 @@ function showUnauthorizedMessage() {
   limparDashboard("Acesso restrito");
   setText("ultimaSync", "Acesso restrito");
   setText("statusCache", "Nao autorizado");
-  showLogin({ error: "Acesso restrito. Solicite autorização ao administrador." });
+
+  pendingLoginError = "Acesso restrito. Solicite autorização ao administrador.";
+  showLogin({ error: pendingLoginError });
+
+  // Encerra a sessão para liberar o botão de login (senão currentUser trava o botão).
+  if (auth.currentUser) {
+    auth.signOut().catch((error) => {
+      console.error("Sign out after unauthorized:", error);
+      updateLoginButton();
+    });
+  } else {
+    updateLoginButton();
+  }
 }
 
 // ==========================
@@ -2479,14 +2434,23 @@ function registerServiceWorker() {
 function signInWithGoogle() {
   if (!authStateReady || auth.currentUser) return;
 
+  pendingLoginError = "";
   setLoginMessage("Conectando com Google...", "info");
 
   auth.signInWithPopup(provider).catch((error) => {
-    if (error.code === "auth/popup-blocked" || error.code === "auth/popup-closed-by-user") {
+    if (error.code === "auth/popup-blocked") {
       signInWithGoogleRedirect();
-    } else {
-      setLoginMessage("Erro ao fazer login: " + error.message, "error");
+      return;
     }
+
+    if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
+      setLoginMessage();
+      updateLoginButton();
+      return;
+    }
+
+    setLoginMessage("Erro ao fazer login: " + error.message, "error");
+    updateLoginButton();
   });
 }
 
@@ -2546,7 +2510,9 @@ function updateUIForSignedInUser(user) {
 }
 
 function updateUIForSignedOutUser() {
-  showLogin();
+  const error = pendingLoginError;
+  pendingLoginError = "";
+  showLogin(error ? { error } : {});
   updateSyncDot("idle");
   updateLoginButton();
 }
@@ -2568,6 +2534,13 @@ async function handleAuthState(user) {
   updateSyncDot("carregando");
 
   const isAuthorized = await checkAuthorization();
+
+  // Sessão pode ter mudado enquanto a checagem rodava (ex.: signOut paralelo).
+  if (auth.currentUser?.uid !== user.uid) {
+    updateLoginButton();
+    return;
+  }
+
   if (!isAuthorized) {
     showUnauthorizedMessage();
     return;
@@ -2592,261 +2565,6 @@ async function handleAuthState(user) {
 // INIT
 // ==========================
 
-// ===== MOCK/DEMO DATA - REMOVE BEFORE PRODUCTION =====
-const DEMO_DATA = {
-  "58780-000": {
-    resumo: {
-      total: 125430.75,
-      total30d: 15230.45,
-      total3m: 42150.20,
-      alunos: 340,
-      ativos: 298,
-      atrasados: 42,
-      diariasTotal: 8950.00,
-      diariasCount: 45,
-      ticketMedio30d: 51.12,
-      ticketMedioGeral: 369.21
-    },
-    mesAMes: {
-      "2026-01": 4320.40,
-      "2026-02": 3950.25,
-      "2026-03": 4680.70,
-      "2026-04": 4150.35,
-      "2026-05": 3820.60,
-      "2026-06": 4290.85
-    },
-    frequencia: { mediaPorAluno30d: 12.5 },
-    picoHoras: {
-      "6": 45,
-      "7": 120,
-      "8": 280,
-      "9": 320,
-      "10": 290,
-      "11": 240,
-      "12": 180,
-      "17": 250,
-      "18": 380,
-      "19": 420,
-      "20": 340
-    },
-    topPessoas: [
-      { codigo: 1001, nome: "João Silva", total: 2500.00, percentual: 12.5 },
-      { codigo: 1002, nome: "Maria Santos", total: 2100.00, percentual: 10.5 },
-      { codigo: 1003, nome: "Pedro Costa", total: 1850.00, percentual: 9.2 },
-      { codigo: 1004, nome: "Ana Oliveira", total: 1650.00, percentual: 8.2 }
-    ],
-    topPlanosGlobal: [
-      { valor: 99.90, qtd: 120, percentual: 35.2 },
-      { valor: 149.90, qtd: 85, percentual: 25.0 },
-      { valor: 199.90, qtd: 62, percentual: 18.2 }
-    ],
-    meta: {
-      geradoEm: new Date().toISOString(),
-      versao: "2.1.0"
-    }
-  },
-  "58970-000": {
-    resumo: {
-      total: 98720.50,
-      total30d: 12180.90,
-      total3m: 35640.30,
-      alunos: 286,
-      ativos: 241,
-      atrasados: 33,
-      diariasTotal: 6120.00,
-      diariasCount: 31,
-      ticketMedio30d: 50.54,
-      ticketMedioGeral: 345.18
-    },
-    mesAMes: {
-      "2026-01": 3720.40,
-      "2026-02": 4050.25,
-      "2026-03": 3980.70,
-      "2026-04": 4350.35,
-      "2026-05": 4120.60,
-      "2026-06": 4490.85
-    },
-    frequencia: { mediaPorAluno30d: 10.8 },
-    picoHoras: {
-      "6": 24,
-      "7": 84,
-      "8": 190,
-      "9": 260,
-      "10": 230,
-      "11": 210,
-      "12": 150,
-      "17": 220,
-      "18": 310,
-      "19": 365,
-      "20": 275
-    },
-    topPessoas: [
-      { codigo: 2001, nome: "Carlos Andrade", total: 1980.00, percentual: 11.1 },
-      { codigo: 2002, nome: "Juliana Lima", total: 1760.00, percentual: 9.8 },
-      { codigo: 2003, nome: "Rafael Martins", total: 1510.00, percentual: 8.4 }
-    ],
-    topPlanosGlobal: [
-      { valor: 99.90, qtd: 92, percentual: 32.1 },
-      { valor: 149.90, qtd: 74, percentual: 25.8 },
-      { valor: 189.90, qtd: 48, percentual: 16.7 }
-    ],
-    meta: {
-      geradoEm: new Date().toISOString(),
-      versao: "2.1.0-demo"
-    }
-  },
-  "58000-000": {
-    resumo: {
-      total: 156880.20,
-      total30d: 19420.10,
-      total3m: 52480.75,
-      alunos: 412,
-      ativos: 376,
-      atrasados: 29,
-      diariasTotal: 10380.00,
-      diariasCount: 52,
-      ticketMedio30d: 51.65,
-      ticketMedioGeral: 380.78
-    },
-    mesAMes: {
-      "2026-01": 5120.00,
-      "2026-02": 5350.25,
-      "2026-03": 5680.70,
-      "2026-04": 6150.35,
-      "2026-05": 5820.60,
-      "2026-06": 6290.85
-    },
-    frequencia: { mediaPorAluno30d: 13.2 },
-    picoHoras: {
-      "6": 58,
-      "7": 132,
-      "8": 310,
-      "9": 360,
-      "10": 330,
-      "11": 275,
-      "12": 205,
-      "17": 300,
-      "18": 430,
-      "19": 485,
-      "20": 390
-    },
-    topPessoas: [
-      { codigo: 3001, nome: "Fernanda Rocha", total: 2820.00, percentual: 13.4 },
-      { codigo: 3002, nome: "Bruno Sales", total: 2460.00, percentual: 11.7 },
-      { codigo: 3003, nome: "Marina Alves", total: 2180.00, percentual: 10.4 }
-    ],
-    topPlanosGlobal: [
-      { valor: 109.90, qtd: 148, percentual: 35.9 },
-      { valor: 159.90, qtd: 96, percentual: 23.3 },
-      { valor: 219.90, qtd: 71, percentual: 17.2 }
-    ],
-    meta: {
-      geradoEm: new Date().toISOString(),
-      versao: "2.1.0-demo"
-    }
-  },
-  "59000-000": {
-    resumo: {
-      total: 73450.35,
-      total30d: 8950.80,
-      total3m: 24820.40,
-      alunos: 168,
-      ativos: 139,
-      atrasados: 21,
-      diariasTotal: 3940.00,
-      diariasCount: 24,
-      ticketMedio30d: 64.39,
-      ticketMedioGeral: 437.20
-    },
-    mesAMes: {
-      "2026-01": 2820.40,
-      "2026-02": 2950.25,
-      "2026-03": 3180.70,
-      "2026-04": 3050.35,
-      "2026-05": 3320.60,
-      "2026-06": 3490.85
-    },
-    frequencia: { mediaPorAluno30d: 9.4 },
-    picoHoras: {
-      "6": 18,
-      "7": 64,
-      "8": 120,
-      "9": 160,
-      "10": 150,
-      "11": 130,
-      "12": 92,
-      "17": 145,
-      "18": 210,
-      "19": 235,
-      "20": 180
-    },
-    topPessoas: [
-      { codigo: 4001, nome: "Patricia Nunes", total: 1420.00, percentual: 10.6 },
-      { codigo: 4002, nome: "Diego Ramos", total: 1280.00, percentual: 9.5 },
-      { codigo: 4003, nome: "Camila Freire", total: 1190.00, percentual: 8.9 }
-    ],
-    topPlanosGlobal: [
-      { valor: 89.90, qtd: 58, percentual: 34.5 },
-      { valor: 139.90, qtd: 42, percentual: 25.0 },
-      { valor: 179.90, qtd: 29, percentual: 17.3 }
-    ],
-    meta: {
-      geradoEm: new Date().toISOString(),
-      versao: "2.1.0-demo"
-    }
-  }
-};
-
-const DEMO_ALUNOS = {
-  "58780-000": [
-    { nome: "Ana Paula Souza", cartao: "10482", perfil: "aluno", vencimento: "2026-07-12", foto: null },
-    { nome: "Bruno Henrique Lima", cartao: "23891", perfil: "aluno", vencimento: "2026-07-18", foto: null },
-    { nome: "Carla Mendes", cartao: "31507", perfil: "colaborador", vencimento: "2026-08-01", foto: null },
-    { nome: "Diego Rocha", cartao: "42016", perfil: "aluno", vencimento: "2026-06-28", foto: null },
-    { nome: "Elisa Ferreira", cartao: "50944", perfil: "aluno", vencimento: "2026-07-25", foto: null }
-  ],
-  "58970-000": [
-    { nome: "Felipe Andrade", cartao: "11203", perfil: "aluno", vencimento: "2026-07-09", foto: null },
-    { nome: "Gabriela Nunes", cartao: "22418", perfil: "aluno", vencimento: "2026-07-21", foto: null },
-    { nome: "Henrique Costa", cartao: "33872", perfil: "colaborador", vencimento: "2026-08-05", foto: null },
-    { nome: "Isabela Martins", cartao: "44760", perfil: "aluno", vencimento: "2026-06-30", foto: null },
-    { nome: "João Victor Alves", cartao: "55601", perfil: "aluno", vencimento: "2026-07-14", foto: null }
-  ],
-  "58000-000": [
-    { nome: "Karina Duarte", cartao: "12088", perfil: "aluno", vencimento: "2026-07-11", foto: null },
-    { nome: "Lucas Pereira", cartao: "23145", perfil: "aluno", vencimento: "2026-07-19", foto: null },
-    { nome: "Marina Teixeira", cartao: "34290", perfil: "colaborador", vencimento: "2026-08-08", foto: null },
-    { nome: "Nicolas Barros", cartao: "45377", perfil: "aluno", vencimento: "2026-07-03", foto: null },
-    { nome: "Olivia Ramos", cartao: "56412", perfil: "aluno", vencimento: "2026-07-27", foto: null },
-    { nome: "Paulo Henrique", cartao: "67503", perfil: "aluno", vencimento: "2026-07-16", foto: null }
-  ],
-  "59000-000": [
-    { nome: "Quiteria Lopes", cartao: "10931", perfil: "aluno", vencimento: "2026-07-08", foto: null },
-    { nome: "Rafael Monteiro", cartao: "21844", perfil: "aluno", vencimento: "2026-07-22", foto: null },
-    { nome: "Sabrina Campos", cartao: "32755", perfil: "colaborador", vencimento: "2026-08-02", foto: null },
-    { nome: "Thiago Melo", cartao: "43666", perfil: "aluno", vencimento: "2026-06-29", foto: null }
-  ]
-};
-
-// ===== END MOCK/DEMO DATA =====
-
-// ===== MOCK/DEMO CONTROLS - REMOVE BEFORE PRODUCTION =====
-function showDemoButtons() {
-  if (!DEMO_MODE) return;
-  const demoDiv = qs("demoButtons");
-  if (demoDiv) {
-    demoDiv.style.display = "grid";
-    qs("demoEnter")?.addEventListener("click", () => {
-      appAuthorized = true;
-      showApp();
-      aplicarRelatorios(DEMO_DATA);
-      setText("statusCache", "Demo Mode");
-      updateSyncDot("online");
-    });
-  }
-}
-// ===== END MOCK/DEMO CONTROLS =====
-
 function init() {
   setupBottomNav();
   setupPageSlideMetrics();
@@ -2858,16 +2576,7 @@ function init() {
   setupPwaInstall();
   registerServiceWorker();
   handleRedirectResult();
-  
-  // MOCK/DEMO: show local layout test entrypoint while DEMO_MODE is enabled.
-  if (DEMO_MODE) {
-    setTimeout(() => {
-      authStateReady = true;
-      showDemoButtons();
-      updateLoginButton();
-    }, 500);
-  }
-  
+
   showLogin();
   updateSyncDot("idle");
   updateLoginButton();
@@ -2880,9 +2589,15 @@ function init() {
   qs("loginGoogleBtn")?.addEventListener("click", signInWithGoogle);
   qs("logoutBtn")?.addEventListener("click", signOut);
 
-  if (!DEMO_MODE) {
-    auth.onAuthStateChanged(handleAuthState);
-  }
+  auth.onAuthStateChanged(handleAuthState);
+
+  // Evita botão preso em "Verificando sessão..." se o Auth nunca responder.
+  setTimeout(() => {
+    if (authStateReady) return;
+    authStateReady = true;
+    setLoginMessage("Não foi possível verificar a sessão. Tente entrar novamente.", "error");
+    updateLoginButton();
+  }, 10000);
 }
 
 document.addEventListener("DOMContentLoaded", init);

@@ -1364,21 +1364,6 @@ button:focus-visible {
   color: #ffb4ae;
 }
 
-/* TEMP - Demo Buttons (REMOVER EM PRODUÇÃO) */
-.demo-buttons {
-  display: grid;
-}
-
-.demo-btn {
-  background: rgba(97, 192, 122, 0.15) !important;
-  border-color: rgba(97, 192, 122, 0.35) !important;
-  color: #61c07a !important;
-}
-
-.demo-btn:hover {
-  background: rgba(97, 192, 122, 0.25) !important;
-}
-
 /* Bottom nav */
 .bottom-nav {
   position: fixed;
