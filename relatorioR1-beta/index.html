@@ -13,7 +13,7 @@
   <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
   <link rel="apple-touch-icon" href="app-icon.png" />
   <link rel="stylesheet" href="style.css" />
-  <link rel="preload" as="image" href="r1logo.webp" type="image/webp" />
+  <link rel="preload" as="image" href="r1-wallpaper.png" />
 
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
@@ -82,27 +82,12 @@
       <div class="app-pages-viewport" id="appPagesViewport">
       <div class="app-pages-track" id="appPagesTrack">
       <!-- PÁGINA: INÍCIO (Operacional) -->
-      <section class="app-page active" data-page="inicio">
-        <!-- Logo -->
-        <div class="page-logo">
-          <picture>
-            <source srcset="r1logo.webp" type="image/webp" />
-            <img
-              src="r1logo.png"
-              alt="R1 Analytics"
-              width="720"
-              height="480"
-              decoding="async"
-              fetchpriority="high"
-            />
-          </picture>
-        </div>
-
-        <!-- Cards de Unidades -->
-        <div class="units-grid" id="unitsGrid">
-          <!-- Preenchido dinamicamente pelo JS -->
-          <div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">
-            Carregando unidades...
+      <section class="app-page active inicio-page" data-page="inicio">
+        <div class="inicio-wallpaper" aria-hidden="true"></div>
+        <div class="inicio-overlay" aria-hidden="true"></div>
+        <div class="inicio-content">
+          <div class="inicio-units" id="unitsGrid">
+            <div class="inicio-empty">Carregando unidades...</div>
           </div>
         </div>
       </section>

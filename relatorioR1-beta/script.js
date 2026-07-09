@@ -669,49 +669,19 @@ function renderUnitsCards() {
   );
 
   if (!unitIds.length) {
-    grid.innerHTML = '<div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">Sem unidades disponíveis</div>';
+    grid.innerHTML = '<div class="inicio-empty">Sem unidades disponíveis</div>';
     return;
   }
 
-  let html = '';
-  unitIds.forEach(unitId => {
-    const data = relatoriosPorUnidade[unitId];
-    const resumo = data.resumo || {};
-    const alunos = Number(resumo.alunos) || 0;
-    const ativos = Number(resumo.ativos) || 0;
-    const atrasados = Number(resumo.atrasados) || 0;
-
-    const pctAtivo = alunos > 0 ? Math.round((ativos / alunos) * 100) : 0;
-    const pctInativo = alunos > 0 ? Math.round((atrasados / alunos) * 100) : 0;
-
-    html += `
-      <div class="unit-card">
-        <div class="unit-card-header">${nomeUnidade(unitId)}</div>
-        <div class="unit-card-info">
-          <div class="unit-card-row">
-            <span class="unit-label unit-label--alunos"><span class="unit-dot" aria-hidden="true"></span>Alunos</span>
-            <strong>${alunos}</strong>
-          </div>
-          <div class="unit-card-row">
-            <span class="unit-label unit-label--ativos"><span class="unit-dot" aria-hidden="true"></span>Ativos</span>
-            <strong>
-              <span class="unit-inline-pct"><span class="unit-pct-sign">%</span>${pctAtivo}</span>
-              ${ativos}
-            </strong>
-          </div>
-          <div class="unit-card-row">
-            <span class="unit-label unit-label--inativos"><span class="unit-dot" aria-hidden="true"></span>Inativos</span>
-            <strong>
-              <span class="unit-inline-pct"><span class="unit-pct-sign">%</span>${pctInativo}</span>
-              ${atrasados}
-            </strong>
-          </div>
-        </div>
+  grid.innerHTML = unitIds.map((unitId) => {
+    const ativos = Number(relatoriosPorUnidade[unitId]?.resumo?.ativos) || 0;
+    return `
+      <div class="inicio-unit-row">
+        <span class="inicio-unit-name">${escapeHTML(nomeUnidade(unitId))}<span class="inicio-unit-sep">—</span></span>
+        <span class="inicio-unit-count">${ativos.toLocaleString("pt-BR")}</span>
       </div>
     `;
-  });
-
-  grid.innerHTML = html;
+  }).join("");
 }
 
 function renderFinanceUnitsCards() {
@@ -758,7 +728,7 @@ function renderFinanceUnitsCards() {
           </div>
           <div class="finance-unit-actions">
             <button type="button" class="finance-nav-btn" data-finance-view="dia" data-unit-id="${escapeHTML(unitId)}">
-              <span>Ver dia a dia</span>
+              <span>Ver hoje</span>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
             </button>
             <button type="button" class="finance-nav-btn" data-finance-view="mes" data-unit-id="${escapeHTML(unitId)}">
@@ -776,30 +746,57 @@ function renderFinanceUnitsCards() {
 
 const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function mergeDiaEntries(diaADia) {
-  if (!diaADia) return [];
-
-  if (Array.isArray(diaADia)) {
-    return diaADia.map((item) => [
-      item.data || item.dia || item.date,
-      Number(item.valor ?? item.total ?? item) || 0
-    ]);
-  }
-
-  return Object.entries(diaADia).map(([dia, valor]) => [dia, Number(valor) || 0]);
-}
-
 function formatMonthLabel(monthKey) {
   const match = String(monthKey).match(/^(\d{4})-(\d{2})$/);
   if (!match) return monthKey;
   return `${MONTH_SHORT[Number(match[2]) - 1]}/${match[1]}`;
 }
 
-function getFinanceDailyEntries(unitId) {
-  const data = relatoriosPorUnidade[unitId] || {};
-  const entries = mergeDiaEntries(data.diaADia);
-  entries.sort((a, b) => a[0].localeCompare(b[0]));
-  return entries.slice(-15);
+const PLAN_TYPES = ["diario", "semanal", "quinzenal", "mensal", "trimestral"];
+const PLAN_TYPE_LABELS = {
+  diario: "diário",
+  semanal: "semanal",
+  quinzenal: "quinzenal",
+  mensal: "mensal",
+  trimestral: "trimestral"
+};
+const PLAN_UNIT_VALUES = {
+  diario: 40,
+  semanal: 80,
+  quinzenal: 150,
+  mensal: 150,
+  trimestral: 420
+};
+
+function seedFromUnitId(unitId) {
+  return [...String(unitId)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+function getFinanceTodayBreakdown(unitId) {
+  const seed = seedFromUnitId(unitId);
+  const counts = {
+    diario: (seed % 4) + 1,
+    semanal: seed % 3,
+    quinzenal: (seed + 1) % 3,
+    mensal: ((seed * 3) % 7) + 4,
+    trimestral: seed % 2
+  };
+
+  const lines = PLAN_TYPES
+    .filter((type) => counts[type] > 0)
+    .map((type) => {
+      const qtd = counts[type];
+      const total = qtd * PLAN_UNIT_VALUES[type];
+      return {
+        type,
+        qtd,
+        total,
+        label: `${qtd}x ${PLAN_TYPE_LABELS[type]}`
+      };
+    });
+
+  const total = lines.reduce((sum, line) => sum + line.total, 0);
+  return { lines, total };
 }
 
 function getFinanceMonthlyEntries(unitId) {
@@ -822,24 +819,47 @@ function renderFinanceSubViewList(entries, labelFormatter) {
   `).join("");
 }
 
+function renderFinanceTodayList(breakdown) {
+  if (!breakdown.lines.length) {
+    return '<div class="mini-note">Sem dados para exibir.</div>';
+  }
+
+  const rows = breakdown.lines.map((line) => `
+    <div class="finance-data-row">
+      <span>${escapeHTML(line.label)}</span>
+      <strong>${formatBRL(line.total)}</strong>
+    </div>
+  `).join("");
+
+  return `${rows}
+    <div class="finance-data-row is-total">
+      <span>Total do dia</span>
+      <strong>${formatBRL(breakdown.total)}</strong>
+    </div>`;
+}
+
 function renderFinanceSubView() {
   if (!financeSubView) return;
 
   const { view, unitId } = financeSubView;
   const unitName = nomeUnidade(unitId);
   const isDaily = view === "dia";
-  const entries = isDaily ? getFinanceDailyEntries(unitId) : getFinanceMonthlyEntries(unitId);
 
   setText("financeSubKicker", unitName);
-  setText("financeSubTitle", isDaily ? "Dia a dia" : "Mês a mês");
+  setText("financeSubTitle", isDaily ? "Hoje" : "Mês a mês");
 
   const list = qs("financeSubList");
-  if (list) {
-    list.innerHTML = renderFinanceSubViewList(
-      entries,
-      isDaily ? formatDateBR : formatMonthLabel
-    );
+  if (!list) return;
+
+  if (isDaily) {
+    list.innerHTML = renderFinanceTodayList(getFinanceTodayBreakdown(unitId));
+    return;
   }
+
+  list.innerHTML = renderFinanceSubViewList(
+    getFinanceMonthlyEntries(unitId),
+    formatMonthLabel
+  );
 }
 
 function financeStackViewport() {

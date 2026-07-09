@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-beta-v3";
+const VERSION = "relatorio-r1-beta-v4";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 const MAX_RUNTIME_ENTRIES = 80;
@@ -12,6 +12,7 @@ const CORE_ASSETS = [
   "./favicon.png",
   "./r1logo.png",
   "./r1logo.webp",
+  "./r1-wallpaper.png",
   "./app-icon.png",
   "./google.svg"
 ];
