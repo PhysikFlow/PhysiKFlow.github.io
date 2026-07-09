@@ -1654,19 +1654,20 @@ button:focus-visible {
 }
 
 .inicio-content {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  min-height: 100%;
   /* Cards abaixo da logo R1, acima da bottom nav */
   padding:
     calc(env(safe-area-inset-top) + 1rem)
     1.1rem
     calc(var(--nav-height) + env(safe-area-inset-bottom) + 1.25rem);
   box-sizing: border-box;
+  pointer-events: none;
 }
 
 .inicio-units {
@@ -1681,6 +1682,7 @@ button:focus-visible {
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
 }
 
 .inicio-unit-row {

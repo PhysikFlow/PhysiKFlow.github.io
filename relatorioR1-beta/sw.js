@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-beta-v12";
+const VERSION = "relatorio-r1-beta-v13";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 const MAX_RUNTIME_ENTRIES = 80;
