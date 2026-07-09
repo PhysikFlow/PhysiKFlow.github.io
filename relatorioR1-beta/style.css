@@ -1651,14 +1651,14 @@ button:focus-visible {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
   min-height: 100%;
-  /* Um pouco abaixo do centro vertical, sem cobrir a logo */
+  /* Cards abaixo da logo R1, acima da bottom nav */
   padding:
-    calc(env(safe-area-inset-top) + 10vh)
+    calc(env(safe-area-inset-top) + 1rem)
     1.1rem
-    calc(var(--nav-height) + env(safe-area-inset-bottom) + 1rem);
+    calc(var(--nav-height) + env(safe-area-inset-bottom) + 1.25rem);
   box-sizing: border-box;
 }
 
