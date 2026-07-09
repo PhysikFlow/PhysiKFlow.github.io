@@ -1,6 +1,11 @@
 const API_URL = "https://itemdest-default-rtdb.firebaseio.com/relatorios.json";
 
 // ==========================
+// TEMP - DEMO MODE (REMOVER EM PRODUÇÃO)
+// ==========================
+const DEMO_MODE = true; // Mudar para false em produção
+
+// ==========================
 // FIREBASE CONFIG
 // ==========================
 const firebaseConfig = {
@@ -28,7 +33,9 @@ const CACHE_TTL = 1000 * 60 * 60 * 6;
 
 const UNIT_LABELS = {
   "58780-000": "Itaporanga",
-  "58970-000": "Conceição"
+  "58970-000": "Conceição",
+  "58000-000": "Joao Pessoa",
+  "59000-000": "Campina Grande"
 };
 
 let relatoriosPorUnidade = {};
@@ -37,6 +44,7 @@ let deferredInstallPrompt = null;
 let appAuthorized = false;
 let authStateReady = false;
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
+let financeSubView = null;
 
 const loginView = () => document.querySelector('[data-view="login"]');
 const appView = () => document.querySelector('[data-view="app"]');
@@ -58,6 +66,11 @@ const setText = (id, value) => {
   if (id === "statusCache") {
     updateSyncDot(value);
   }
+};
+
+const setHtml = (id, value) => {
+  const el = qs(id);
+  if (el) el.innerHTML = value;
 };
 
 const isStandalone = () => {
@@ -561,6 +574,23 @@ function limparDashboard(message = "Sem dados carregados.") {
 
   const horas = qs("graficoHoras");
   if (horas) horas.innerHTML = `<div class="mini-note">${message}</div>`;
+
+  const unitsGrid = qs("unitsGrid");
+  if (unitsGrid) {
+    unitsGrid.innerHTML = `<div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">${escapeHTML(message)}</div>`;
+  }
+
+  const financeUnitsGrid = qs("financeUnitsGrid");
+  if (financeUnitsGrid) {
+    financeUnitsGrid.innerHTML = `<div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">${escapeHTML(message)}</div>`;
+  }
+
+  const alunosUnitsGrid = qs("alunosUnitsGrid");
+  if (alunosUnitsGrid) {
+    alunosUnitsGrid.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 2rem;">${escapeHTML(message)}</div>`;
+  }
+
+  closeFinanceSubView(false, false);
 }
 
 function popularComboUnidades() {
@@ -629,6 +659,543 @@ function aplicarRelatorios(data) {
   }
 
   selecionarUnidade(unidadeSelecionada);
+}
+
+// ==========================
+// NEW LAYOUT RENDERING FUNCTIONS
+// ==========================
+function renderUnitsCards() {
+  const grid = qs("unitsGrid");
+  if (!grid) return;
+
+  const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) =>
+    nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR")
+  );
+
+  if (!unitIds.length) {
+    grid.innerHTML = '<div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">Sem unidades disponíveis</div>';
+    return;
+  }
+
+  let html = '';
+  unitIds.forEach(unitId => {
+    const data = relatoriosPorUnidade[unitId];
+    const resumo = data.resumo || {};
+    const alunos = Number(resumo.alunos) || 0;
+    const ativos = Number(resumo.ativos) || 0;
+    const atrasados = Number(resumo.atrasados) || 0;
+
+    const pctAtivo = alunos > 0 ? Math.round((ativos / alunos) * 100) : 0;
+    const pctInativo = alunos > 0 ? Math.round((atrasados / alunos) * 100) : 0;
+
+    html += `
+      <div class="unit-card">
+        <div class="unit-card-header">${nomeUnidade(unitId)}</div>
+        <div class="unit-card-info">
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--alunos"><span class="unit-dot" aria-hidden="true"></span>Alunos</span>
+            <strong>${alunos}</strong>
+          </div>
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--ativos"><span class="unit-dot" aria-hidden="true"></span>Ativos</span>
+            <strong>
+              <span class="unit-inline-pct"><span class="unit-pct-sign">%</span>${pctAtivo}</span>
+              ${ativos}
+            </strong>
+          </div>
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--inativos"><span class="unit-dot" aria-hidden="true"></span>Inativos</span>
+            <strong>
+              <span class="unit-inline-pct"><span class="unit-pct-sign">%</span>${pctInativo}</span>
+              ${atrasados}
+            </strong>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  grid.innerHTML = html;
+}
+
+function renderFinanceUnitsCards() {
+  const grid = qs("financeUnitsGrid");
+  if (!grid) return;
+
+  const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) =>
+    nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR")
+  );
+
+  if (!unitIds.length) {
+    grid.innerHTML = '<div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">Sem unidades disponíveis</div>';
+    return;
+  }
+
+  let html = '';
+  unitIds.forEach(unitId => {
+    const data = relatoriosPorUnidade[unitId];
+    const resumo = data.resumo || {};
+    const totalAcumulado = Number(resumo.total) || 0;
+    const totalDiarias = Number(resumo.diariasTotal) || 0;
+    const ticketMedio = Number(resumo.ticketMedioGeral) || 0;
+    const ticket30d = Number(resumo.ticketMedio30d) || 0;
+
+    html += `
+      <div class="unit-card">
+        <div class="unit-card-header">${nomeUnidade(unitId)}</div>
+        <div class="unit-card-info">
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--acumulado"><span class="unit-dot" aria-hidden="true"></span>Total acumulado</span>
+            <strong>${formatBRL(totalAcumulado)}</strong>
+          </div>
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--diarias"><span class="unit-dot" aria-hidden="true"></span>Total diárias</span>
+            <strong>${formatBRL(totalDiarias)}</strong>
+          </div>
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--ticket"><span class="unit-dot" aria-hidden="true"></span>Ticket médio</span>
+            <strong>${formatBRL(ticketMedio)}</strong>
+          </div>
+          <div class="unit-card-row">
+            <span class="unit-label unit-label--ticket30d"><span class="unit-dot" aria-hidden="true"></span>Ticket 30d</span>
+            <strong>${formatBRL(ticket30d)}</strong>
+          </div>
+          <div class="finance-unit-actions">
+            <button type="button" class="finance-nav-btn" data-finance-view="dia" data-unit-id="${escapeHTML(unitId)}">
+              <span>Ver dia a dia</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+            <button type="button" class="finance-nav-btn" data-finance-view="mes" data-unit-id="${escapeHTML(unitId)}">
+              <span>Ver mês a mês</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  grid.innerHTML = html;
+}
+
+const MONTH_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+function mergeDiaEntries(diaADia) {
+  if (!diaADia) return [];
+
+  if (Array.isArray(diaADia)) {
+    return diaADia.map((item) => [
+      item.data || item.dia || item.date,
+      Number(item.valor ?? item.total ?? item) || 0
+    ]);
+  }
+
+  return Object.entries(diaADia).map(([dia, valor]) => [dia, Number(valor) || 0]);
+}
+
+function formatMonthLabel(monthKey) {
+  const match = String(monthKey).match(/^(\d{4})-(\d{2})$/);
+  if (!match) return monthKey;
+  return `${MONTH_SHORT[Number(match[2]) - 1]}/${match[1]}`;
+}
+
+function generateDemoDiaADia(unitId, days = 15) {
+  const resumo = relatoriosPorUnidade[unitId]?.resumo || {};
+  const dailyBase = (Number(resumo.total30d) || 12000) / 30;
+  const entries = [];
+  const today = new Date();
+  const seedBase = [...unitId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - offset);
+    const key = date.toISOString().slice(0, 10);
+    const wave = 0.72 + ((seedBase + offset * 3) % 11) * 0.05;
+    entries.push([key, Math.round(dailyBase * wave * 100) / 100]);
+  }
+
+  return entries;
+}
+
+function expandMesAMesToLimit(mesAMes, limit = 18, unitId = "") {
+  let entries = mergeMesEntries(mesAMes);
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+  if (entries.length >= limit) return entries.slice(-limit);
+
+  const seedBase = [...unitId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const anchor = entries[0]?.[0] || new Date().toISOString().slice(0, 7);
+  let [year, month] = anchor.split("-").map(Number);
+  const avg = entries.length
+    ? entries.reduce((sum, entry) => sum + entry[1], 0) / entries.length
+    : 4000;
+
+  while (entries.length < limit) {
+    month -= 1;
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    }
+
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    if (!entries.some((entry) => entry[0] === key)) {
+      const wave = 0.85 + ((seedBase + month) % 9) * 0.04;
+      entries.unshift([key, Math.round(avg * wave * 100) / 100]);
+    }
+  }
+
+  return entries.slice(-limit);
+}
+
+function getFinanceDailyEntries(unitId) {
+  const data = relatoriosPorUnidade[unitId] || {};
+  let entries = mergeDiaEntries(data.diaADia);
+
+  if (!entries.length) {
+    entries = generateDemoDiaADia(unitId, 15);
+  }
+
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+  return entries.slice(-15);
+}
+
+function getFinanceMonthlyEntries(unitId) {
+  const data = relatoriosPorUnidade[unitId] || {};
+  let entries = mergeMesEntries(data.mesAMes || {});
+
+  if (entries.length < 18) {
+    entries = expandMesAMesToLimit(data.mesAMes || {}, 18, unitId);
+  }
+
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+  return entries.slice(-18);
+}
+
+function renderFinanceSubViewList(entries, labelFormatter) {
+  if (!entries.length) {
+    return '<div class="mini-note">Sem dados para exibir.</div>';
+  }
+
+  return [...entries].reverse().map(([label, value]) => `
+    <div class="finance-data-row">
+      <span>${escapeHTML(labelFormatter(label))}</span>
+      <strong>${formatBRL(value)}</strong>
+    </div>
+  `).join("");
+}
+
+function renderFinanceSubView() {
+  if (!financeSubView) return;
+
+  const { view, unitId } = financeSubView;
+  const unitName = nomeUnidade(unitId);
+  const isDaily = view === "dia";
+  const entries = isDaily ? getFinanceDailyEntries(unitId) : getFinanceMonthlyEntries(unitId);
+
+  setText("financeSubKicker", unitName);
+  setText("financeSubTitle", isDaily ? "Dia a dia" : "Mês a mês");
+
+  const list = qs("financeSubList");
+  if (list) {
+    list.innerHTML = renderFinanceSubViewList(
+      entries,
+      isDaily ? formatDateBR : formatMonthLabel
+    );
+  }
+}
+
+function financeStackViewport() {
+  return qs("financeStackViewport");
+}
+
+function financeStackTrack() {
+  return qs("financeStackTrack");
+}
+
+function getFinanceSlideWidth() {
+  const viewport = financeStackViewport();
+  return viewport ? Math.round(viewport.getBoundingClientRect().width) : 0;
+}
+
+function syncFinanceStackMetrics() {
+  const viewport = financeStackViewport();
+  if (!viewport) return 0;
+
+  const width = getFinanceSlideWidth();
+  if (width > 0) {
+    viewport.style.setProperty("--finance-slide-width", `${width}px`);
+  }
+
+  return width;
+}
+
+function setFinanceStackLayer(layer, animate = false) {
+  const track = financeStackTrack();
+  const listLayer = qs("financeStackList");
+  const subView = qs("financeSubView");
+  const showSubView = layer === "subview";
+
+  const width = syncFinanceStackMetrics();
+  if (!track || !width) return;
+
+  const offset = showSubView ? width : 0;
+  const useMotion = animate && !prefersReducedMotion();
+
+  if (useMotion) {
+    track.style.transition = `transform ${PAGE_SLIDE_MS}ms ${PAGE_SLIDE_EASING}`;
+  } else {
+    track.style.transition = "none";
+  }
+
+  track.style.transform = `translate3d(-${offset}px, 0, 0)`;
+
+  if (!useMotion) {
+    track.offsetHeight;
+    track.style.removeProperty("transition");
+  }
+
+  if (listLayer) {
+    listLayer.classList.toggle("active", !showSubView);
+    listLayer.setAttribute("aria-hidden", showSubView ? "true" : "false");
+  }
+
+  if (subView) {
+    subView.classList.toggle("active", showSubView);
+    subView.setAttribute("aria-hidden", showSubView ? "false" : "true");
+  }
+}
+
+function openFinanceSubView(view, unitId, pushHistory = true, animate = true) {
+  if (!relatoriosPorUnidade[unitId]) return;
+
+  const enteringFromList = !financeSubView;
+  financeSubView = { view, unitId };
+  renderFinanceSubView();
+  setFinanceStackLayer("subview", animate && enteringFromList);
+
+  if (pushHistory) {
+    history.pushState(
+      { financeSubView: { view, unitId } },
+      "",
+      `#financeiro/${view}/${encodeURIComponent(unitId)}`
+    );
+  }
+
+  scrollActivePageToTop();
+}
+
+function closeFinanceSubView(updateHash = true, animate = true) {
+  const leavingSubView = Boolean(financeSubView);
+  financeSubView = null;
+  setFinanceStackLayer("list", animate && leavingSubView);
+
+  if (updateHash && getActivePageTab() === "financeiro") {
+    history.replaceState(null, "", "#financeiro");
+  }
+}
+
+function parseFinanceHash() {
+  const parts = location.hash.replace("#", "").split("/").filter(Boolean);
+  if (parts[0] !== "financeiro" || parts.length < 3) return null;
+
+  const view = parts[1];
+  if (view !== "dia" && view !== "mes") return null;
+
+  return { view, unitId: decodeURIComponent(parts.slice(2).join("/")) };
+}
+
+function setupScrollChaining() {
+  document.addEventListener("wheel", (event) => {
+    const horizontalScroll = event.target.closest(".students-scroll");
+    if (!horizontalScroll) return;
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+    scrollActivePageBy(event.deltaY);
+  }, { passive: true });
+}
+
+function setupFinanceSubView() {
+  setFinanceStackLayer("list", false);
+
+  qs("financeSubBack")?.addEventListener("click", () => {
+    if (history.state?.financeSubView) {
+      history.back();
+      return;
+    }
+    closeFinanceSubView(true, true);
+  });
+
+  qs("financeUnitsGrid")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-finance-view]");
+    if (!button) return;
+
+    openFinanceSubView(button.dataset.financeView, button.dataset.unitId, true, true);
+  });
+
+  window.addEventListener("popstate", () => {
+    if (!appAuthorized) return;
+
+    const parsed = parseFinanceHash();
+    if (parsed && relatoriosPorUnidade[parsed.unitId]) {
+      const enteringFromList = !financeSubView;
+      financeSubView = parsed;
+      renderFinanceSubView();
+      setFinanceStackLayer("subview", enteringFromList);
+      return;
+    }
+
+    if (getActivePageTab() === "financeiro") {
+      closeFinanceSubView(false, true);
+    }
+  });
+}
+
+const NO_PHOTO_SVG = `<svg viewBox="0 0 24 32" aria-hidden="true"><rect x="1" y="1" width="22" height="30" rx="3" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)"/><circle cx="12" cy="11" r="4.5" fill="rgba(255,255,255,0.08)"/><path d="M5 27c1.8-4.2 4.4-6.5 7-6.5s5.2 2.3 7 6.5" fill="rgba(255,255,255,0.06)"/></svg>`;
+
+function formatDateBR(value) {
+  if (!value) return "---";
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+
+  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return raw;
+
+  return raw;
+}
+
+function perfilLabel(perfil) {
+  return perfil === "colaborador" ? "Colaborador" : "Aluno";
+}
+
+function renderStudentPhoto(foto) {
+  if (foto) {
+    return `<img class="student-photo" src="${escapeHTML(foto)}" alt="" loading="lazy" />`;
+  }
+
+  return `<div class="student-photo student-photo--empty">${NO_PHOTO_SVG}</div>`;
+}
+
+function renderStudentCard(student) {
+  const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
+
+  return `
+    <article class="student-card" data-search="${escapeHTML(`${student.nome} ${student.cartao} ${perfilLabel(perfil)}`.toLowerCase())}">
+      ${renderStudentPhoto(student.foto)}
+      <div class="student-card-body">
+        <strong class="student-name">${escapeHTML(student.nome)}</strong>
+        <span class="student-meta"><span>Cartão</span><b>${escapeHTML(student.cartao)}</b></span>
+        <span class="student-meta"><span>Perfil</span><b class="student-profile student-profile--${perfil}">${perfilLabel(perfil)}</b></span>
+        <span class="student-meta"><span>Vencimento</span><b>${formatDateBR(student.vencimento)}</b></span>
+      </div>
+    </article>
+  `;
+}
+
+function filterStudentsInUnit(unitBlock, query) {
+  const normalized = query.trim().toLowerCase();
+  const cards = unitBlock.querySelectorAll(".student-card");
+  let visible = 0;
+
+  cards.forEach((card) => {
+    const haystack = card.dataset.search || "";
+    const matches = !normalized || haystack.includes(normalized);
+    card.hidden = !matches;
+    if (matches) visible += 1;
+  });
+
+  const scroll = unitBlock.querySelector(".students-scroll");
+  if (scroll) {
+    scroll.hidden = visible === 0;
+    scroll.scrollLeft = 0;
+  }
+
+  const empty = unitBlock.querySelector(".students-empty");
+  if (empty) empty.hidden = visible > 0;
+}
+
+function renderAlunosUnitsCards() {
+  const container = qs("alunosUnitsGrid");
+  if (!container) return;
+
+  const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) =>
+    nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR")
+  );
+
+  if (!unitIds.length) {
+    container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Sem unidades disponíveis</div>';
+    return;
+  }
+
+  let html = "";
+  unitIds.forEach((unitId) => {
+    const data = relatoriosPorUnidade[unitId];
+    const alunos = Array.isArray(data.alunos) ? data.alunos : (DEMO_ALUNOS[unitId] || []);
+    const cardsHtml = alunos.length
+      ? alunos.map(renderStudentCard).join("")
+      : "";
+
+    html += `
+      <section class="students-unit-block" data-unit-block="${escapeHTML(unitId)}">
+        <div class="students-unit-header">
+          <h3 class="students-unit-title">${escapeHTML(nomeUnidade(unitId))}</h3>
+          <label class="students-search-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input
+              type="search"
+              class="students-search"
+              placeholder="Buscar por nome, cartão ou perfil"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+        </div>
+        <div class="students-scroll">
+          <div class="students-grid">
+            ${cardsHtml}
+          </div>
+        </div>
+        <p class="students-empty"${alunos.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
+      </section>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function setupStudentsSearch() {
+  const container = qs("alunosUnitsGrid");
+  if (!container || container.dataset.searchBound === "true") return;
+
+  container.dataset.searchBound = "true";
+  container.addEventListener("input", (event) => {
+    const input = event.target.closest(".students-search");
+    if (!input) return;
+
+    const unitBlock = input.closest(".students-unit-block");
+    if (!unitBlock) return;
+
+    filterStudentsInUnit(unitBlock, input.value);
+  });
+}
+
+function updateKPIs(data) {
+  const resumo = data.resumo || {};
+  const ativos = Number(resumo.ativos) || 0;
+  const alunos = Number(resumo.alunos) || 0;
+  const atrasados = Number(resumo.atrasados) || 0;
+  const frequencia = Number((data.frequencia || {}).mediaPorAluno30d) || 0;
+
+  setText("kpiAtivos", ativos);
+  setText("kpiAcessos", Math.round(frequencia * ativos) || "---");
+
+  // TODO: Calcular "Novos" do período
+  const mesAMes = data.mesAMes || {};
+  const meses = Object.keys(mesAMes).sort().slice(-2);
+  setText("kpiNovos", meses.length > 0 ? "---" : "---");
+
+  const risco = alunos > 0 ? Math.round((atrasados / alunos) * 100) : 0;
+  setText("kpiRisco", risco + "%");
 }
 
 // ==========================
@@ -742,6 +1309,12 @@ function aplicarTudo(data, unitId = unidadeSelecionada) {
   atualizarSync(data.meta || {});
   setText("unidadeAtiva", labelUnidade(unitId));
   atualizarRotulosContexto(unitId);
+
+  // NEW: Render cards for new layout
+  renderUnitsCards();
+  renderFinanceUnitsCards();
+  renderAlunosUnitsCards();
+  updateKPIs(data);
 }
 
 // ==========================
@@ -1266,6 +1839,7 @@ function atualizarSync(meta) {
 // APP SHELL
 // ==========================
 function showLogin({ error = "", info = "" } = {}) {
+  document.body.classList.remove("app-ready");
   loginView()?.classList.remove("is-hidden");
   appView()?.classList.add("is-hidden");
   appNav()?.classList.add("is-hidden");
@@ -1280,20 +1854,41 @@ function showLogin({ error = "", info = "" } = {}) {
 }
 
 function showApp() {
+  document.body.classList.add("app-ready");
   loginView()?.classList.add("is-hidden");
   appView()?.classList.remove("is-hidden");
   appNav()?.classList.remove("is-hidden");
   appAuthorized = true;
   setLoginMessage();
 
+  syncPageSlideMetrics();
+
   const hashTab = location.hash.replace("#", "").split("/")[0];
   const validTabs = appPages().map((page) => page.dataset.page);
-  setActiveTab(validTabs.includes(hashTab) ? hashTab : "inicio", false);
+  setActiveTab(validTabs.includes(hashTab) ? hashTab : "inicio", false, false);
   updateInstallButtons();
 }
 
+function getActiveAppPage() {
+  return appPages().find((page) => page.classList.contains("active"));
+}
+
+function scrollActivePageToTop() {
+  getActiveAppPage()?.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function scrollActivePageBy(deltaY) {
+  const page = getActiveAppPage();
+  if (page) {
+    page.scrollBy({ top: deltaY, behavior: "auto" });
+    return;
+  }
+
+  window.scrollBy({ top: deltaY, left: 0, behavior: "auto" });
+}
+
 function getActivePageTab() {
-  return appPages().find((page) => page.classList.contains("active"))?.dataset.page || "inicio";
+  return getActiveAppPage()?.dataset.page || "inicio";
 }
 
 function updateTopbarTitle() {
@@ -1308,6 +1903,387 @@ function updateTopbarTitle() {
   }
 
   title.textContent = inicioSegmento === "financeiro" ? "Financeiro" : "Início";
+}
+
+const TAB_ORDER = ["inicio", "financeiro", "alunos", "conta"];
+const PAGE_SLIDE_MS = 380;
+const PAGE_SLIDE_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
+const SWIPE_COMMIT_PX = 96;
+const SWIPE_AXIS_LOCK_PX = 14;
+const SWIPE_FLICK_MIN_PX = 36;
+const SWIPE_VELOCITY_COMMIT = 0.55;
+const SWIPE_EDGE_RESISTANCE = 0.34;
+let pageSlideLock = false;
+let tabSwipeGesture = null;
+let tabSwipeSuppressClick = false;
+
+function appPagesTrack() {
+  return qs("appPagesTrack");
+}
+
+function appPagesViewport() {
+  return qs("appPagesViewport");
+}
+
+function getPageSlideWidth() {
+  const viewport = appPagesViewport();
+  return viewport ? Math.round(viewport.getBoundingClientRect().width) : 0;
+}
+
+function syncPageSlideMetrics() {
+  const viewport = appPagesViewport();
+  if (!viewport) return 0;
+
+  const width = getPageSlideWidth();
+  if (width > 0) {
+    viewport.style.setProperty("--page-slide-width", `${width}px`);
+  }
+
+  return width;
+}
+
+function getPageSlideGap() {
+  const track = appPagesTrack();
+  if (!track) return 0;
+
+  const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap);
+  if (Number.isFinite(gap) && gap > 0) {
+    return Math.round(gap);
+  }
+
+  const rootGap = getComputedStyle(document.documentElement).getPropertyValue("--page-slide-gap").trim();
+  if (rootGap.endsWith("rem")) {
+    const rem = parseFloat(rootGap);
+    const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    if (Number.isFinite(rem) && Number.isFinite(rootSize)) {
+      return Math.round(rem * rootSize);
+    }
+  }
+
+  return 14;
+}
+
+function getPageSlideStep() {
+  const width = syncPageSlideMetrics();
+  if (!width) return 0;
+  return width + getPageSlideGap();
+}
+
+function getTabIndex(tabName) {
+  const index = TAB_ORDER.indexOf(tabName);
+  return index >= 0 ? index : 0;
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function applyTabClasses(targetTab) {
+  appPages().forEach((page) => {
+    const isActive = page.dataset.page === targetTab;
+    page.classList.toggle("active", isActive);
+    page.setAttribute("aria-hidden", isActive ? "false" : "true");
+  });
+}
+
+function setTrackOffset(offsetPx, animate = false) {
+  const track = appPagesTrack();
+  if (!track) return;
+
+  const useMotion = animate && !prefersReducedMotion();
+
+  if (useMotion) {
+    track.style.transition = `transform ${PAGE_SLIDE_MS}ms ${PAGE_SLIDE_EASING}`;
+  } else {
+    track.style.transition = "none";
+  }
+
+  track.style.transform = `translate3d(-${offsetPx}px, 0, 0)`;
+
+  if (!useMotion) {
+    track.offsetHeight;
+    track.style.removeProperty("transition");
+  }
+}
+
+function setTrackIndex(tabName, animate = false) {
+  const step = getPageSlideStep();
+  if (!step) return;
+
+  const index = getTabIndex(tabName);
+  setTrackOffset(index * step, animate);
+}
+
+function releasePageSlideLockAfterTransition() {
+  const track = appPagesTrack();
+  if (!track) {
+    pageSlideLock = false;
+    return;
+  }
+
+  let finished = false;
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    track.removeEventListener("transitionend", onTransitionEnd);
+    track.style.removeProperty("transition");
+    pageSlideLock = false;
+  };
+
+  const onTransitionEnd = (event) => {
+    if (event.target === track && event.propertyName === "transform") {
+      cleanup();
+    }
+  };
+
+  track.addEventListener("transitionend", onTransitionEnd);
+  setTimeout(cleanup, PAGE_SLIDE_MS + 50);
+}
+
+function snapTrackToTab(tabName) {
+  pageSlideLock = true;
+  setTrackIndex(tabName, true);
+  releasePageSlideLockAfterTransition();
+}
+
+function isBlockingOverlayOpen() {
+  return Boolean(
+    document.querySelector(
+      'dialog[open], [popover]:popover-open, [aria-modal="true"]:not(.is-hidden)'
+    )
+  );
+}
+
+function isTabSwipeBlocked() {
+  if (!appAuthorized) return true;
+  if (pageSlideLock) return true;
+  if (financeSubView) return true;
+  if (isBlockingOverlayOpen()) return true;
+
+  const login = loginView();
+  if (login && !login.classList.contains("is-hidden")) return true;
+
+  const appShell = appView();
+  if (appShell && appShell.classList.contains("is-hidden")) return true;
+
+  return false;
+}
+
+function isHorizontalScrollerElement(element) {
+  const scroller = element?.closest(".students-scroll");
+  if (!scroller) return false;
+  return scroller.scrollWidth > scroller.clientWidth + 2;
+}
+
+function isTabSwipeStartBlocked(target) {
+  if (isTabSwipeBlocked()) return true;
+  if (target.closest("input, textarea, select, [contenteditable='true']")) return true;
+  if (isHorizontalScrollerElement(target)) return true;
+  return false;
+}
+
+function getRubberBandOffset(rawOffset, minOffset, maxOffset) {
+  if (rawOffset < minOffset) {
+    return minOffset - (minOffset - rawOffset) * SWIPE_EDGE_RESISTANCE;
+  }
+  if (rawOffset > maxOffset) {
+    return maxOffset + (rawOffset - maxOffset) * SWIPE_EDGE_RESISTANCE;
+  }
+  return rawOffset;
+}
+
+function resetTabSwipeGesture() {
+  const viewport = appPagesViewport();
+  if (tabSwipeGesture?.mode === "horizontal") {
+    viewport?.classList.remove("is-swiping");
+  }
+  tabSwipeGesture = null;
+}
+
+function setupTabSwipeNavigation() {
+  const viewport = appPagesViewport();
+  if (!viewport) return;
+
+  let docListenersBound = false;
+
+  const unbindDocumentSwipeListeners = () => {
+    if (!docListenersBound) return;
+    document.removeEventListener("pointermove", onPointerMove, true);
+    document.removeEventListener("pointerup", onPointerFinish, true);
+    document.removeEventListener("pointercancel", onPointerFinish, true);
+    docListenersBound = false;
+  };
+
+  const onPointerMove = (event) => {
+    const gesture = tabSwipeGesture;
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    gesture.lastX = event.clientX;
+    gesture.lastTime = event.timeStamp;
+
+    if (gesture.mode === "pending") {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) {
+        return;
+      }
+
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        unbindDocumentSwipeListeners();
+        resetTabSwipeGesture();
+        return;
+      }
+
+      if (isTabSwipeBlocked()) {
+        unbindDocumentSwipeListeners();
+        resetTabSwipeGesture();
+        return;
+      }
+
+      gesture.mode = "horizontal";
+      gesture.suppressClick = true;
+      pageSlideLock = true;
+      viewport.classList.add("is-swiping");
+    }
+
+    if (gesture.mode !== "horizontal") return;
+
+    event.preventDefault();
+
+    const minOffset = 0;
+    const maxOffset = (TAB_ORDER.length - 1) * gesture.step;
+    const rawOffset = gesture.baseIndex * gesture.step - dx;
+    const offset = getRubberBandOffset(rawOffset, minOffset, maxOffset);
+    setTrackOffset(offset, false);
+  };
+
+  const onPointerFinish = (event) => {
+    const gesture = tabSwipeGesture;
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+
+    unbindDocumentSwipeListeners();
+    viewport.classList.remove("is-swiping");
+
+    if (gesture.mode !== "horizontal") {
+      resetTabSwipeGesture();
+      return;
+    }
+
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    const duration = Math.max(event.timeStamp - gesture.startTime, 1);
+    const velocity = dx / duration;
+    const horizontalDominant = Math.abs(dx) > Math.abs(dy);
+    const passedDistance = Math.abs(dx) >= SWIPE_COMMIT_PX && horizontalDominant;
+    const passedFlick =
+      Math.abs(velocity) >= SWIPE_VELOCITY_COMMIT &&
+      Math.abs(dx) >= SWIPE_FLICK_MIN_PX &&
+      horizontalDominant;
+
+    let targetIndex = gesture.baseIndex;
+
+    if (passedDistance || passedFlick) {
+      if (dx < 0 && gesture.baseIndex < TAB_ORDER.length - 1) {
+        targetIndex = gesture.baseIndex + 1;
+      } else if (dx > 0 && gesture.baseIndex > 0) {
+        targetIndex = gesture.baseIndex - 1;
+      }
+    }
+
+    const targetTab = TAB_ORDER[targetIndex];
+    const suppressClick = gesture.suppressClick;
+    const currentTab = gesture.currentTab;
+    resetTabSwipeGesture();
+
+    if (suppressClick) {
+      tabSwipeSuppressClick = true;
+      window.setTimeout(() => {
+        tabSwipeSuppressClick = false;
+      }, 0);
+    }
+
+    if (!targetTab || targetTab === currentTab) {
+      snapTrackToTab(currentTab);
+      return;
+    }
+
+    pageSlideLock = false;
+    setActiveTab(targetTab, true, true);
+  };
+
+  viewport.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (isTabSwipeStartBlocked(event.target)) return;
+
+      const width = syncPageSlideMetrics();
+      const step = getPageSlideStep();
+      if (!width || !step) return;
+
+      tabSwipeGesture = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startTime: event.timeStamp,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        width,
+        step,
+        baseIndex: getTabIndex(getActivePageTab()),
+        currentTab: getActivePageTab(),
+        mode: "pending",
+        suppressClick: false,
+      };
+
+      if (!docListenersBound) {
+        document.addEventListener("pointermove", onPointerMove, { passive: false, capture: true });
+        document.addEventListener("pointerup", onPointerFinish, { passive: true, capture: true });
+        document.addEventListener("pointercancel", onPointerFinish, { passive: true, capture: true });
+        docListenersBound = true;
+      }
+    },
+    { passive: true, capture: true }
+  );
+
+  viewport.addEventListener(
+    "click",
+    (event) => {
+      if (tabSwipeSuppressClick) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    },
+    true
+  );
+}
+
+function runPageSlide(toTab, onComplete) {
+  const track = appPagesTrack();
+  if (!track) {
+    onComplete();
+    return;
+  }
+
+  let finished = false;
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    track.style.removeProperty("transition");
+    pageSlideLock = false;
+    onComplete();
+  };
+
+  const onTransitionEnd = (event) => {
+    if (event.target === track && event.propertyName === "transform") {
+      track.removeEventListener("transitionend", onTransitionEnd);
+      cleanup();
+    }
+  };
+
+  track.addEventListener("transitionend", onTransitionEnd);
+  setTrackIndex(toTab, true);
+  setTimeout(cleanup, PAGE_SLIDE_MS + 40);
 }
 
 function setActiveSegment(segmentName, shouldPersist = true) {
@@ -1338,36 +2314,105 @@ function setupSegmentControl() {
   setActiveSegment(inicioSegmento, false);
 }
 
-function setActiveTab(tabName, shouldUpdateHash = true) {
+function setActiveTab(tabName, shouldUpdateHash = true, animate = false) {
   const validTabs = appPages().map((page) => page.dataset.page);
   const targetTab = validTabs.includes(tabName) ? tabName : "inicio";
+  const currentTab = getActivePageTab();
 
-  appPages().forEach((page) => {
-    page.classList.toggle("active", page.dataset.page === targetTab);
-  });
+  if (pageSlideLock && animate) return;
 
-  bottomTabs().forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.tab === targetTab);
-  });
-
-  updateTopbarTitle();
-
-  if (shouldUpdateHash) {
-    history.replaceState(null, "", `#${targetTab}`);
+  if (targetTab !== "financeiro" && financeSubView) {
+    closeFinanceSubView(false, false);
   }
 
-  window.scrollTo({ top: 0, behavior: "instant" });
+  const finishTabSwitch = () => {
+    bottomTabs().forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.tab === targetTab);
+    });
+
+    updateTopbarTitle();
+
+    const parsedFinance = targetTab === "financeiro" ? parseFinanceHash() : null;
+
+    if (shouldUpdateHash) {
+      if (parsedFinance && relatoriosPorUnidade[parsedFinance.unitId]) {
+        history.replaceState(
+          { financeSubView: parsedFinance },
+          "",
+          `#financeiro/${parsedFinance.view}/${encodeURIComponent(parsedFinance.unitId)}`
+        );
+      } else {
+        history.replaceState(null, "", `#${targetTab}`);
+      }
+    }
+
+    if (parsedFinance && relatoriosPorUnidade[parsedFinance.unitId]) {
+      openFinanceSubView(parsedFinance.view, parsedFinance.unitId, false, false);
+    } else if (targetTab === "financeiro") {
+      closeFinanceSubView(false, false);
+    }
+
+    scrollActivePageToTop();
+  };
+
+  const shouldAnimate =
+    animate &&
+    currentTab !== targetTab &&
+    !prefersReducedMotion();
+
+  if (shouldAnimate) {
+    pageSlideLock = true;
+    applyTabClasses(targetTab);
+    bottomTabs().forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.tab === targetTab);
+    });
+    runPageSlide(targetTab, finishTabSwitch);
+    return;
+  }
+
+  applyTabClasses(targetTab);
+  setTrackIndex(targetTab, false);
+  finishTabSwitch();
+}
+
+function setupPageSlideMetrics() {
+  syncPageSlideMetrics();
+  syncFinanceStackMetrics();
+
+  window.addEventListener(
+    "resize",
+    () => {
+      if (pageSlideLock) return;
+      const currentTab = getActivePageTab();
+      syncPageSlideMetrics();
+      setTrackIndex(currentTab, false);
+
+      if (currentTab === "financeiro") {
+        syncFinanceStackMetrics();
+        setFinanceStackLayer(financeSubView ? "subview" : "list", false);
+      }
+    },
+    { passive: true }
+  );
 }
 
 function setupBottomNav() {
   bottomTabs().forEach((tab) => {
-    tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
+    tab.addEventListener("click", () => setActiveTab(tab.dataset.tab, true, true));
   });
 
   window.addEventListener("hashchange", () => {
     if (!appAuthorized) return;
-    const hashTab = location.hash.replace("#", "");
-    if (hashTab) setActiveTab(hashTab, false);
+
+    const parsed = parseFinanceHash();
+    if (parsed && relatoriosPorUnidade[parsed.unitId]) {
+      setActiveTab("financeiro", false);
+      openFinanceSubView(parsed.view, parsed.unitId, false, false);
+      return;
+    }
+
+    const hashTab = location.hash.replace("#", "").split("/")[0];
+    if (hashTab) setActiveTab(hashTab, false, true);
   });
 }
 
@@ -1546,12 +2591,283 @@ async function handleAuthState(user) {
 // ==========================
 // INIT
 // ==========================
+
+// ===== MOCK/DEMO DATA - REMOVE BEFORE PRODUCTION =====
+const DEMO_DATA = {
+  "58780-000": {
+    resumo: {
+      total: 125430.75,
+      total30d: 15230.45,
+      total3m: 42150.20,
+      alunos: 340,
+      ativos: 298,
+      atrasados: 42,
+      diariasTotal: 8950.00,
+      diariasCount: 45,
+      ticketMedio30d: 51.12,
+      ticketMedioGeral: 369.21
+    },
+    mesAMes: {
+      "2026-01": 4320.40,
+      "2026-02": 3950.25,
+      "2026-03": 4680.70,
+      "2026-04": 4150.35,
+      "2026-05": 3820.60,
+      "2026-06": 4290.85
+    },
+    frequencia: { mediaPorAluno30d: 12.5 },
+    picoHoras: {
+      "6": 45,
+      "7": 120,
+      "8": 280,
+      "9": 320,
+      "10": 290,
+      "11": 240,
+      "12": 180,
+      "17": 250,
+      "18": 380,
+      "19": 420,
+      "20": 340
+    },
+    topPessoas: [
+      { codigo: 1001, nome: "João Silva", total: 2500.00, percentual: 12.5 },
+      { codigo: 1002, nome: "Maria Santos", total: 2100.00, percentual: 10.5 },
+      { codigo: 1003, nome: "Pedro Costa", total: 1850.00, percentual: 9.2 },
+      { codigo: 1004, nome: "Ana Oliveira", total: 1650.00, percentual: 8.2 }
+    ],
+    topPlanosGlobal: [
+      { valor: 99.90, qtd: 120, percentual: 35.2 },
+      { valor: 149.90, qtd: 85, percentual: 25.0 },
+      { valor: 199.90, qtd: 62, percentual: 18.2 }
+    ],
+    meta: {
+      geradoEm: new Date().toISOString(),
+      versao: "2.1.0"
+    }
+  },
+  "58970-000": {
+    resumo: {
+      total: 98720.50,
+      total30d: 12180.90,
+      total3m: 35640.30,
+      alunos: 286,
+      ativos: 241,
+      atrasados: 33,
+      diariasTotal: 6120.00,
+      diariasCount: 31,
+      ticketMedio30d: 50.54,
+      ticketMedioGeral: 345.18
+    },
+    mesAMes: {
+      "2026-01": 3720.40,
+      "2026-02": 4050.25,
+      "2026-03": 3980.70,
+      "2026-04": 4350.35,
+      "2026-05": 4120.60,
+      "2026-06": 4490.85
+    },
+    frequencia: { mediaPorAluno30d: 10.8 },
+    picoHoras: {
+      "6": 24,
+      "7": 84,
+      "8": 190,
+      "9": 260,
+      "10": 230,
+      "11": 210,
+      "12": 150,
+      "17": 220,
+      "18": 310,
+      "19": 365,
+      "20": 275
+    },
+    topPessoas: [
+      { codigo: 2001, nome: "Carlos Andrade", total: 1980.00, percentual: 11.1 },
+      { codigo: 2002, nome: "Juliana Lima", total: 1760.00, percentual: 9.8 },
+      { codigo: 2003, nome: "Rafael Martins", total: 1510.00, percentual: 8.4 }
+    ],
+    topPlanosGlobal: [
+      { valor: 99.90, qtd: 92, percentual: 32.1 },
+      { valor: 149.90, qtd: 74, percentual: 25.8 },
+      { valor: 189.90, qtd: 48, percentual: 16.7 }
+    ],
+    meta: {
+      geradoEm: new Date().toISOString(),
+      versao: "2.1.0-demo"
+    }
+  },
+  "58000-000": {
+    resumo: {
+      total: 156880.20,
+      total30d: 19420.10,
+      total3m: 52480.75,
+      alunos: 412,
+      ativos: 376,
+      atrasados: 29,
+      diariasTotal: 10380.00,
+      diariasCount: 52,
+      ticketMedio30d: 51.65,
+      ticketMedioGeral: 380.78
+    },
+    mesAMes: {
+      "2026-01": 5120.00,
+      "2026-02": 5350.25,
+      "2026-03": 5680.70,
+      "2026-04": 6150.35,
+      "2026-05": 5820.60,
+      "2026-06": 6290.85
+    },
+    frequencia: { mediaPorAluno30d: 13.2 },
+    picoHoras: {
+      "6": 58,
+      "7": 132,
+      "8": 310,
+      "9": 360,
+      "10": 330,
+      "11": 275,
+      "12": 205,
+      "17": 300,
+      "18": 430,
+      "19": 485,
+      "20": 390
+    },
+    topPessoas: [
+      { codigo: 3001, nome: "Fernanda Rocha", total: 2820.00, percentual: 13.4 },
+      { codigo: 3002, nome: "Bruno Sales", total: 2460.00, percentual: 11.7 },
+      { codigo: 3003, nome: "Marina Alves", total: 2180.00, percentual: 10.4 }
+    ],
+    topPlanosGlobal: [
+      { valor: 109.90, qtd: 148, percentual: 35.9 },
+      { valor: 159.90, qtd: 96, percentual: 23.3 },
+      { valor: 219.90, qtd: 71, percentual: 17.2 }
+    ],
+    meta: {
+      geradoEm: new Date().toISOString(),
+      versao: "2.1.0-demo"
+    }
+  },
+  "59000-000": {
+    resumo: {
+      total: 73450.35,
+      total30d: 8950.80,
+      total3m: 24820.40,
+      alunos: 168,
+      ativos: 139,
+      atrasados: 21,
+      diariasTotal: 3940.00,
+      diariasCount: 24,
+      ticketMedio30d: 64.39,
+      ticketMedioGeral: 437.20
+    },
+    mesAMes: {
+      "2026-01": 2820.40,
+      "2026-02": 2950.25,
+      "2026-03": 3180.70,
+      "2026-04": 3050.35,
+      "2026-05": 3320.60,
+      "2026-06": 3490.85
+    },
+    frequencia: { mediaPorAluno30d: 9.4 },
+    picoHoras: {
+      "6": 18,
+      "7": 64,
+      "8": 120,
+      "9": 160,
+      "10": 150,
+      "11": 130,
+      "12": 92,
+      "17": 145,
+      "18": 210,
+      "19": 235,
+      "20": 180
+    },
+    topPessoas: [
+      { codigo: 4001, nome: "Patricia Nunes", total: 1420.00, percentual: 10.6 },
+      { codigo: 4002, nome: "Diego Ramos", total: 1280.00, percentual: 9.5 },
+      { codigo: 4003, nome: "Camila Freire", total: 1190.00, percentual: 8.9 }
+    ],
+    topPlanosGlobal: [
+      { valor: 89.90, qtd: 58, percentual: 34.5 },
+      { valor: 139.90, qtd: 42, percentual: 25.0 },
+      { valor: 179.90, qtd: 29, percentual: 17.3 }
+    ],
+    meta: {
+      geradoEm: new Date().toISOString(),
+      versao: "2.1.0-demo"
+    }
+  }
+};
+
+const DEMO_ALUNOS = {
+  "58780-000": [
+    { nome: "Ana Paula Souza", cartao: "10482", perfil: "aluno", vencimento: "2026-07-12", foto: null },
+    { nome: "Bruno Henrique Lima", cartao: "23891", perfil: "aluno", vencimento: "2026-07-18", foto: null },
+    { nome: "Carla Mendes", cartao: "31507", perfil: "colaborador", vencimento: "2026-08-01", foto: null },
+    { nome: "Diego Rocha", cartao: "42016", perfil: "aluno", vencimento: "2026-06-28", foto: null },
+    { nome: "Elisa Ferreira", cartao: "50944", perfil: "aluno", vencimento: "2026-07-25", foto: null }
+  ],
+  "58970-000": [
+    { nome: "Felipe Andrade", cartao: "11203", perfil: "aluno", vencimento: "2026-07-09", foto: null },
+    { nome: "Gabriela Nunes", cartao: "22418", perfil: "aluno", vencimento: "2026-07-21", foto: null },
+    { nome: "Henrique Costa", cartao: "33872", perfil: "colaborador", vencimento: "2026-08-05", foto: null },
+    { nome: "Isabela Martins", cartao: "44760", perfil: "aluno", vencimento: "2026-06-30", foto: null },
+    { nome: "João Victor Alves", cartao: "55601", perfil: "aluno", vencimento: "2026-07-14", foto: null }
+  ],
+  "58000-000": [
+    { nome: "Karina Duarte", cartao: "12088", perfil: "aluno", vencimento: "2026-07-11", foto: null },
+    { nome: "Lucas Pereira", cartao: "23145", perfil: "aluno", vencimento: "2026-07-19", foto: null },
+    { nome: "Marina Teixeira", cartao: "34290", perfil: "colaborador", vencimento: "2026-08-08", foto: null },
+    { nome: "Nicolas Barros", cartao: "45377", perfil: "aluno", vencimento: "2026-07-03", foto: null },
+    { nome: "Olivia Ramos", cartao: "56412", perfil: "aluno", vencimento: "2026-07-27", foto: null },
+    { nome: "Paulo Henrique", cartao: "67503", perfil: "aluno", vencimento: "2026-07-16", foto: null }
+  ],
+  "59000-000": [
+    { nome: "Quiteria Lopes", cartao: "10931", perfil: "aluno", vencimento: "2026-07-08", foto: null },
+    { nome: "Rafael Monteiro", cartao: "21844", perfil: "aluno", vencimento: "2026-07-22", foto: null },
+    { nome: "Sabrina Campos", cartao: "32755", perfil: "colaborador", vencimento: "2026-08-02", foto: null },
+    { nome: "Thiago Melo", cartao: "43666", perfil: "aluno", vencimento: "2026-06-29", foto: null }
+  ]
+};
+
+// ===== END MOCK/DEMO DATA =====
+
+// ===== MOCK/DEMO CONTROLS - REMOVE BEFORE PRODUCTION =====
+function showDemoButtons() {
+  if (!DEMO_MODE) return;
+  const demoDiv = qs("demoButtons");
+  if (demoDiv) {
+    demoDiv.style.display = "grid";
+    qs("demoEnter")?.addEventListener("click", () => {
+      appAuthorized = true;
+      showApp();
+      aplicarRelatorios(DEMO_DATA);
+      setText("statusCache", "Demo Mode");
+      updateSyncDot("online");
+    });
+  }
+}
+// ===== END MOCK/DEMO CONTROLS =====
+
 function init() {
   setupBottomNav();
+  setupPageSlideMetrics();
+  setupTabSwipeNavigation();
   setupSegmentControl();
+  setupStudentsSearch();
+  setupScrollChaining();
+  setupFinanceSubView();
   setupPwaInstall();
   registerServiceWorker();
   handleRedirectResult();
+  
+  // MOCK/DEMO: show local layout test entrypoint while DEMO_MODE is enabled.
+  if (DEMO_MODE) {
+    setTimeout(() => {
+      authStateReady = true;
+      showDemoButtons();
+      updateLoginButton();
+    }, 500);
+  }
+  
   showLogin();
   updateSyncDot("idle");
   updateLoginButton();
@@ -1564,7 +2880,9 @@ function init() {
   qs("loginGoogleBtn")?.addEventListener("click", signInWithGoogle);
   qs("logoutBtn")?.addEventListener("click", signOut);
 
-  auth.onAuthStateChanged(handleAuthState);
+  if (!DEMO_MODE) {
+    auth.onAuthStateChanged(handleAuthState);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);
