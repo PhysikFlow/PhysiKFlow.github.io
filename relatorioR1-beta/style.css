@@ -445,6 +445,13 @@ button:focus-visible {
   width: 100%;
   min-width: 0;
   overflow: hidden;
+  touch-action: pan-y;
+}
+
+.finance-stack-viewport.is-swiping {
+  touch-action: none;
+  user-select: none;
+  cursor: grabbing;
 }
 
 .finance-stack-track {
@@ -1926,10 +1933,8 @@ button:focus-visible {
   width: 100%;
   overflow: hidden;
   padding-bottom: 0.35rem;
-  background:
-    radial-gradient(circle at 86% 16%, rgba(25, 119, 255, 0.14), transparent 16rem),
-    radial-gradient(circle at 14% 72%, rgba(25, 119, 255, 0.06), transparent 14rem),
-    linear-gradient(180deg, #05080d 0%, #03060b 38%, #05080d 100%);
+  /* Sem fundo próprio — evita o "quadrado fantasma" atrás da lista */
+  background: transparent;
 }
 
 .finance-subview-header {

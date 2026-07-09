@@ -979,8 +979,135 @@ function setupScrollChaining() {
   }, { passive: true });
 }
 
+function setupFinanceStackSwipe() {
+  const viewport = financeStackViewport();
+  const track = financeStackTrack();
+  if (!viewport || !track) return;
+
+  let gesture = null;
+  let docBound = false;
+
+  const unbindDoc = () => {
+    if (!docBound) return;
+    document.removeEventListener("pointermove", onMove, true);
+    document.removeEventListener("pointerup", onFinish, true);
+    document.removeEventListener("pointercancel", onFinish, true);
+    docBound = false;
+  };
+
+  const reset = () => {
+    gesture = null;
+    viewport.classList.remove("is-swiping");
+  };
+
+  const onMove = (event) => {
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    gesture.lastX = event.clientX;
+    gesture.lastTime = event.timeStamp;
+
+    if (gesture.mode === "pending") {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) return;
+
+      // Só volta com gesto horizontal dominante para a direita.
+      if (Math.abs(dy) > Math.abs(dx) * 1.15 || dx <= 0) {
+        unbindDoc();
+        reset();
+        return;
+      }
+
+      if (!financeSubView) {
+        unbindDoc();
+        reset();
+        return;
+      }
+
+      gesture.mode = "horizontal";
+      viewport.classList.add("is-swiping");
+    }
+
+    if (gesture.mode !== "horizontal") return;
+
+    event.preventDefault();
+
+    // Arrasta a subview de volta em direção à lista (offset entre width e 0).
+    const pulled = Math.max(0, Math.min(gesture.width, dx));
+    const offset = gesture.width - pulled;
+    track.style.transition = "none";
+    track.style.transform = `translate3d(-${offset}px, 0, 0)`;
+  };
+
+  const onFinish = (event) => {
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+
+    unbindDoc();
+    viewport.classList.remove("is-swiping");
+
+    if (gesture.mode !== "horizontal") {
+      reset();
+      return;
+    }
+
+    const dx = event.clientX - gesture.startX;
+    const duration = Math.max(event.timeStamp - gesture.startTime, 1);
+    const velocity = dx / duration;
+    const passedDistance = dx >= SWIPE_COMMIT_PX;
+    const passedFlick = velocity >= SWIPE_VELOCITY_COMMIT && dx >= SWIPE_FLICK_MIN_PX;
+    const shouldClose = passedDistance || passedFlick;
+
+    reset();
+
+    if (shouldClose) {
+      if (history.state?.financeSubView) {
+        history.back();
+        return;
+      }
+      closeFinanceSubView(true, true);
+      return;
+    }
+
+    // Não fechou: volta a subview para a posição aberta.
+    setFinanceStackLayer("subview", true);
+  };
+
+  viewport.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (!financeSubView) return;
+      if (event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (event.target.closest("button, a")) return;
+
+      const width = syncFinanceStackMetrics();
+      if (!width) return;
+
+      gesture = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        startTime: event.timeStamp,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        width,
+        mode: "pending"
+      };
+
+      if (!docBound) {
+        document.addEventListener("pointermove", onMove, { capture: true, passive: false });
+        document.addEventListener("pointerup", onFinish, true);
+        document.addEventListener("pointercancel", onFinish, true);
+        docBound = true;
+      }
+    },
+    { passive: true }
+  );
+}
+
 function setupFinanceSubView() {
   setFinanceStackLayer("list", false);
+  setupFinanceStackSwipe();
 
   qs("financeSubBack")?.addEventListener("click", () => {
     if (history.state?.financeSubView) {
