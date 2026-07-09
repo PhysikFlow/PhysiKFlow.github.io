@@ -1,5 +1,3 @@
-const API_URL = "https://itemdest-default-rtdb.firebaseio.com/relatorios.json";
-
 // ==========================
 // FIREBASE CONFIG
 // ==========================
@@ -16,7 +14,9 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+const db = firebase.database();
 const provider = new firebase.auth.GoogleAuthProvider();
+const FIREBASE_READ_TIMEOUT_MS = 15000;
 
 // ==========================
 // CONFIG
@@ -1182,18 +1182,26 @@ function carregarCache() {
 // ==========================
 // AUTHORIZATION CHECK
 // ==========================
+function withTimeout(promise, ms, label = "timeout") {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(label)), ms);
+    })
+  ]);
+}
+
 async function checkAuthorization() {
   const user = auth.currentUser;
   if (!user) return false;
 
   try {
-    const authorizedRef = firebase.database().ref("authorized_users/" + user.uid);
-    const snapshot = await Promise.race([
+    const authorizedRef = db.ref("authorized_users/" + user.uid);
+    const snapshot = await withTimeout(
       authorizedRef.once("value"),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("authorization-timeout")), 10000);
-      })
-    ]);
+      FIREBASE_READ_TIMEOUT_MS,
+      "authorization-timeout"
+    );
     return snapshot.exists();
   } catch (error) {
     console.error("Authorization check failed:", error.code || error.message, error.message);
@@ -1212,13 +1220,15 @@ async function buscarFirebase() {
   }
 
   try {
-    const user = auth.currentUser;
-    const token = await user.getIdToken();
-    const res = await fetch(API_URL + "?auth=" + encodeURIComponent(token));
+    // Lê via SDK autenticado (mesmo canal da autorização).
+    // O fetch REST antigo podia ficar pendurado sem timeout.
+    const snapshot = await withTimeout(
+      db.ref("relatorios").once("value"),
+      FIREBASE_READ_TIMEOUT_MS,
+      "relatorios-timeout"
+    );
 
-    if (!res.ok) throw new Error("HTTP " + res.status);
-
-    const data = await res.json();
+    const data = snapshot.val();
     if (!data) throw new Error("sem dados");
 
     salvarCache(data);
@@ -1226,7 +1236,10 @@ async function buscarFirebase() {
     setText("statusCache", "online");
     updateSyncDot("online");
   } catch (err) {
-    console.warn("Usando cache por erro no Firebase:", err.message);
+    const code = err.code || "";
+    const message = err.message || String(err);
+    console.warn("Usando cache por erro no Firebase:", code || message, message);
+
     const cache = carregarCache();
     if (cache) {
       aplicarRelatorios(cache);
@@ -1235,11 +1248,20 @@ async function buscarFirebase() {
       return;
     }
 
-    if (err.message.includes("401") || err.message.includes("403")) {
+    const denied = code === "PERMISSION_DENIED"
+      || /permission|401|403|unauthorized|nao autorizado|não autorizado/i.test(message);
+
+    if (denied) {
       showUnauthorizedMessage();
-    } else {
-      limparDashboard("Erro ao carregar Firebase");
+      return;
     }
+
+    if (/timeout/i.test(message)) {
+      limparDashboard("Firebase demorou demais. Tente de novo.");
+      return;
+    }
+
+    limparDashboard("Erro ao carregar Firebase");
   }
 }
 
