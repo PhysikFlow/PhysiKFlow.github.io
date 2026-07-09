@@ -589,13 +589,28 @@ function limparDashboard(message = "Sem dados carregados.") {
   closeFinanceSubView(false, false);
 }
 
-function popularComboUnidades() {
-  const select = qs("unitSelect");
-  if (!select) return;
-
-  const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) => {
+function listarUnitIds() {
+  return Object.keys(relatoriosPorUnidade).sort((a, b) => {
     return nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR");
   });
+}
+
+function resolverUnidadeAtiva(preferredId = unidadeSelecionada) {
+  const unitIds = listarUnitIds();
+  if (!unitIds.length) return "";
+
+  const hasMultiple = unitIds.length > 1;
+  if (preferredId === "geral" && hasMultiple) return "geral";
+  if (preferredId && relatoriosPorUnidade[preferredId]) return preferredId;
+  return hasMultiple ? "geral" : unitIds[0];
+}
+
+function popularComboUnidades() {
+  const unitIds = listarUnitIds();
+  unidadeSelecionada = resolverUnidadeAtiva(unidadeSelecionada);
+
+  const select = qs("unitSelect");
+  if (!select) return;
 
   if (!unitIds.length) {
     select.innerHTML = '<option value="">Sem relatorios</option>';
@@ -606,14 +621,6 @@ function popularComboUnidades() {
   select.disabled = false;
 
   const hasMultiple = unitIds.length > 1;
-  const validSelection = unidadeSelecionada === "geral"
-    ? hasMultiple
-    : unitIds.includes(unidadeSelecionada);
-
-  if (!validSelection) {
-    unidadeSelecionada = hasMultiple ? "geral" : unitIds[0];
-  }
-
   const geralOption = hasMultiple
     ? `<option value="geral"${unidadeSelecionada === "geral" ? " selected" : ""}>Todas as unidades</option>`
     : "";
@@ -627,22 +634,21 @@ function popularComboUnidades() {
 }
 
 function selecionarUnidade(unitId) {
-  if (!unitId) return;
+  const resolved = resolverUnidadeAtiva(unitId);
+  if (!resolved) return;
 
-  unidadeSelecionada = unitId;
-  localStorage.setItem(SELECTED_UNIT_KEY, unitId);
+  unidadeSelecionada = resolved;
+  localStorage.setItem(SELECTED_UNIT_KEY, resolved);
 
   const select = qs("unitSelect");
-  if (select && select.value !== unitId) select.value = unitId;
+  if (select && select.value !== resolved) select.value = resolved;
 
-  if (unitId === "geral") {
-    if (!Object.keys(relatoriosPorUnidade).length) return;
+  if (resolved === "geral") {
     aplicarTudo(agregarRelatorioGeral(), "geral");
     return;
   }
 
-  if (!relatoriosPorUnidade[unitId]) return;
-  aplicarTudo(relatoriosPorUnidade[unitId], unitId);
+  aplicarTudo(relatoriosPorUnidade[resolved], resolved);
 }
 
 function aplicarRelatorios(data) {
@@ -1088,7 +1094,7 @@ function renderAlunosUnitsCards() {
   let html = "";
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
-    const alunos = Array.isArray(data.alunos) ? data.alunos : [];
+    const alunos = toArray(data?.alunos);
     const cardsHtml = alunos.length
       ? alunos.map(renderStudentCard).join("")
       : "";
