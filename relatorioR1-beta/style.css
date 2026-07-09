@@ -1567,12 +1567,73 @@ button:focus-visible {
 }
 
 .inicio-wallpaper {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Fundo expandido: mesma arte ampliada + desfocada */
+.inicio-wallpaper-blur {
+  position: absolute;
+  inset: -18%;
   background:
-    url("./r1-wallpaper.png") center 40% / cover no-repeat;
-  transform: scale(1.02);
+    url("./r1-wallpaper.png") center / cover no-repeat;
+  filter: blur(36px) saturate(1.08);
+  transform: scale(1.18);
+  transform-origin: center;
+}
+
+/*
+  Imagem nítida no tamanho natural (contain).
+  Feather só na faixa externa (~10–14px) pra esconder a emenda
+  com o blur — o centro fica 100% nítido.
+*/
+.inicio-wallpaper-sharp {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  --feather: 12px;
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--feather),
+      #000 calc(100% - var(--feather)),
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--feather),
+      #000 calc(100% - var(--feather)),
+      transparent 100%
+    );
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--feather),
+      #000 calc(100% - var(--feather)),
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--feather),
+      #000 calc(100% - var(--feather)),
+      transparent 100%
+    );
+  mask-composite: intersect;
 }
 
 .inicio-overlay {
+  z-index: 2;
   /* Centro mais limpo pra logo; leve escurecida nas bordas */
   background:
     linear-gradient(
