@@ -1545,12 +1545,20 @@ button:focus-visible {
   object-fit: contain;
 }
 
-/* INÍCIO — wallpaper + lista mínima */
+/* INÍCIO — wallpaper full-bleed + lista mínima */
 .app-page.inicio-page {
   position: relative;
   isolation: isolate;
-  padding-top: 1.25rem;
   gap: 0;
+  /* Cancela o padding do .app-content (espaço de header antigo) */
+  margin-top: calc(-1 * (env(safe-area-inset-top) + 0.85rem));
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  height: calc(100% + env(safe-area-inset-top) + 0.85rem);
+  max-height: none;
+  min-height: calc(100% + env(safe-area-inset-top) + 0.85rem);
+  overflow: hidden;
 }
 
 .inicio-wallpaper,
@@ -1569,7 +1577,7 @@ button:focus-visible {
 
 .inicio-overlay {
   background:
-    linear-gradient(180deg, rgba(3, 6, 11, 0.35) 0%, rgba(3, 6, 11, 0.55) 42%, rgba(3, 6, 11, 0.88) 100%),
+    linear-gradient(180deg, rgba(3, 6, 11, 0.28) 0%, rgba(3, 6, 11, 0.5) 45%, rgba(3, 6, 11, 0.88) 100%),
     radial-gradient(ellipse at 50% 18%, rgba(45, 134, 255, 0.18), transparent 42%);
 }
 
@@ -1578,10 +1586,10 @@ button:focus-visible {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  min-height: calc(100% - 0.5rem);
-  padding-top: max(22vh, 5rem);
-  padding-bottom: 0.35rem;
+  justify-content: flex-start;
+  min-height: 100%;
+  padding: calc(env(safe-area-inset-top) + 1.1rem) 1.1rem 0.35rem;
+  box-sizing: border-box;
 }
 
 .inicio-units {
