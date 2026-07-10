@@ -41,6 +41,8 @@ let authStateReady = false;
 let pendingLoginError = "";
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
+let mockAlunosPorUnidade = null;
+let mockAlunosPromise = null;
 
 const loginView = () => document.querySelector('[data-view="login"]');
 const appView = () => document.querySelector('[data-view="app"]');
@@ -1162,7 +1164,7 @@ function perfilLabel(perfil) {
 
 function renderStudentPhoto(foto) {
   if (foto) {
-    return `<img class="student-photo" src="${escapeHTML(foto)}" alt="" loading="lazy" />`;
+    return `<img class="student-photo" src="${escapeHTML(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
   }
 
   return `<div class="student-photo student-photo--empty">${NO_PHOTO_SVG}</div>`;
@@ -1206,9 +1208,41 @@ function filterStudentsInUnit(unitBlock, query) {
   if (empty) empty.hidden = visible > 0;
 }
 
-function renderAlunosUnitsCards() {
+async function carregarMockAlunos() {
+  if (mockAlunosPorUnidade) return mockAlunosPorUnidade;
+  if (mockAlunosPromise) return mockAlunosPromise;
+
+  mockAlunosPromise = fetch("./mock-alunos.json", { cache: "no-cache" })
+    .then((res) => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then((data) => {
+      mockAlunosPorUnidade = data && typeof data === "object" ? data : {};
+      return mockAlunosPorUnidade;
+    })
+    .catch((error) => {
+      console.warn("Mock de alunos indisponível:", error.message);
+      mockAlunosPorUnidade = {};
+      return mockAlunosPorUnidade;
+    });
+
+  return mockAlunosPromise;
+}
+
+function alunosDaUnidade(unitId, data) {
+  const fromFirebase = toArray(data?.alunos);
+  if (fromFirebase.length) return fromFirebase;
+
+  const mock = mockAlunosPorUnidade?.[unitId];
+  return toArray(mock);
+}
+
+async function renderAlunosUnitsCards() {
   const container = qs("alunosUnitsGrid");
   if (!container) return;
+
+  await carregarMockAlunos();
 
   const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) =>
     nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR")
@@ -1222,7 +1256,7 @@ function renderAlunosUnitsCards() {
   let html = "";
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
-    const alunos = toArray(data?.alunos);
+    const alunos = alunosDaUnidade(unitId, data);
     const cardsHtml = alunos.length
       ? alunos.map(renderStudentCard).join("")
       : "";
@@ -1253,6 +1287,15 @@ function renderAlunosUnitsCards() {
   });
 
   container.innerHTML = html;
+
+  container.querySelectorAll("img.student-photo").forEach((img) => {
+    img.addEventListener("error", () => {
+      const fallback = document.createElement("div");
+      fallback.className = "student-photo student-photo--empty";
+      fallback.innerHTML = NO_PHOTO_SVG;
+      img.replaceWith(fallback);
+    }, { once: true });
+  });
 }
 
 function setupStudentsSearch() {
