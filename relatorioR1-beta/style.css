@@ -1676,12 +1676,16 @@ button:focus-visible {
   gap: 0.1rem;
   width: min(100%, 22rem);
   margin: 0 auto;
-  padding: 0.35rem 0.85rem 0.55rem;
+  padding: 0.45rem 0.95rem 0.65rem;
   border-radius: var(--radius);
-  background: rgba(3, 6, 11, 0.48);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background:
+    linear-gradient(165deg, rgba(18, 28, 44, 0.78), rgba(6, 10, 18, 0.72));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(1.12);
+  -webkit-backdrop-filter: blur(14px) saturate(1.12);
   pointer-events: auto;
 }
 
@@ -1690,13 +1694,13 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.7rem 0.15rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text);
+  padding: 0.75rem 0.15rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
 .inicio-unit-row:last-child {
@@ -1751,7 +1755,7 @@ button:focus-visible {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
-  color: #fff;
+  color: #f4f7ff;
 }
 
 .inicio-empty {
