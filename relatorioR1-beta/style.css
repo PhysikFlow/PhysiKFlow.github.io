@@ -2232,6 +2232,10 @@ button:focus-visible {
   min-width: 0;
 }
 
+.app-page[data-page="alunos"]:focus-within .students-units {
+  padding-bottom: min(42vh, 18rem);
+}
+
 .students-unit-block {
   position: relative;
   border-radius: var(--radius);
@@ -2256,6 +2260,18 @@ button:focus-visible {
   font-size: 1.05rem;
   font-weight: 800;
   line-height: 1.2;
+}
+
+.students-unit-title-wrap {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.students-count {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .students-search-wrap {
@@ -2297,7 +2313,7 @@ button:focus-visible {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  touch-action: pan-x pinch-zoom;
+  touch-action: pan-x pan-y pinch-zoom;
   padding: 0.85rem 0.85rem 0.65rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
@@ -2316,18 +2332,31 @@ button:focus-visible {
   display: inline-flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 0.65rem;
-  width: max-content;
+  gap: 10px;
+  width: auto;
   max-width: none;
   vertical-align: top;
+}
+
+.students-virtual-track {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 100%;
+  width: max-content;
+  vertical-align: top;
+}
+
+.students-virtual-spacer {
+  flex: 0 0 auto;
+  width: 0;
 }
 
 .student-card {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: 9.5rem;
-  max-width: 9.5rem;
+  width: 152px;
+  max-width: 152px;
   gap: 0.55rem;
   padding: 0.65rem;
   border-radius: var(--radius-sm);

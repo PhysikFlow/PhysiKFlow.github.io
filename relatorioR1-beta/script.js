@@ -43,6 +43,11 @@ let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
 let mockAlunosPorUnidade = null;
 let mockAlunosPromise = null;
+const studentVirtualState = new Map();
+const STUDENT_CARD_WIDTH = 152;
+const STUDENT_CARD_GAP = 10;
+const STUDENT_VIRTUAL_BUFFER = 6;
+const STUDENT_SEARCH_DEBOUNCE_MS = 120;
 
 const loginView = () => document.querySelector('[data-view="login"]');
 const appView = () => document.querySelector('[data-view="app"]');
@@ -675,6 +680,10 @@ function renderUnitsCards() {
   const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) =>
     nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR")
   );
+  const activeUnitIds = new Set(unitIds);
+  [...studentVirtualState.keys()].forEach((unitId) => {
+    if (!activeUnitIds.has(unitId)) studentVirtualState.delete(unitId);
+  });
 
   if (!unitIds.length) {
     grid.innerHTML = '<div class="inicio-empty">Sem unidades disponíveis</div>';
@@ -1303,7 +1312,7 @@ function renderStudentCard(student) {
   const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
 
   return `
-    <article class="student-card" data-search="${escapeHTML(`${student.nome} ${student.cartao} ${perfilLabel(perfil)}`.toLowerCase())}">
+    <article class="student-card">
       ${renderStudentPhoto(student.foto)}
       <div class="student-card-body">
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
@@ -1316,25 +1325,103 @@ function renderStudentCard(student) {
 }
 
 function filterStudentsInUnit(unitBlock, query) {
-  const normalized = query.trim().toLowerCase();
-  const cards = unitBlock.querySelectorAll(".student-card");
-  let visible = 0;
-
-  cards.forEach((card) => {
-    const haystack = card.dataset.search || "";
-    const matches = !normalized || haystack.includes(normalized);
-    card.hidden = !matches;
-    if (matches) visible += 1;
-  });
-
+  const state = getStudentsUnitState(unitBlock);
   const scroll = unitBlock.querySelector(".students-scroll");
-  if (scroll) {
-    scroll.hidden = visible === 0;
-    scroll.scrollLeft = 0;
+  if (!state || !scroll) return;
+
+  const normalized = normalizeStudentSearch(query);
+  state.query = normalized;
+  state.filtered = normalized
+    ? state.students.filter((student) => student._search.includes(normalized))
+    : state.students;
+  state.lastStart = -1;
+  state.lastEnd = -1;
+  state.lastQuery = "";
+  scroll.scrollLeft = 0;
+  renderVirtualStudents(unitBlock);
+}
+
+function normalizeStudentSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function prepareStudentRecord(student) {
+  const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
+  return {
+    ...student,
+    _search: normalizeStudentSearch(`${student.nome} ${student.cartao} ${perfilLabel(perfil)} ${student.codigo || ""}`)
+  };
+}
+
+function getStudentsUnitState(unitBlock) {
+  const unitId = unitBlock?.dataset.unitBlock;
+  return unitId ? studentVirtualState.get(unitId) : null;
+}
+
+function getStudentVirtualWindow(scroller, total) {
+  const itemSize = STUDENT_CARD_WIDTH + STUDENT_CARD_GAP;
+  const viewportWidth = Math.max(scroller.clientWidth || 0, STUDENT_CARD_WIDTH);
+  const visibleCount = Math.max(1, Math.ceil(viewportWidth / itemSize));
+  const start = clamp(Math.floor(scroller.scrollLeft / itemSize) - STUDENT_VIRTUAL_BUFFER, 0, total);
+  const end = clamp(start + visibleCount + (STUDENT_VIRTUAL_BUFFER * 2), start, total);
+
+  return { start, end, itemSize };
+}
+
+function updateStudentsMeta(unitBlock, visible) {
+  const count = unitBlock.querySelector("[data-students-count]");
+  if (count) count.textContent = `${visible.toLocaleString("pt-BR")} aluno${visible === 1 ? "" : "s"}`;
+}
+
+function bindStudentImageFallbacks(scope) {
+  scope.querySelectorAll("img.student-photo").forEach((img) => {
+    img.addEventListener("error", () => {
+      const fallback = document.createElement("div");
+      fallback.className = "student-photo student-photo--empty";
+      fallback.innerHTML = NO_PHOTO_SVG;
+      img.replaceWith(fallback);
+    }, { once: true });
+  });
+}
+
+function renderVirtualStudents(unitBlock) {
+  const state = getStudentsUnitState(unitBlock);
+  const scroller = unitBlock?.querySelector(".students-scroll");
+  const grid = unitBlock?.querySelector(".students-grid");
+  const before = unitBlock?.querySelector("[data-virtual-spacer='before']");
+  const after = unitBlock?.querySelector("[data-virtual-spacer='after']");
+  const empty = unitBlock?.querySelector(".students-empty");
+  if (!state || !scroller || !grid || !before || !after || !empty) return;
+
+  const total = state.filtered.length;
+  updateStudentsMeta(unitBlock, total);
+  scroller.hidden = total === 0;
+  empty.hidden = total > 0;
+
+  if (!total) {
+    before.style.width = "0px";
+    after.style.width = "0px";
+    grid.innerHTML = "";
+    state.lastStart = 0;
+    state.lastEnd = 0;
+    return;
   }
 
-  const empty = unitBlock.querySelector(".students-empty");
-  if (empty) empty.hidden = visible > 0;
+  const { start, end, itemSize } = getStudentVirtualWindow(scroller, total);
+  if (start === state.lastStart && end === state.lastEnd && state.lastQuery === state.query) return;
+
+  state.lastStart = start;
+  state.lastEnd = end;
+  state.lastQuery = state.query;
+
+  before.style.width = `${start * itemSize}px`;
+  after.style.width = `${Math.max(0, (total - end) * itemSize)}px`;
+  grid.innerHTML = state.filtered.slice(start, end).map(renderStudentCard).join("");
+  bindStudentImageFallbacks(grid);
 }
 
 async function carregarMockAlunos() {
@@ -1385,15 +1472,23 @@ async function renderAlunosUnitsCards() {
   let html = "";
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
-    const alunos = alunosDaUnidade(unitId, data);
-    const cardsHtml = alunos.length
-      ? alunos.map(renderStudentCard).join("")
-      : "";
+    const alunos = alunosDaUnidade(unitId, data).map(prepareStudentRecord);
+    studentVirtualState.set(unitId, {
+      students: alunos,
+      filtered: alunos,
+      query: "",
+      lastStart: -1,
+      lastEnd: -1,
+      lastQuery: ""
+    });
 
     html += `
       <section class="students-unit-block" data-unit-block="${escapeHTML(unitId)}">
         <div class="students-unit-header">
-          <h3 class="students-unit-title">${escapeHTML(nomeUnidade(unitId))}</h3>
+          <div class="students-unit-title-wrap">
+            <h3 class="students-unit-title">${escapeHTML(nomeUnidade(unitId))}</h3>
+            <span class="students-count" data-students-count>${alunos.length.toLocaleString("pt-BR")} aluno${alunos.length === 1 ? "" : "s"}</span>
+          </div>
           <label class="students-search-wrap">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
             <input
@@ -1405,9 +1500,11 @@ async function renderAlunosUnitsCards() {
             />
           </label>
         </div>
-        <div class="students-scroll">
-          <div class="students-grid">
-            ${cardsHtml}
+        <div class="students-scroll"${alunos.length ? "" : " hidden"}>
+          <div class="students-virtual-track">
+            <div class="students-virtual-spacer" data-virtual-spacer="before" aria-hidden="true"></div>
+            <div class="students-grid"></div>
+            <div class="students-virtual-spacer" data-virtual-spacer="after" aria-hidden="true"></div>
           </div>
         </div>
         <p class="students-empty"${alunos.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
@@ -1416,15 +1513,8 @@ async function renderAlunosUnitsCards() {
   });
 
   container.innerHTML = html;
-
-  container.querySelectorAll("img.student-photo").forEach((img) => {
-    img.addEventListener("error", () => {
-      const fallback = document.createElement("div");
-      fallback.className = "student-photo student-photo--empty";
-      fallback.innerHTML = NO_PHOTO_SVG;
-      img.replaceWith(fallback);
-    }, { once: true });
-  });
+  container.querySelectorAll(".students-unit-block").forEach(renderVirtualStudents);
+  observeStudentScrollers(container);
 }
 
 function setupStudentsSearch() {
@@ -1439,8 +1529,62 @@ function setupStudentsSearch() {
     const unitBlock = input.closest(".students-unit-block");
     if (!unitBlock) return;
 
-    filterStudentsInUnit(unitBlock, input.value);
+    clearTimeout(unitBlock._studentsSearchTimer);
+    unitBlock._studentsSearchTimer = setTimeout(() => {
+      filterStudentsInUnit(unitBlock, input.value);
+    }, STUDENT_SEARCH_DEBOUNCE_MS);
   });
+
+  container.addEventListener("focusin", (event) => {
+    const input = event.target.closest(".students-search");
+    if (!input) return;
+
+    const unitBlock = input.closest(".students-unit-block");
+    if (!unitBlock) return;
+
+    window.setTimeout(() => {
+      unitBlock.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      getActiveAppPage()?.scrollBy({ top: -8, behavior: "auto" });
+    }, 260);
+  });
+
+  container.addEventListener("scroll", (event) => {
+    const scroller = event.target.closest?.(".students-scroll");
+    if (!scroller) return;
+
+    const unitBlock = scroller.closest(".students-unit-block");
+    if (!unitBlock) return;
+
+    window.requestAnimationFrame(() => renderVirtualStudents(unitBlock));
+  }, true);
+
+  container.addEventListener("wheel", (event) => {
+    const scroller = event.target.closest(".students-scroll");
+    if (!scroller) return;
+
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    scrollActivePageBy(event.deltaY);
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
+
+  if ("ResizeObserver" in window) {
+    container._studentsResizeObserver = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        const unitBlock = entry.target.closest(".students-unit-block");
+        if (unitBlock) renderVirtualStudents(unitBlock);
+      });
+    });
+    observeStudentScrollers(container);
+  }
+}
+
+function observeStudentScrollers(container) {
+  const observer = container?._studentsResizeObserver;
+  if (!observer) return;
+
+  observer.disconnect();
+  container.querySelectorAll(".students-scroll").forEach((scroller) => observer.observe(scroller));
 }
 
 function updateKPIs(data) {
