@@ -782,6 +782,9 @@ function seedFromUnitId(unitId) {
 }
 
 function getFinanceTodayBreakdown(unitId) {
+  const payments = getFinanceTodayPayments(unitId);
+  if (payments.length) return groupFinanceTodayPayments(payments);
+
   const seed = seedFromUnitId(unitId);
   const counts = {
     diario: (seed % 4) + 1,
@@ -802,6 +805,96 @@ function getFinanceTodayBreakdown(unitId) {
         total,
         label: `${qtd}x ${PLAN_TYPE_LABELS[type]}`
       };
+    });
+
+  const total = lines.reduce((sum, line) => sum + line.total, 0);
+  return { lines, total };
+}
+
+function getMockUnitNode(unitId) {
+  return mockAlunosPorUnidade?.[unitId];
+}
+
+function getFinanceTodayPayments(unitId) {
+  const fromFirebase = toArray(relatoriosPorUnidade[unitId]?.pagamentosHoje);
+  if (fromFirebase.length) return fromFirebase;
+
+  const mockUnit = getMockUnitNode(unitId);
+  const fromMockUnit = !Array.isArray(mockUnit) ? toArray(mockUnit?.pagamentosHoje) : [];
+  if (fromMockUnit.length) return fromMockUnit;
+
+  return toArray(mockAlunosPorUnidade?._financeiro?.pagamentosHoje?.[unitId]);
+}
+
+function getPaymentPlanType(payment) {
+  return String(payment?.plano || payment?.tipoPlano || payment?.type || "outros")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function getPaymentPlanLabel(type) {
+  return PLAN_TYPE_LABELS[type] || type.replace(/[_-]+/g, " ");
+}
+
+function getPaymentAmount(payment) {
+  return Number(payment?.valor ?? payment?.amount ?? payment?.total ?? 0) || 0;
+}
+
+function formatPaymentTime(payment) {
+  const direct = payment?.hora || payment?.time;
+  if (direct) return String(direct).slice(0, 5);
+
+  const timestamp = payment?.pagoEm || payment?.paidAt || payment?.createdAt;
+  if (!timestamp) return "--:--";
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "--:--";
+
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function getPaymentStudentName(payment) {
+  return payment?.alunoNome || payment?.nomeAluno || payment?.studentName || "Aluno sem nome";
+}
+
+function getPaymentMethod(payment) {
+  return payment?.formaPagamento || payment?.metodo || payment?.paymentMethod || "forma nao informada";
+}
+
+function groupFinanceTodayPayments(payments) {
+  const groups = new Map();
+
+  payments.forEach((payment) => {
+    const type = getPaymentPlanType(payment);
+    if (!groups.has(type)) {
+      groups.set(type, {
+        type,
+        qtd: 0,
+        total: 0,
+        payments: []
+      });
+    }
+
+    const group = groups.get(type);
+    group.qtd += 1;
+    group.total += getPaymentAmount(payment);
+    group.payments.push(payment);
+  });
+
+  const lines = [...groups.values()]
+    .map((group) => ({
+      ...group,
+      label: `${group.qtd}x ${getPaymentPlanLabel(group.type)}`
+    }))
+    .sort((a, b) => {
+      const orderA = PLAN_TYPES.indexOf(a.type);
+      const orderB = PLAN_TYPES.indexOf(b.type);
+      return (orderA === -1 ? 99 : orderA) - (orderB === -1 ? 99 : orderB);
     });
 
   const total = lines.reduce((sum, line) => sum + line.total, 0);
@@ -833,12 +926,38 @@ function renderFinanceTodayList(breakdown) {
     return '<div class="mini-note">Sem dados para exibir.</div>';
   }
 
-  const rows = breakdown.lines.map((line) => `
-    <div class="finance-data-row">
-      <span>${escapeHTML(line.label)}</span>
-      <strong>${formatBRL(line.total)}</strong>
-    </div>
-  `).join("");
+  const rows = breakdown.lines.map((line) => {
+    const details = toArray(line.payments)
+      .sort((a, b) => formatPaymentTime(a).localeCompare(formatPaymentTime(b)))
+      .map((payment) => `
+        <div class="finance-payment-row">
+          <time>${escapeHTML(formatPaymentTime(payment))}</time>
+          <span>${escapeHTML(getPaymentStudentName(payment))}</span>
+          <strong>${escapeHTML(getPaymentMethod(payment))}</strong>
+        </div>
+      `).join("");
+
+    if (!details) {
+      return `
+        <div class="finance-data-row">
+          <span>${escapeHTML(line.label)}</span>
+          <strong>${formatBRL(line.total)}</strong>
+        </div>
+      `;
+    }
+
+    return `
+      <details class="finance-data-group">
+        <summary class="finance-data-row">
+          <span>${escapeHTML(line.label)}</span>
+          <strong>${formatBRL(line.total)}</strong>
+        </summary>
+        <div class="finance-payment-list">
+          ${details}
+        </div>
+      </details>
+    `;
+  }).join("");
 
   return `${rows}
     <div class="finance-data-row is-total">
@@ -861,6 +980,16 @@ function renderFinanceSubView() {
   if (!list) return;
 
   if (isDaily) {
+    if (!mockAlunosPorUnidade) {
+      list.innerHTML = '<div class="mini-note">Carregando pagamentos...</div>';
+      carregarMockAlunos().then(() => {
+        if (financeSubView?.view === "dia" && financeSubView?.unitId === unitId) {
+          renderFinanceSubView();
+        }
+      });
+      return;
+    }
+
     list.innerHTML = renderFinanceTodayList(getFinanceTodayBreakdown(unitId));
     return;
   }
@@ -1234,8 +1363,8 @@ function alunosDaUnidade(unitId, data) {
   const fromFirebase = toArray(data?.alunos);
   if (fromFirebase.length) return fromFirebase;
 
-  const mock = mockAlunosPorUnidade?.[unitId];
-  return toArray(mock);
+  const mock = getMockUnitNode(unitId);
+  return toArray(Array.isArray(mock) ? mock : mock?.alunos);
 }
 
 async function renderAlunosUnitsCards() {

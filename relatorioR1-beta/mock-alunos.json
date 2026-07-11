@@ -462,5 +462,121 @@
       "foto": "https://randomuser.me/api/portraits/men/92.jpg",
       "status": "atrasado"
     }
-  ]
+  ],
+  "_financeiro": {
+    "pagamentosHoje": {
+      "58780-000": [
+        {
+          "id": "pay-58780-001",
+          "alunoId": 1001,
+          "alunoNome": "Ana Mock Silva",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T07:42:00-03:00"
+        },
+        {
+          "id": "pay-58780-002",
+          "alunoId": 1002,
+          "alunoNome": "Bruno Mock Costa",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "Cartao credito",
+          "pagoEm": "2026-07-11T08:18:00-03:00"
+        },
+        {
+          "id": "pay-58780-003",
+          "alunoId": 1007,
+          "alunoNome": "Gabriela Mock Pinto",
+          "plano": "mensal",
+          "valor": 140,
+          "formaPagamento": "Dinheiro",
+          "pagoEm": "2026-07-11T09:05:00-03:00"
+        },
+        {
+          "id": "pay-58780-004",
+          "alunoId": 1010,
+          "alunoNome": "João Mock Barbosa",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T10:33:00-03:00"
+        },
+        {
+          "id": "pay-58780-005",
+          "alunoId": 1013,
+          "alunoNome": "Marina Mock Azevedo",
+          "plano": "mensal",
+          "valor": 140,
+          "formaPagamento": "Cartao debito",
+          "pagoEm": "2026-07-11T11:12:00-03:00"
+        },
+        {
+          "id": "pay-58780-006",
+          "alunoId": 1003,
+          "alunoNome": "Camila Mock Ferreira",
+          "plano": "diario",
+          "valor": 40,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T12:20:00-03:00"
+        },
+        {
+          "id": "pay-58780-007",
+          "alunoId": 1006,
+          "alunoNome": "Felipe Mock Nunes",
+          "plano": "semanal",
+          "valor": 80,
+          "formaPagamento": "Dinheiro",
+          "pagoEm": "2026-07-11T15:47:00-03:00"
+        }
+      ],
+      "58970-000": [
+        {
+          "id": "pay-58970-001",
+          "alunoId": 2001,
+          "alunoNome": "Alice Mock Andrade",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T08:04:00-03:00"
+        },
+        {
+          "id": "pay-58970-002",
+          "alunoId": 2004,
+          "alunoNome": "Daniel Mock Moreira",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "Cartao credito",
+          "pagoEm": "2026-07-11T09:28:00-03:00"
+        },
+        {
+          "id": "pay-58970-003",
+          "alunoId": 2008,
+          "alunoNome": "Hugo Mock Tavares",
+          "plano": "quinzenal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T10:51:00-03:00"
+        },
+        {
+          "id": "pay-58970-004",
+          "alunoId": 2011,
+          "alunoNome": "Kelly Mock Brito",
+          "plano": "diario",
+          "valor": 40,
+          "formaPagamento": "Dinheiro",
+          "pagoEm": "2026-07-11T14:09:00-03:00"
+        },
+        {
+          "id": "pay-58970-005",
+          "alunoId": 2019,
+          "alunoNome": "Taina Mock Ribeiro",
+          "plano": "trimestral",
+          "valor": 420,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T16:35:00-03:00"
+        }
+      ]
+    }
+  }
 }
