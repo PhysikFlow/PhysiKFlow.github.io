@@ -1,0 +1,417 @@
+{
+  "_schema": {
+    "name": "PhysikFlow Relatorios Beta Firebase Contract",
+    "version": 1,
+    "notes": [
+      "Este arquivo representa a raiz esperada do Firebase Realtime Database.",
+      "O beta atual le db.ref('relatorios') para dados do app e db.ref('authorized_users/{uid}') para permissao.",
+      "Use mapas por id em listas grandes para evitar arrays gigantes regravados por completo.",
+      "Mantenha relatorios/{unidadeId}/resumo e series agregadas prontos no backend/worker; o app deve apenas ler.",
+      "Para 1k+ alunos por unidade, prefira alunosById no Firebase e gere relatorios/{unidadeId}/alunos como espelho leve se o app continuar lendo tudo de uma vez."
+    ],
+    "unitIdFormat": "CEP da unidade, ex: 58780-000",
+    "money": "number em BRL, sem formatacao",
+    "date": "YYYY-MM-DD",
+    "datetime": "ISO-8601 com timezone",
+    "monthKey": "YYYY-MM"
+  },
+  "authorized_users": {
+    "google_uid_admin_001": true,
+    "google_uid_gestor_002": true
+  },
+  "units": {
+    "58780-000": {
+      "id": "58780-000",
+      "nome": "Itaporanga",
+      "status": "ativa",
+      "timezone": "America/Sao_Paulo"
+    },
+    "58970-000": {
+      "id": "58970-000",
+      "nome": "Conceicao",
+      "status": "ativa",
+      "timezone": "America/Sao_Paulo"
+    }
+  },
+  "relatorios": {
+    "58780-000": {
+      "meta": {
+        "versao": 1,
+        "geradoEm": "2026-07-11T18:00:00-03:00",
+        "lastUpdate": "2026-07-11T18:00:00-03:00",
+        "janelaDias": 30,
+        "unitId": "58780-000",
+        "source": "worker-physikflow"
+      },
+      "resumo": {
+        "total": 128450.75,
+        "total30d": 18420.5,
+        "total3m": 52340.9,
+        "alunos": 1048,
+        "ativos": 962,
+        "atrasados": 86,
+        "diariasTotal": 2960,
+        "diariasCount": 74,
+        "ticketMedio30d": 145.72,
+        "ticketMedioGeral": 138.94
+      },
+      "frequencia": {
+        "mediaPorAluno30d": 8.42
+      },
+      "mesAMes": {
+        "2026-02": 16240.75,
+        "2026-03": 17110,
+        "2026-04": 16780.5,
+        "2026-05": 17840,
+        "2026-06": 18120.4,
+        "2026-07": 18420.5
+      },
+      "diarias": {
+        "total": 2960,
+        "count": 74
+      },
+      "diariasMensais": {
+        "2026-02": {
+          "valor": 1840,
+          "qtd": 46
+        },
+        "2026-03": {
+          "valor": 2160,
+          "qtd": 54
+        },
+        "2026-04": {
+          "valor": 2040,
+          "qtd": 51
+        },
+        "2026-05": {
+          "valor": 2480,
+          "qtd": 62
+        },
+        "2026-06": {
+          "valor": 2680,
+          "qtd": 67
+        },
+        "2026-07": {
+          "valor": 2960,
+          "qtd": 74
+        }
+      },
+      "picoHoras": {
+        "5": 18,
+        "6": 42,
+        "7": 68,
+        "8": 55,
+        "9": 41,
+        "10": 36,
+        "11": 29,
+        "12": 24,
+        "13": 31,
+        "14": 38,
+        "15": 46,
+        "16": 53,
+        "17": 77,
+        "18": 96,
+        "19": 88,
+        "20": 61,
+        "21": 25,
+        "pico": {
+          "hora": 18,
+          "media": 96
+        },
+        "vale": {
+          "hora": 5,
+          "media": 18
+        }
+      },
+      "topPessoas": {
+        "1001": {
+          "id": "1001",
+          "codigo": 1001,
+          "nome": "Ana Mock Silva",
+          "total": 1650,
+          "percentual": 13.4
+        },
+        "1010": {
+          "id": "1010",
+          "codigo": 1010,
+          "nome": "Joao Mock Barbosa",
+          "total": 1420,
+          "percentual": 11.5
+        },
+        "1013": {
+          "id": "1013",
+          "codigo": 1013,
+          "nome": "Marina Mock Azevedo",
+          "total": 1260,
+          "percentual": 10.2
+        }
+      },
+      "topPlanosGlobal": {
+        "mensal_150": {
+          "valor": 150,
+          "qtd": 612,
+          "percentual": 58.4,
+          "label": "mensal"
+        },
+        "mensal_140": {
+          "valor": 140,
+          "qtd": 214,
+          "percentual": 20.4,
+          "label": "mensal promocional"
+        },
+        "diario_40": {
+          "valor": 40,
+          "qtd": 74,
+          "percentual": 7.1,
+          "label": "diario"
+        },
+        "trimestral_420": {
+          "valor": 420,
+          "qtd": 32,
+          "percentual": 3.1,
+          "label": "trimestral"
+        }
+      },
+      "pagamentosHoje": {
+        "pay_58780_20260711_001": {
+          "id": "pay_58780_20260711_001",
+          "alunoId": "1001",
+          "alunoNome": "Ana Mock Silva",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T07:42:00-03:00"
+        },
+        "pay_58780_20260711_002": {
+          "id": "pay_58780_20260711_002",
+          "alunoId": "1002",
+          "alunoNome": "Bruno Mock Costa",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "Cartao credito",
+          "pagoEm": "2026-07-11T08:18:00-03:00"
+        },
+        "pay_58780_20260711_003": {
+          "id": "pay_58780_20260711_003",
+          "alunoId": "1007",
+          "alunoNome": "Gabriela Mock Pinto",
+          "plano": "mensal",
+          "valor": 140,
+          "formaPagamento": "Dinheiro",
+          "pagoEm": "2026-07-11T09:05:00-03:00"
+        },
+        "pay_58780_20260711_004": {
+          "id": "pay_58780_20260711_004",
+          "alunoId": "1010",
+          "alunoNome": "Joao Mock Barbosa",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T10:33:00-03:00"
+        },
+        "pay_58780_20260711_005": {
+          "id": "pay_58780_20260711_005",
+          "alunoId": "1013",
+          "alunoNome": "Marina Mock Azevedo",
+          "plano": "mensal",
+          "valor": 140,
+          "formaPagamento": "Cartao debito",
+          "pagoEm": "2026-07-11T11:12:00-03:00"
+        }
+      },
+      "alunos": {
+        "1001": {
+          "id": "1001",
+          "codigo": 1001,
+          "nome": "Ana Mock Silva",
+          "cartao": "1001",
+          "perfil": "aluno",
+          "vencimento": "2026-08-12",
+          "foto": "https://randomuser.me/api/portraits/women/11.jpg",
+          "status": "ativo",
+          "updatedAt": "2026-07-11T17:55:00-03:00"
+        },
+        "1002": {
+          "id": "1002",
+          "codigo": 1002,
+          "nome": "Bruno Mock Costa",
+          "cartao": "1002",
+          "perfil": "aluno",
+          "vencimento": "2026-07-28",
+          "foto": "https://randomuser.me/api/portraits/men/12.jpg",
+          "status": "ativo",
+          "updatedAt": "2026-07-11T17:55:00-03:00"
+        },
+        "1010": {
+          "id": "1010",
+          "codigo": 1010,
+          "nome": "Joao Mock Barbosa",
+          "cartao": "1010",
+          "perfil": "aluno",
+          "vencimento": "2026-09-19",
+          "foto": "https://randomuser.me/api/portraits/men/52.jpg",
+          "status": "ativo",
+          "updatedAt": "2026-07-11T17:55:00-03:00"
+        }
+      }
+    },
+    "58970-000": {
+      "meta": {
+        "versao": 1,
+        "geradoEm": "2026-07-11T18:00:00-03:00",
+        "lastUpdate": "2026-07-11T18:00:00-03:00",
+        "janelaDias": 30,
+        "unitId": "58970-000",
+        "source": "worker-physikflow"
+      },
+      "resumo": {
+        "total": 96420.2,
+        "total30d": 13980,
+        "total3m": 40760,
+        "alunos": 832,
+        "ativos": 781,
+        "atrasados": 51,
+        "diariasTotal": 1880,
+        "diariasCount": 47,
+        "ticketMedio30d": 141.21,
+        "ticketMedioGeral": 135.62
+      },
+      "frequencia": {
+        "mediaPorAluno30d": 7.88
+      },
+      "mesAMes": {
+        "2026-02": 12110,
+        "2026-03": 13040,
+        "2026-04": 12780,
+        "2026-05": 13220,
+        "2026-06": 13560,
+        "2026-07": 13980
+      },
+      "diarias": {
+        "total": 1880,
+        "count": 47
+      },
+      "diariasMensais": {
+        "2026-02": {
+          "valor": 1280,
+          "qtd": 32
+        },
+        "2026-03": {
+          "valor": 1520,
+          "qtd": 38
+        },
+        "2026-04": {
+          "valor": 1360,
+          "qtd": 34
+        },
+        "2026-05": {
+          "valor": 1600,
+          "qtd": 40
+        },
+        "2026-06": {
+          "valor": 1760,
+          "qtd": 44
+        },
+        "2026-07": {
+          "valor": 1880,
+          "qtd": 47
+        }
+      },
+      "picoHoras": {
+        "6": 34,
+        "7": 54,
+        "8": 46,
+        "9": 32,
+        "16": 41,
+        "17": 63,
+        "18": 82,
+        "19": 76,
+        "20": 48,
+        "pico": {
+          "hora": 18,
+          "media": 82
+        },
+        "vale": {
+          "hora": 9,
+          "media": 32
+        }
+      },
+      "topPessoas": {
+        "2001": {
+          "id": "2001",
+          "codigo": 2001,
+          "nome": "Alice Mock Andrade",
+          "total": 1500,
+          "percentual": 12.2
+        }
+      },
+      "topPlanosGlobal": {
+        "mensal_150": {
+          "valor": 150,
+          "qtd": 488,
+          "percentual": 58.7,
+          "label": "mensal"
+        },
+        "diario_40": {
+          "valor": 40,
+          "qtd": 47,
+          "percentual": 5.6,
+          "label": "diario"
+        }
+      },
+      "pagamentosHoje": {
+        "pay_58970_20260711_001": {
+          "id": "pay_58970_20260711_001",
+          "alunoId": "2001",
+          "alunoNome": "Alice Mock Andrade",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T08:04:00-03:00"
+        }
+      },
+      "alunos": {
+        "2001": {
+          "id": "2001",
+          "codigo": 2001,
+          "nome": "Alice Mock Andrade",
+          "cartao": "2001",
+          "perfil": "aluno",
+          "vencimento": "2026-08-04",
+          "foto": "https://randomuser.me/api/portraits/women/12.jpg",
+          "status": "ativo",
+          "updatedAt": "2026-07-11T17:55:00-03:00"
+        }
+      }
+    }
+  },
+  "alunosById": {
+    "58780-000": {
+      "1001": {
+        "id": "1001",
+        "codigo": 1001,
+        "nome": "Ana Mock Silva",
+        "cartao": "1001",
+        "perfil": "aluno",
+        "vencimento": "2026-08-12",
+        "foto": "https://randomuser.me/api/portraits/women/11.jpg",
+        "status": "ativo",
+        "updatedAt": "2026-07-11T17:55:00-03:00"
+      }
+    }
+  },
+  "pagamentosByDate": {
+    "58780-000": {
+      "2026-07-11": {
+        "pay_58780_20260711_001": {
+          "id": "pay_58780_20260711_001",
+          "alunoId": "1001",
+          "plano": "mensal",
+          "valor": 150,
+          "formaPagamento": "PIX",
+          "pagoEm": "2026-07-11T07:42:00-03:00"
+        }
+      }
+    }
+  }
+}

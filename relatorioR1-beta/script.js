@@ -25,6 +25,21 @@ const CACHE_KEY = "relatorio_cache_v2";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
+const REPORT_ROOT = "relatorios";
+const UNITS_ROOT = "units";
+const ALUNOS_ROOT = "alunosById";
+const PAGAMENTOS_BY_DATE_ROOT = "pagamentosByDate";
+const REPORT_LIGHT_FIELDS = [
+  "meta",
+  "resumo",
+  "frequencia",
+  "mesAMes",
+  "diarias",
+  "diariasMensais",
+  "picoHoras",
+  "topPessoas",
+  "topPlanosGlobal"
+];
 
 const UNIT_LABELS = {
   "58780-000": "Itaporanga",
@@ -34,6 +49,11 @@ const UNIT_LABELS = {
 };
 
 let relatoriosPorUnidade = {};
+let unitsMeta = {};
+let alunosPorUnidade = {};
+let pagamentosHojePorUnidade = {};
+const alunosFetchPromises = new Map();
+const pagamentosHojeFetchPromises = new Map();
 let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let deferredInstallPrompt = null;
 let appAuthorized = false;
@@ -226,6 +246,22 @@ function isReportNode(value) {
   ));
 }
 
+function stripReportHeavyFields(report) {
+  if (!report || typeof report !== "object") return report;
+
+  const clean = { ...report };
+  delete clean.alunos;
+  delete clean.pagamentosHoje;
+  return clean;
+}
+
+function stripReportsHeavyFields(data) {
+  const reports = normalizarRelatorios(data);
+  return Object.fromEntries(
+    Object.entries(reports).map(([unitId, report]) => [unitId, stripReportHeavyFields(report)])
+  );
+}
+
 function normalizarRelatorios(data) {
   if (!data || typeof data !== "object") return {};
 
@@ -248,8 +284,68 @@ function normalizarRelatorios(data) {
   return {};
 }
 
+async function readFirebaseValue(path, label = path) {
+  const snapshot = await withTimeout(
+    db.ref(path).once("value"),
+    FIREBASE_READ_TIMEOUT_MS,
+    label + "-timeout"
+  );
+  return snapshot.val();
+}
+
+function normalizeUnitsMap(value) {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([unitId]) => unitId && unitId !== "_schema")
+      .map(([unitId, unit]) => [
+        unitId,
+        unit && typeof unit === "object"
+          ? { id: unit.id || unitId, ...unit }
+          : { id: unitId, nome: String(unit || unitId) }
+      ])
+  );
+}
+
+async function buscarUnidadesFirebase() {
+  const units = normalizeUnitsMap(await readFirebaseValue(UNITS_ROOT, "units"));
+  unitsMeta = units;
+  return Object.keys(units);
+}
+
+async function buscarRelatorioLeveDaUnidade(unitId) {
+  const entries = await Promise.all(
+    REPORT_LIGHT_FIELDS.map(async (field) => {
+      const value = await readFirebaseValue(`${REPORT_ROOT}/${unitId}/${field}`, `${REPORT_ROOT}-${unitId}-${field}`);
+      return [field, value];
+    })
+  );
+
+  const report = Object.fromEntries(entries.filter(([, value]) => value !== null && value !== undefined));
+  return isReportNode(report) ? report : null;
+}
+
+async function buscarRelatoriosEssenciais() {
+  let unitIds = await buscarUnidadesFirebase();
+
+  if (!unitIds.length) {
+    unitIds = Object.keys(UNIT_LABELS);
+  }
+
+  const entries = await Promise.all(
+    unitIds.map(async (unitId) => {
+      const report = await buscarRelatorioLeveDaUnidade(unitId);
+      return report ? [unitId, report] : null;
+    })
+  );
+
+  return Object.fromEntries(entries.filter(Boolean));
+}
+
 function nomeUnidade(unitId) {
   if (!unitId) return "Nenhuma";
+  if (unitsMeta[unitId]?.nome) return unitsMeta[unitId].nome;
   if (UNIT_LABELS[unitId]) return UNIT_LABELS[unitId];
   if (unitId === "geral") return "Geral";
 
@@ -659,7 +755,7 @@ function selecionarUnidade(unitId) {
 }
 
 function aplicarRelatorios(data) {
-  relatoriosPorUnidade = normalizarRelatorios(data);
+  relatoriosPorUnidade = stripReportsHeavyFields(data);
   popularComboUnidades();
 
   if (!Object.keys(relatoriosPorUnidade).length) {
@@ -824,7 +920,52 @@ function getMockUnitNode(unitId) {
   return mockAlunosPorUnidade?.[unitId];
 }
 
+function getTodayDateKey() {
+  try {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  } catch {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+}
+
+async function carregarPagamentosHojeFirebase(unitId) {
+  if (pagamentosHojePorUnidade[unitId]) return pagamentosHojePorUnidade[unitId];
+  if (pagamentosHojeFetchPromises.has(unitId)) return pagamentosHojeFetchPromises.get(unitId);
+
+  const promise = Promise.all([
+    readFirebaseValue(
+      `${PAGAMENTOS_BY_DATE_ROOT}/${unitId}/${getTodayDateKey()}`,
+      `pagamentos-hoje-${unitId}`
+    ).catch(() => null),
+    readFirebaseValue(`${REPORT_ROOT}/${unitId}/pagamentosHoje`, `pagamentos-hoje-legado-${unitId}`).catch(() => null)
+  ])
+    .then((data) => {
+      const pagamentos = toArray(data[0]);
+      const fallback = pagamentos.length ? pagamentos : toArray(data[1]);
+      pagamentosHojePorUnidade[unitId] = fallback;
+      return fallback;
+    })
+    .catch((error) => {
+      console.warn("Pagamentos do dia indisponiveis:", error.code || error.message, error.message);
+      pagamentosHojePorUnidade[unitId] = [];
+      return [];
+    })
+    .finally(() => {
+      pagamentosHojeFetchPromises.delete(unitId);
+    });
+
+  pagamentosHojeFetchPromises.set(unitId, promise);
+  return promise;
+}
+
 function getFinanceTodayPayments(unitId) {
+  const fromLazyFirebase = pagamentosHojePorUnidade[unitId];
+  if (fromLazyFirebase?.length) return fromLazyFirebase;
+
   const fromFirebase = toArray(relatoriosPorUnidade[unitId]?.pagamentosHoje);
   if (fromFirebase.length) return fromFirebase;
 
@@ -989,7 +1130,17 @@ function renderFinanceSubView() {
   if (!list) return;
 
   if (isDaily) {
-    if (!mockAlunosPorUnidade) {
+    if (!pagamentosHojePorUnidade[unitId] && !pagamentosHojeFetchPromises.has(unitId)) {
+      list.innerHTML = '<div class="mini-note">Carregando pagamentos...</div>';
+      carregarPagamentosHojeFirebase(unitId).then(() => {
+        if (financeSubView?.view === "dia" && financeSubView?.unitId === unitId) {
+          renderFinanceSubView();
+        }
+      });
+      return;
+    }
+
+    if (!pagamentosHojePorUnidade[unitId]?.length && !mockAlunosPorUnidade) {
       list.innerHTML = '<div class="mini-note">Carregando pagamentos...</div>';
       carregarMockAlunos().then(() => {
         if (financeSubView?.view === "dia" && financeSubView?.unitId === unitId) {
@@ -1446,7 +1597,36 @@ async function carregarMockAlunos() {
   return mockAlunosPromise;
 }
 
+async function carregarAlunosFirebase(unitId) {
+  if (alunosPorUnidade[unitId]) return alunosPorUnidade[unitId];
+  if (alunosFetchPromises.has(unitId)) return alunosFetchPromises.get(unitId);
+
+  const promise = Promise.all([
+    readFirebaseValue(`${ALUNOS_ROOT}/${unitId}`, `alunos-${unitId}`).catch(() => null),
+    readFirebaseValue(`${REPORT_ROOT}/${unitId}/alunos`, `alunos-legado-${unitId}`).catch(() => null)
+  ])
+    .then((data) => {
+      const alunos = toArray(data[0]);
+      const fallback = alunos.length ? alunos : toArray(data[1]);
+      alunosPorUnidade[unitId] = fallback;
+      return fallback;
+    })
+    .catch((error) => {
+      console.warn("Alunos indisponiveis:", error.code || error.message, error.message);
+      alunosPorUnidade[unitId] = [];
+      return [];
+    })
+    .finally(() => {
+      alunosFetchPromises.delete(unitId);
+    });
+
+  alunosFetchPromises.set(unitId, promise);
+  return promise;
+}
+
 function alunosDaUnidade(unitId, data) {
+  if (alunosPorUnidade[unitId]?.length) return alunosPorUnidade[unitId];
+
   const fromFirebase = toArray(data?.alunos);
   if (fromFirebase.length) return fromFirebase;
 
@@ -1454,11 +1634,9 @@ function alunosDaUnidade(unitId, data) {
   return toArray(Array.isArray(mock) ? mock : mock?.alunos);
 }
 
-async function renderAlunosUnitsCards() {
+async function renderAlunosUnitsCards(loadRemote = false) {
   const container = qs("alunosUnitsGrid");
   if (!container) return;
-
-  await carregarMockAlunos();
 
   const unitIds = Object.keys(relatoriosPorUnidade).sort((a, b) =>
     nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR")
@@ -1466,6 +1644,18 @@ async function renderAlunosUnitsCards() {
 
   if (!unitIds.length) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Sem unidades disponíveis</div>';
+    return;
+  }
+
+  if (loadRemote) {
+    container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Carregando alunos...</div>';
+    await Promise.all(unitIds.map((unitId) => carregarAlunosFirebase(unitId)));
+
+    if (unitIds.every((unitId) => !alunosPorUnidade[unitId]?.length)) {
+      await carregarMockAlunos();
+    }
+  } else if (!unitIds.some((unitId) => alunosPorUnidade[unitId]?.length || toArray(relatoriosPorUnidade[unitId]?.alunos).length)) {
+    container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Abra a aba para carregar os alunos.</div>';
     return;
   }
 
@@ -1672,14 +1862,8 @@ async function buscarFirebase() {
   try {
     // Lê via SDK autenticado (mesmo canal da autorização).
     // O fetch REST antigo podia ficar pendurado sem timeout.
-    const snapshot = await withTimeout(
-      db.ref("relatorios").once("value"),
-      FIREBASE_READ_TIMEOUT_MS,
-      "relatorios-timeout"
-    );
-
-    const data = snapshot.val();
-    if (!data) throw new Error("sem dados");
+    const data = await buscarRelatoriosEssenciais();
+    if (!Object.keys(data).length) throw new Error("sem dados");
 
     salvarCache(data);
     aplicarRelatorios(data);
@@ -2797,6 +2981,10 @@ function setActiveTab(tabName, shouldUpdateHash = true, animate = false) {
       openFinanceSubView(parsedFinance.view, parsedFinance.unitId, false, false);
     } else if (targetTab === "financeiro") {
       closeFinanceSubView(false, false);
+    }
+
+    if (targetTab === "alunos") {
+      renderAlunosUnitsCards(true);
     }
 
     scrollActivePageToTop();
