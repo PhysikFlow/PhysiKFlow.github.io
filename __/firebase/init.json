@@ -1,0 +1,10 @@
+{
+  "apiKey": "AIzaSyDyyExbjOq0RJIxFfz8a2ghFgr0reJYdOI",
+  "authDomain": "physikflow.github.io",
+  "databaseURL": "https://itemdest-default-rtdb.firebaseio.com",
+  "projectId": "itemdest",
+  "storageBucket": "itemdest.firebasestorage.app",
+  "messagingSenderId": "145242057741",
+  "appId": "1:145242057741:web:dfc986550ac1a3d007b944",
+  "measurementId": "G-C7JCTMN2Y8"
+}
