@@ -3,7 +3,7 @@
 // ==========================
 const firebaseConfig = {
   apiKey: "AIzaSyDyyExbjOq0RJIxFfz8a2ghFgr0reJYdOI",
-  authDomain: "physikflow.github.io",
+  authDomain: "itemdest.firebaseapp.com",
   databaseURL: "https://itemdest-default-rtdb.firebaseio.com",
   projectId: "itemdest",
   storageBucket: "itemdest.firebasestorage.app",
