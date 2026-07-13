@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#03060b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>PhysikFlow Relatórios</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
+  <link rel="apple-touch-icon" href="app-icon.png" />
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <section class="login-screen" data-view="login">
+    <div class="login-glow" aria-hidden="true"></div>
+
+    <div class="login-content">
+      <div class="login-brand" aria-label="PhysikFlow">
+        <img class="login-logo" src="favicon.png" alt="PhysikFlow" />
+        <span class="login-brand-name">PhysikFlow</span>
+      </div>
+
+      <div class="login-headline">
+        <h1>Gerência remota<br /><span>da academia</span></h1>
+        <p>Receita, histórico, operação e detalhes financeiros na palma da mão.</p>
+      </div>
+
+      <div class="login-features" aria-label="Recursos">
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+          <strong>Financeiro</strong>
+          <small>Receita e alunos</small>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9" /><path d="M10 20V5" /><path d="M16 20v-8" /><path d="M22 20V3" /></svg>
+          <strong>Histórico</strong>
+          <small>Mês a mês</small>
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          <strong>Operação</strong>
+          <small>Pico por hora</small>
+        </div>
+      </div>
+
+      <p class="login-message" id="loginMessage" hidden></p>
+
+      <div class="login-actions">
+        <button class="google-btn login-google-btn" type="button" id="loginGoogleBtn" disabled aria-busy="true">
+          <span class="login-btn-label">Verificando sessão...</span>
+          <svg class="google-icon" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
+            <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
+            <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
+            <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
+          </svg>
+        </button>
+        <button class="install-action" type="button" data-install-app hidden>Instalar app</button>
+      </div>
+
+      <p class="secure-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7l-8-4z" /><path d="m9 12 2 2 4-4" /></svg>
+        Acesso restrito a usuários autorizados
+      </p>
+    </div>
+  </section>
+
+  <div class="app-shell is-hidden" data-view="app">
+    <header class="app-topbar">
+      <h1 id="viewTitle">Financeiro</h1>
+      <span class="sync-dot" id="syncDot" data-status="idle" aria-label="Status de sincronização"></span>
+    </header>
+
+    <main class="app-content">
+      <section class="app-page active" data-page="financeiro">
+        <article class="hero-metric card">
+          <span class="hero-label">Total geral</span>
+          <div class="hero-value" id="totalGeralHero">R$ 0,00</div>
+          <span class="hero-help">Acumulado da unidade</span>
+        </article>
+
+        <div class="metrics" aria-label="Métricas recentes">
+          <article class="metric good">
+            <span class="metric-label">Total diárias</span>
+            <div class="metric-value" id="totalDiarias">R$ 0,00</div>
+            <span class="metric-help"><span id="diariasCount">0</span> lançamentos</span>
+          </article>
+          <article class="metric">
+            <span class="metric-label">Últimos 30 dias</span>
+            <div class="metric-value" id="total30">R$ 0,00</div>
+          </article>
+          <article class="metric small">
+            <span class="metric-label">Últimos 3 meses</span>
+            <div class="metric-value" id="total3m">R$ 0,00</div>
+          </article>
+          <article class="metric small">
+            <span class="metric-label">Ticket 30 dias</span>
+            <div class="metric-value" id="ticket30">R$ 0,00</div>
+          </article>
+          <article class="metric small">
+            <span class="metric-label">Ticket geral</span>
+            <div class="metric-value" id="ticketGeral">R$ 0,00</div>
+          </article>
+          <article class="metric warn">
+            <span class="metric-label">Total alunos</span>
+            <div class="metric-value" id="totalAlunos">---</div>
+          </article>
+          <article class="metric good">
+            <span class="metric-label">Em dia</span>
+            <div class="metric-value" id="totalAtivos">---</div>
+            <span class="metric-help" id="pctAtivos">---</span>
+          </article>
+          <article class="metric bad">
+            <span class="metric-label">Em atraso</span>
+            <div class="metric-value" id="totalAtrasados">---</div>
+            <span class="metric-help" id="pctAtrasados">---</span>
+          </article>
+        </div>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Alunos</h2>
+              <p class="panel-sub">Distribuição entre em dia e em atraso.</p>
+            </div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-line">
+              <span>Em dia</span>
+              <div class="bar"><i></i></div>
+              <strong id="pctAtivosFinanceiro">---</strong>
+            </div>
+            <div class="progress-line">
+              <span>Atraso</span>
+              <div class="bar bar-warn"><i></i></div>
+              <strong id="pctAtrasadosFinanceiro">---</strong>
+            </div>
+          </div>
+        </section>
+
+        <span id="totalGeral" hidden aria-hidden="true">R$ 0,00</span>
+      </section>
+
+      <section class="app-page" data-page="historico">
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Faturamento mês a mês</h2>
+              <p class="panel-sub">Ordenado por data do cache financeiro.</p>
+            </div>
+          </div>
+          <div class="chart-shell">
+            <div class="chart-bars" id="graficoMensal"></div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Diárias mês a mês</h2>
+              <p class="panel-sub">Resumo do caderno local sincronizado.</p>
+            </div>
+          </div>
+          <div class="chart-shell">
+            <div class="chart-bars" id="graficoDiarias"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="app-page" data-page="operacao">
+        <div class="quick-stats">
+          <div>
+            <span>Pico</span>
+            <strong id="horaPico">--:00</strong>
+            <small id="mediaPico">--</small>
+          </div>
+          <div>
+            <span>Vale</span>
+            <strong id="horaVale">--:00</strong>
+            <small id="mediaVale">--</small>
+          </div>
+          <div>
+            <span>Frequência 30d</span>
+            <strong id="frequencia30">0,00</strong>
+            <small>média por aluno</small>
+          </div>
+        </div>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Pico por hora</h2>
+              <p class="panel-sub">Média registrada em cada faixa horária.</p>
+            </div>
+          </div>
+          <div class="hour-grid" id="graficoHoras">
+            <div class="mini-note">Sem dados carregados ainda.</div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Escopo remoto</h2>
+              <p class="panel-sub">Estado agregado da unidade, sem dados acionáveis de recepção.</p>
+            </div>
+          </div>
+          <div class="list">
+            <div class="list-item">
+              <strong>Janela analisada</strong>
+              <span id="janelaDias">-- dias</span>
+            </div>
+            <div class="list-item">
+              <strong>Versão do relatório</strong>
+              <span id="versaoRelatorio">v--</span>
+            </div>
+            <div class="list-item">
+              <strong>Auditoria completa</strong>
+              <span>somente local</span>
+            </div>
+            <div class="list-item">
+              <strong>Pessoas completas</strong>
+              <span>somente local</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="app-page" data-page="detalhes">
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Valores de pagamento</h2>
+              <p class="panel-sub">Participação dos maiores valores.</p>
+            </div>
+          </div>
+          <div class="list" id="listaValores">
+            <div class="list-item">
+              <strong>Sem dados</strong>
+              <span>aguardando carregamento</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Clientes por faturamento</h2>
+              <p class="panel-sub">Ranking limitado para leitura financeira.</p>
+            </div>
+          </div>
+          <div class="ranking-cards" id="rankingPessoas">
+            <div class="mini-note">Sem dados carregados ainda.</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="app-page" data-page="conta">
+        <div class="account-header card">
+          <img class="account-avatar" id="accountAvatar" src="" alt="" hidden />
+          <div class="account-avatar account-avatar-fallback" id="accountAvatarFallback" aria-hidden="true">?</div>
+          <div>
+            <strong id="accountName">Usuário</strong>
+            <span id="accountEmail" class="account-email">---</span>
+          </div>
+        </div>
+
+        <section class="panel card">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Unidade</h2>
+              <p class="panel-sub">Selecione a unidade para visualizar os dados.</p>
+            </div>
+          </div>
+          <label class="field">
+            <span>Unidade ativa</span>
+            <select class="select" id="unitSelect" aria-label="Selecionar unidade" disabled>
+              <option value="">Carregando...</option>
+            </select>
+          </label>
+          <div class="list account-meta">
+            <div class="list-item">
+              <strong>Unidade</strong>
+              <span id="unidadeAtiva">---</span>
+            </div>
+            <div class="list-item">
+              <strong>Última sincronização</strong>
+              <span id="ultimaSync">---</span>
+            </div>
+            <div class="list-item">
+              <strong>Status do cache</strong>
+              <span id="statusCache">carregando</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="account-actions">
+          <button class="install-action account-btn" type="button" data-install-app-account hidden>Instalar app</button>
+          <button class="logout-btn account-btn" type="button" id="logoutBtn">Sair da conta</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="bottom-nav is-hidden" aria-label="Navegação principal" data-view="app-nav">
+    <button type="button" class="active" data-tab="financeiro" data-title="Financeiro">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10" /></svg>
+      Início
+    </button>
+    <button type="button" data-tab="historico" data-title="Histórico">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9" /><path d="M10 20V5" /><path d="M16 20v-8" /><path d="M22 20V3" /></svg>
+      Histórico
+    </button>
+    <button type="button" data-tab="operacao" data-title="Operação">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+      Operação
+    </button>
+    <button type="button" data-tab="detalhes" data-title="Detalhes">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></svg>
+      Detalhes
+    </button>
+    <button type="button" data-tab="conta" data-title="Conta">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      Conta
+    </button>
+  </nav>
+</body>
+</html>

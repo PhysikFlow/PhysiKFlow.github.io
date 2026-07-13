@@ -1,5 +1,5 @@
-const VERSION = "relatorio-r1-v3";
-const CACHE_PREFIX = "relatorio-r1-v";
+const VERSION = "relatorio-r1-old-v1";
+const CACHE_PREFIX = "relatorio-r1-old-";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 const MAX_RUNTIME_ENTRIES = 80;
@@ -9,12 +9,8 @@ const CORE_ASSETS = [
   "./index.html",
   "./style.css",
   "./script.js",
-  "./mock-alunos.json",
   "./manifest.json",
   "./favicon.png",
-  "./r1logo.png",
-  "./r1logo.webp",
-  "./r1-wallpaper.png",
   "./app-icon.png",
   "./google.svg"
 ];

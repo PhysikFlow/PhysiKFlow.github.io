@@ -1,7 +1,7 @@
 {
   "name": "PhysikFlow Relatórios",
   "short_name": "Relatórios",
-  "description": "Gestão operacional e análise financeira da academia.",
+  "description": "Gerência remota da academia com receita, histórico e operação.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -2,188 +2,30 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#03060b" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="0; url=/relatorioR1/" />
+  <title>PhysikFlow Relatorios</title>
+  <link rel="canonical" href="/relatorioR1/" />
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background: #03060b;
+      color: #f5f7fb;
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-  <title>PhysikFlow Relatórios (Beta)</title>
-
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
-  <link rel="apple-touch-icon" href="app-icon.png" />
-  <link rel="stylesheet" href="style.css" />
-  <link rel="preload" as="image" href="r1-wallpaper.png" />
-
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-  <script src="script.js" defer></script>
+    a {
+      color: #66b3ff;
+    }
+  </style>
+  <script>
+    window.location.replace("/relatorioR1/");
+  </script>
 </head>
 <body>
-  <section class="login-screen" data-view="login">
-    <div class="login-glow" aria-hidden="true"></div>
-
-    <div class="login-content">
-      <div class="login-brand" aria-label="PhysikFlow">
-        <img class="login-logo" src="favicon.png" alt="PhysikFlow" />
-        <span class="login-brand-name">PhysikFlow</span>
-      </div>
-
-      <div class="login-headline">
-        <h1>Gerência remota<br /><span>da academia</span></h1>
-        <p>Administre alunos e acompanhe a operação. Análise financeira quando você precisar.</p>
-      </div>
-
-      <div class="login-features" aria-label="Recursos">
-        <div>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-          <strong>Operacional</strong>
-          <small>Alunos e status</small>
-        </div>
-        <div>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-          <strong>Financeiro</strong>
-          <small>Receita e tickets</small>
-        </div>
-        <div>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-          <strong>Operação</strong>
-          <small>Pico por hora</small>
-        </div>
-      </div>
-
-      <p class="login-message" id="loginMessage" hidden></p>
-
-      <div class="login-actions">
-        <button class="google-btn login-google-btn" type="button" id="loginGoogleBtn" disabled aria-busy="true">
-          <span class="login-btn-label">Verificando sessão...</span>
-          <svg class="google-icon" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.69 1.22 9.18 3.6l6.85-6.85C35.9 2.7 30.37 0 24 0 14.64 0 6.4 5.38 2.44 13.22l7.98 6.2C12.28 13.12 17.7 9.5 24 9.5z"></path>
-            <path fill="#4285F4" d="M46.1 24.5c0-1.63-.15-3.2-.43-4.7H24v9h12.4c-.54 2.9-2.2 5.36-4.7 7.02l7.3 5.67C43.9 37.4 46.1 31.4 46.1 24.5z"></path>
-            <path fill="#FBBC05" d="M10.42 28.42a14.5 14.5 0 0 1 0-8.84l-7.98-6.2A23.9 23.9 0 0 0 0 24c0 3.86.93 7.52 2.44 10.62l7.98-6.2z"></path>
-            <path fill="#34A853" d="M24 48c6.48 0 11.92-2.14 15.9-5.8l-7.3-5.67c-2.03 1.37-4.63 2.18-8.6 2.18-6.3 0-11.72-3.62-13.58-8.92l-7.98 6.2C6.4 42.62 14.64 48 24 48z"></path>
-          </svg>
-        </button>
-        <button class="install-action" type="button" data-install-app hidden>Instalar app</button>
-      </div>
-
-      <p class="secure-note">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7l-8-4z" /><path d="m9 12 2 2 4-4" /></svg>
-        Acesso restrito a usuários autorizados
-      </p>
-    </div>
-  </section>
-
-  <div class="app-shell is-hidden" data-view="app">
-    <span class="sync-dot is-hidden" id="syncDot" data-status="idle" aria-hidden="true"></span>
-
-    <main class="app-content">
-      <div class="app-pages-viewport" id="appPagesViewport">
-      <div class="app-pages-track" id="appPagesTrack">
-      <!-- PÁGINA: INÍCIO (Operacional) -->
-      <section class="app-page active inicio-page" data-page="inicio">
-        <div class="inicio-wallpaper" aria-hidden="true">
-          <div class="inicio-wallpaper-blur"></div>
-          <img class="inicio-wallpaper-sharp" src="r1-wallpaper.png" alt="" decoding="async" />
-        </div>
-        <div class="inicio-overlay" aria-hidden="true"></div>
-        <div class="inicio-content">
-          <div class="inicio-units" id="unitsGrid">
-            <div class="inicio-empty">Carregando unidades...</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- PÁGINA: FINANCEIRO -->
-      <section class="app-page" data-page="financeiro">
-        <div class="finance-stack">
-          <div class="finance-stack-viewport" id="financeStackViewport">
-            <div class="finance-stack-track" id="financeStackTrack">
-          <div class="finance-stack-layer active" id="financeStackList" data-stack-layer="list">
-            <div class="units-grid" id="financeUnitsGrid">
-              <div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">
-                Carregando unidades...
-              </div>
-            </div>
-          </div>
-
-          <div class="finance-stack-layer finance-subview" id="financeSubView" data-stack-layer="subview" aria-hidden="true">
-            <header class="finance-subview-header">
-              <button type="button" class="finance-back-btn" id="financeSubBack" aria-label="Voltar">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-              </button>
-              <div class="finance-subview-titles">
-                <span class="finance-subview-kicker" id="financeSubKicker"></span>
-                <h2 class="finance-subview-title" id="financeSubTitle"></h2>
-              </div>
-            </header>
-            <div class="finance-subview-list" id="financeSubList"></div>
-          </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- PÁGINA: ALUNOS -->
-      <section class="app-page" data-page="alunos">
-        <div class="students-units" id="alunosUnitsGrid">
-          <div style="text-align: center; grid-column: 1/-1; color: var(--muted); padding: 2rem;">
-            Carregando alunos...
-          </div>
-        </div>
-      </section>
-
-      <!-- PÁGINA: CONTA -->
-      <section class="app-page" data-page="conta">
-        <h2 class="page-title">Configuração</h2>
-        <div class="account-section">
-          <div class="account-card card">
-            <div class="account-info">
-              <strong id="accountName">Usuário</strong>
-              <span id="accountEmail" class="account-email">---</span>
-            </div>
-          </div>
-
-          <div class="info-card card">
-            <div class="card-header">Sincronização</div>
-            <div class="card-info">
-              <div class="info-row">
-                <strong>Última sincronização</strong>
-                <span id="ultimaSync">---</span>
-              </div>
-              <div class="info-row last">
-                <strong>Status</strong>
-                <span id="statusCache">offline</span>
-              </div>
-            </div>
-          </div>
-
-          <button class="logout-btn account-btn" type="button" id="logoutBtn">Sair da conta</button>
-        </div>
-      </section>
-      </div>
-      </div>
-    </main>
-  </div>
-
-  <nav class="bottom-nav is-hidden" aria-label="Navegação principal" data-view="app-nav">
-    <button type="button" class="active" data-tab="inicio" data-title="Início">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10" /></svg>
-      Início
-    </button>
-    <button type="button" data-tab="financeiro" data-title="Financeiro">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-      Financeiro
-    </button>
-    <button type="button" data-tab="alunos" data-title="Alunos">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-      Alunos
-    </button>
-    <button type="button" data-tab="conta" data-title="Conta">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
-      Conta
-    </button>
-  </nav>
+  <p>Redirecionando para <a href="/relatorioR1/">/relatorioR1/</a>...</p>
 </body>
 </html>
