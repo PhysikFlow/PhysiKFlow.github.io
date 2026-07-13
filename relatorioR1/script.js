@@ -17,6 +17,7 @@ const auth = firebase.auth();
 const db = firebase.database();
 const provider = new firebase.auth.GoogleAuthProvider();
 const FIREBASE_READ_TIMEOUT_MS = 15000;
+const FIREBASE_REST_TIMEOUT_MS = 12000;
 
 // ==========================
 // CONFIG
@@ -285,12 +286,17 @@ function normalizarRelatorios(data) {
 }
 
 async function readFirebaseValue(path, label = path) {
-  const snapshot = await withTimeout(
-    db.ref(path).once("value"),
-    FIREBASE_READ_TIMEOUT_MS,
-    label + "-timeout"
-  );
-  return snapshot.val();
+  try {
+    const snapshot = await withTimeout(
+      db.ref(path).once("value"),
+      FIREBASE_READ_TIMEOUT_MS,
+      label + "-timeout"
+    );
+    return snapshot.val();
+  } catch (sdkError) {
+    console.warn("Leitura via SDK falhou; tentando REST:", label, sdkError.code || sdkError.message);
+    return readFirebaseRestValue(path, label);
+  }
 }
 
 function normalizeUnitsMap(value) {
@@ -1831,21 +1837,82 @@ function withTimeout(promise, ms, label = "timeout") {
   ]);
 }
 
-async function checkAuthorization() {
-  const user = auth.currentUser;
-  if (!user) return false;
+function databaseRestUrl(path) {
+  const cleanPath = String(path || "")
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+
+  return `${firebaseConfig.databaseURL.replace(/\/+$/, "")}/${cleanPath}.json`;
+}
+
+async function fetchJsonWithTimeout(url, options = {}, ms = FIREBASE_REST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ms);
 
   try {
-    const authorizedRef = db.ref("authorized_users/" + user.uid);
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readFirebaseRestValue(path, label = path) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("auth-missing");
+
+  const token = await user.getIdToken();
+  const url = `${databaseRestUrl(path)}?auth=${encodeURIComponent(token)}`;
+
+  return fetchJsonWithTimeout(url, {}, FIREBASE_REST_TIMEOUT_MS)
+    .catch((error) => {
+      console.error("Leitura REST falhou:", label, error.status || error.code || error.message, error.message);
+      throw error;
+    });
+}
+
+async function checkAuthorization() {
+  const user = auth.currentUser;
+  if (!user) {
+    return { authorized: false, unavailable: false };
+  }
+
+  const path = "authorized_users/" + user.uid;
+
+  try {
+    const authorizedRef = db.ref(path);
     const snapshot = await withTimeout(
       authorizedRef.once("value"),
       FIREBASE_READ_TIMEOUT_MS,
       "authorization-timeout"
     );
-    return snapshot.exists();
-  } catch (error) {
-    console.error("Authorization check failed:", error.code || error.message, error.message);
-    return false;
+    return { authorized: snapshot.exists(), unavailable: false };
+  } catch (sdkError) {
+    console.warn("Authorization SDK check failed; trying REST:", sdkError.code || sdkError.message, sdkError.message);
+
+    try {
+      const value = await readFirebaseRestValue(path, "authorization-rest");
+      return { authorized: value !== null && value !== undefined, unavailable: false };
+    } catch (restError) {
+      return {
+        authorized: false,
+        unavailable: true,
+        error: restError
+      };
+    }
   }
 }
 
@@ -1853,9 +1920,13 @@ async function checkAuthorization() {
 // FETCH
 // ==========================
 async function buscarFirebase() {
-  const isAuthorized = await checkAuthorization();
-  if (!isAuthorized) {
-    showUnauthorizedMessage();
+  const authorization = await checkAuthorization();
+  if (!authorization.authorized) {
+    if (authorization.unavailable) {
+      showAuthorizationUnavailableMessage(authorization.error);
+    } else {
+      showUnauthorizedMessage();
+    }
     return;
   }
 
@@ -1886,7 +1957,9 @@ async function buscarFirebase() {
       || /permission|401|403|unauthorized|nao autorizado|não autorizado/i.test(message);
 
     if (denied) {
-      showUnauthorizedMessage();
+      limparDashboard("Permissao negada no Firebase");
+      setText("ultimaSync", "Permissao negada");
+      setText("statusCache", "Erro de permissao");
       return;
     }
 
@@ -1919,6 +1992,27 @@ function showUnauthorizedMessage() {
   if (auth.currentUser) {
     auth.signOut().catch((error) => {
       console.error("Sign out after unauthorized:", error);
+      updateLoginButton();
+    });
+  } else {
+    updateLoginButton();
+  }
+}
+
+function showAuthorizationUnavailableMessage(error) {
+  appAuthorized = false;
+  console.error("Authorization unavailable:", error?.status || error?.code || error?.message, error?.message);
+
+  limparDashboard("Firebase indisponivel");
+  setText("ultimaSync", "Falha ao validar acesso");
+  setText("statusCache", "Erro ao validar acesso");
+
+  pendingLoginError = "Nao foi possivel validar seu acesso no Firebase agora. Tente novamente em alguns instantes.";
+  showLogin({ error: pendingLoginError });
+
+  if (auth.currentUser) {
+    auth.signOut().catch((signOutError) => {
+      console.error("Sign out after authorization failure:", signOutError);
       updateLoginButton();
     });
   } else {
@@ -3213,7 +3307,7 @@ async function handleAuthState(user) {
   setLoginMessage("Verificando acesso...", "info");
   updateSyncDot("carregando");
 
-  const isAuthorized = await checkAuthorization();
+  const authorization = await checkAuthorization();
 
   // Sessão pode ter mudado enquanto a checagem rodava (ex.: signOut paralelo).
   if (auth.currentUser?.uid !== user.uid) {
@@ -3221,8 +3315,12 @@ async function handleAuthState(user) {
     return;
   }
 
-  if (!isAuthorized) {
-    showUnauthorizedMessage();
+  if (!authorization.authorized) {
+    if (authorization.unavailable) {
+      showAuthorizationUnavailableMessage(authorization.error);
+    } else {
+      showUnauthorizedMessage();
+    }
     return;
   }
 
