@@ -1884,6 +1884,10 @@ async function readFirebaseRestValue(path, label = path) {
     });
 }
 
+function isAuthorizedUserValue(value) {
+  return value === true;
+}
+
 async function checkAuthorization() {
   const user = auth.currentUser;
   if (!user) {
@@ -1899,13 +1903,32 @@ async function checkAuthorization() {
       FIREBASE_READ_TIMEOUT_MS,
       "authorization-timeout"
     );
-    return { authorized: snapshot.exists(), unavailable: false };
+    const value = snapshot.val();
+    const authorized = isAuthorizedUserValue(value);
+    if (!authorized) {
+      console.warn("Usuario sem autorizacao efetiva:", {
+        uid: user.uid,
+        email: user.email,
+        expected: true,
+        actual: value
+      });
+    }
+    return { authorized, unavailable: false };
   } catch (sdkError) {
     console.warn("Authorization SDK check failed; trying REST:", sdkError.code || sdkError.message, sdkError.message);
 
     try {
       const value = await readFirebaseRestValue(path, "authorization-rest");
-      return { authorized: value !== null && value !== undefined, unavailable: false };
+      const authorized = isAuthorizedUserValue(value);
+      if (!authorized) {
+        console.warn("Usuario sem autorizacao efetiva via REST:", {
+          uid: user.uid,
+          email: user.email,
+          expected: true,
+          actual: value
+        });
+      }
+      return { authorized, unavailable: false };
     } catch (restError) {
       return {
         authorized: false,
@@ -3258,11 +3281,13 @@ function updateUIForSignedInUser(user) {
 
   const name = qs("accountName");
   const email = qs("accountEmail");
+  const uid = qs("accountUid");
   const avatar = qs("accountAvatar");
   const fallback = qs("accountAvatarFallback");
 
   if (name) name.textContent = user.displayName || "Usuário";
   if (email) email.textContent = user.email || "---";
+  if (uid) uid.textContent = "UID: " + user.uid;
 
   const inicioName = qs("inicioUserName");
   if (inicioName) {
