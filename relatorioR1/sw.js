@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-v10";
+const VERSION = "relatorio-r1-v11";
 const CACHE_PREFIX = "relatorio-r1-v";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;

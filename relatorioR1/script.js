@@ -889,18 +889,14 @@ async function carregarPagamentosHojeFirebase(unitId) {
   if (pagamentosHojePorUnidade[unitId]) return pagamentosHojePorUnidade[unitId];
   if (pagamentosHojeFetchPromises.has(unitId)) return pagamentosHojeFetchPromises.get(unitId);
 
-  const promise = Promise.all([
-    readFirebaseValue(
-      `${PAGAMENTOS_BY_DATE_ROOT}/${unitId}/${getTodayDateKey()}`,
-      `pagamentos-hoje-${unitId}`
-    ).catch(() => null),
-    readFirebaseValue(`${REPORT_ROOT}/${unitId}/pagamentosHoje`, `pagamentos-hoje-legado-${unitId}`).catch(() => null)
-  ])
+  const promise = readFirebaseValue(
+    `${PAGAMENTOS_BY_DATE_ROOT}/${unitId}/${getTodayDateKey()}`,
+    `pagamentos-hoje-${unitId}`
+  )
     .then((data) => {
-      const pagamentos = toArray(data[0]);
-      const fallback = pagamentos.length ? pagamentos : toArray(data[1]);
-      pagamentosHojePorUnidade[unitId] = fallback;
-      return fallback;
+      const pagamentos = toArray(data);
+      pagamentosHojePorUnidade[unitId] = pagamentos;
+      return pagamentos;
     })
     .catch((error) => {
       console.warn("Pagamentos do dia indisponiveis:", error.code || error.message, error.message);
@@ -918,9 +914,6 @@ async function carregarPagamentosHojeFirebase(unitId) {
 function getFinanceTodayPayments(unitId) {
   const fromLazyFirebase = pagamentosHojePorUnidade[unitId];
   if (fromLazyFirebase?.length) return fromLazyFirebase;
-
-  const fromFirebase = toArray(relatoriosPorUnidade[unitId]?.pagamentosHoje);
-  if (fromFirebase.length) return fromFirebase;
 
   return [];
 }
@@ -1518,15 +1511,11 @@ async function carregarAlunosFirebase(unitId) {
   if (alunosPorUnidade[unitId]) return alunosPorUnidade[unitId];
   if (alunosFetchPromises.has(unitId)) return alunosFetchPromises.get(unitId);
 
-  const promise = Promise.all([
-    readFirebaseValue(`${ALUNOS_ROOT}/${unitId}`, `alunos-${unitId}`).catch(() => null),
-    readFirebaseValue(`${REPORT_ROOT}/${unitId}/alunos`, `alunos-legado-${unitId}`).catch(() => null)
-  ])
+  const promise = readFirebaseValue(`${ALUNOS_ROOT}/${unitId}`, `alunos-${unitId}`)
     .then((data) => {
-      const alunos = toArray(data[0]);
-      const fallback = alunos.length ? alunos : toArray(data[1]);
-      alunosPorUnidade[unitId] = fallback;
-      return fallback;
+      const alunos = toArray(data);
+      alunosPorUnidade[unitId] = alunos;
+      return alunos;
     })
     .catch((error) => {
       console.warn("Alunos indisponiveis:", error.code || error.message, error.message);
@@ -1543,9 +1532,6 @@ async function carregarAlunosFirebase(unitId) {
 
 function alunosDaUnidade(unitId, data) {
   if (alunosPorUnidade[unitId]?.length) return alunosPorUnidade[unitId];
-
-  const fromFirebase = toArray(data?.alunos);
-  if (fromFirebase.length) return fromFirebase;
 
   return [];
 }
@@ -1566,7 +1552,7 @@ async function renderAlunosUnitsCards(loadRemote = false) {
   if (loadRemote) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Carregando alunos...</div>';
     await Promise.all(unitIds.map((unitId) => carregarAlunosFirebase(unitId)));
-  } else if (!unitIds.some((unitId) => alunosPorUnidade[unitId]?.length || toArray(relatoriosPorUnidade[unitId]?.alunos).length)) {
+  } else if (!unitIds.some((unitId) => alunosPorUnidade[unitId]?.length)) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Abra a aba para carregar os alunos.</div>';
     return;
   }
