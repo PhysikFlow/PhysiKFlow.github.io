@@ -1,99 +1,25 @@
-const VERSION = "relatorio-r1-old-v1";
-const CACHE_PREFIX = "relatorio-r1-old-";
-const PRECACHE = `${VERSION}-precache`;
-const RUNTIME = `${VERSION}-runtime`;
-const MAX_RUNTIME_ENTRIES = 80;
+const REDIRECT_URL = "/relatorioR1/";
+const CACHE_PREFIXES = ["relatorio-r1-old-", "relatorio-r1-v"];
 
-const CORE_ASSETS = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./script.js",
-  "./manifest.json",
-  "./favicon.png",
-  "./app-icon.png",
-  "./google.svg"
-];
-
-const isSameOrigin = (request) => {
-  return new URL(request.url).origin === self.location.origin;
-};
-
-const trimRuntimeCache = async () => {
-  const cache = await caches.open(RUNTIME);
-  const keys = await cache.keys();
-
-  if (keys.length <= MAX_RUNTIME_ENTRIES) {
-    return;
-  }
-
-  await Promise.all(keys.slice(0, keys.length - MAX_RUNTIME_ENTRIES).map((key) => cache.delete(key)));
-};
-
-const cacheFirstWithRefresh = async (request) => {
-  const cache = await caches.open(RUNTIME);
-  const cached = await cache.match(request);
-
-  const refresh = fetch(request)
-    .then((response) => {
-      if (response && response.ok) {
-        cache.put(request, response.clone());
-        trimRuntimeCache();
-      }
-
-      return response;
-    })
-    .catch(() => undefined);
-
-  if (cached) {
-    return cached;
-  }
-
-  const response = await refresh;
-  return response || caches.match("./index.html");
-};
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(PRECACHE).then((cache) => {
-      return cache.addAll(CORE_ASSETS.map((asset) => new Request(asset, { cache: "reload" })));
-    })
-  );
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
+    caches.keys()
+      .then((keys) => Promise.all(
         keys
-          .filter((key) => key.startsWith(CACHE_PREFIX) && ![PRECACHE, RUNTIME].includes(key))
+          .filter((key) => CACHE_PREFIXES.some((prefix) => key.startsWith(prefix)))
           .map((key) => caches.delete(key))
-      );
-    })
+      ))
+      .then(() => self.registration.unregister())
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  const { request } = event;
-
-  if (request.method !== "GET" || !isSameOrigin(request)) {
-    return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(Response.redirect(REDIRECT_URL, 302));
   }
-
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(RUNTIME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match("./index.html"))
-    );
-    return;
-  }
-
-  event.respondWith(cacheFirstWithRefresh(request));
 });

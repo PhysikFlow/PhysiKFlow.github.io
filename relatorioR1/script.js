@@ -23,6 +23,8 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
+const APP_BUILD_ID = "2026-07-14-cache-reset-1";
+const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
@@ -3107,13 +3109,106 @@ function setupPwaInstall() {
   updateInstallButtons();
 }
 
+async function clearAppStorageCaches() {
+  localStorage.removeItem(CACHE_KEY);
+  relatoriosPorUnidade = {};
+  unitsMeta = {};
+  alunosPorUnidade = {};
+  pagamentosHojePorUnidade = {};
+  alunosFetchPromises.clear();
+  pagamentosHojeFetchPromises.clear();
+
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((key) => (
+          key.startsWith("relatorio-r1-") ||
+          key.startsWith("relatorio-r1-v") ||
+          key.startsWith("relatorio-r1-beta-") ||
+          key.startsWith("relatorio-r1-bank-")
+        ))
+        .map((key) => caches.delete(key))
+    );
+  }
+
+  navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_APP_CACHES" });
+}
+
+function reloadWithCacheBust() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("refresh", APP_BUILD_ID);
+  window.location.replace(url.toString());
+}
+
+async function forceAppRefresh() {
+  const button = qs("refreshAppBtn");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Atualizando...";
+  }
+
+  setText("statusCache", "atualizando app");
+  updateSyncDot("carregando");
+
+  try {
+    await clearAppStorageCaches();
+
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        await registration.update();
+        const worker = registration.waiting || registration.installing;
+        if (worker) worker.postMessage({ type: "SKIP_WAITING" });
+      }
+    }
+  } finally {
+    window.setTimeout(reloadWithCacheBust, 250);
+  }
+}
+
+async function enforceBuildCacheReset() {
+  const seenBuild = localStorage.getItem(APP_BUILD_CACHE_KEY);
+  if (seenBuild === APP_BUILD_ID) return;
+
+  localStorage.setItem(APP_BUILD_CACHE_KEY, APP_BUILD_ID);
+  await clearAppStorageCaches();
+}
+
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {
-      // App still works as a static page without service worker.
+    let refreshing = false;
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      reloadWithCacheBust();
     });
+
+    navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(APP_BUILD_ID)}`, { updateViaCache: "none" })
+      .then((registration) => {
+        registration.update();
+
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+
+        registration.addEventListener("updatefound", () => {
+          const worker = registration.installing;
+          if (!worker) return;
+
+          worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) {
+              worker.postMessage({ type: "SKIP_WAITING" });
+            }
+          });
+        });
+      })
+      .catch(() => {
+        // App still works as a static page without service worker.
+      });
   });
 }
 
@@ -3260,7 +3355,9 @@ async function handleAuthState(user) {
 // INIT
 // ==========================
 
-function init() {
+async function init() {
+  await enforceBuildCacheReset();
+
   setupBottomNav();
   setupPageSlideMetrics();
   setupTabSwipeNavigation();
@@ -3283,6 +3380,7 @@ function init() {
 
   qs("loginGoogleBtn")?.addEventListener("click", signInWithGoogle);
   qs("logoutBtn")?.addEventListener("click", signOut);
+  qs("refreshAppBtn")?.addEventListener("click", forceAppRefresh);
 
   auth.onAuthStateChanged(handleAuthState);
 

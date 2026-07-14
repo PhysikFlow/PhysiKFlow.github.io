@@ -12,13 +12,13 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
   <link rel="apple-touch-icon" href="app-icon.png" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2026-07-14-cache-reset-1" />
   <link rel="preload" as="image" href="r1-wallpaper.png" />
 
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-  <script src="script.js" defer></script>
+  <script src="script.js?v=2026-07-14-cache-reset-1" defer></script>
 </head>
 <body>
   <section class="login-screen" data-view="login">
@@ -160,7 +160,8 @@
             </div>
           </div>
 
-          <a class="legacy-link account-btn" href="/relatorioR1-old/">Abrir versão antiga</a>
+          <button class="refresh-app-btn account-btn" type="button" id="refreshAppBtn">Atualizar app</button>
+          <button class="legacy-link account-btn is-disabled" type="button" disabled>Versao antiga desativada</button>
           <button class="logout-btn account-btn" type="button" id="logoutBtn">Sair da conta</button>
         </div>
       </section>

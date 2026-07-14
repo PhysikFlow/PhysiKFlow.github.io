@@ -240,6 +240,7 @@ button:focus-visible {
 
 .google-btn,
 .install-action,
+.refresh-app-btn,
 .legacy-link,
 .logout-btn {
   display: inline-flex;
@@ -271,6 +272,12 @@ button:focus-visible {
   border: 1px solid rgba(45, 134, 255, 0.45);
   background: rgba(25, 119, 255, 0.14);
   color: var(--accent-2);
+}
+
+.refresh-app-btn {
+  border: 1px solid rgba(97, 192, 122, 0.45);
+  background: rgba(97, 192, 122, 0.12);
+  color: #9fe7b2;
 }
 
 .install-action[hidden],
@@ -1373,6 +1380,14 @@ button:focus-visible {
   text-decoration: none;
 }
 
+.legacy-link.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted);
+}
+
 .logout-btn {
   border: 1px solid rgba(239, 107, 99, 0.35);
   background: rgba(239, 107, 99, 0.1);
@@ -1427,6 +1442,7 @@ button:focus-visible {
 .bottom-nav button:active,
 .login-google-btn:active,
 .install-action:active,
+.refresh-app-btn:active,
 .logout-btn:active {
   transform: scale(0.97);
   opacity: 0.84;
