@@ -42,13 +42,6 @@ const REPORT_LIGHT_FIELDS = [
   "topPlanosGlobal"
 ];
 
-const UNIT_LABELS = {
-  "58780-000": "Itaporanga",
-  "58970-000": "Conceição",
-  "58000-000": "Joao Pessoa",
-  "59000-000": "Campina Grande"
-};
-
 let relatoriosPorUnidade = {};
 let unitsMeta = {};
 let alunosPorUnidade = {};
@@ -62,8 +55,6 @@ let authStateReady = false;
 let pendingLoginError = "";
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
-let mockAlunosPorUnidade = null;
-let mockAlunosPromise = null;
 const studentVirtualState = new Map();
 const STUDENT_CARD_WIDTH = 152;
 const STUDENT_CARD_GAP = 10;
@@ -335,10 +326,6 @@ async function buscarRelatorioLeveDaUnidade(unitId) {
 async function buscarRelatoriosEssenciais() {
   let unitIds = await buscarUnidadesFirebase();
 
-  if (!unitIds.length) {
-    unitIds = Object.keys(UNIT_LABELS);
-  }
-
   const entries = await Promise.all(
     unitIds.map(async (unitId) => {
       const report = await buscarRelatorioLeveDaUnidade(unitId);
@@ -352,7 +339,6 @@ async function buscarRelatoriosEssenciais() {
 function nomeUnidade(unitId) {
   if (!unitId) return "Nenhuma";
   if (unitsMeta[unitId]?.nome) return unitsMeta[unitId].nome;
-  if (UNIT_LABELS[unitId]) return UNIT_LABELS[unitId];
   if (unitId === "geral") return "Geral";
 
   const cepMatch = unitId.match(/^(\d{5})-?(\d{3})$/);
@@ -880,50 +866,11 @@ const PLAN_TYPE_LABELS = {
   mensal: "mensal",
   trimestral: "trimestral"
 };
-const PLAN_UNIT_VALUES = {
-  diario: 40,
-  semanal: 80,
-  quinzenal: 150,
-  mensal: 150,
-  trimestral: 420
-};
-
-function seedFromUnitId(unitId) {
-  return [...String(unitId)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-}
-
 function getFinanceTodayBreakdown(unitId) {
   const payments = getFinanceTodayPayments(unitId);
   if (payments.length) return groupFinanceTodayPayments(payments);
 
-  const seed = seedFromUnitId(unitId);
-  const counts = {
-    diario: (seed % 4) + 1,
-    semanal: seed % 3,
-    quinzenal: (seed + 1) % 3,
-    mensal: ((seed * 3) % 7) + 4,
-    trimestral: seed % 2
-  };
-
-  const lines = PLAN_TYPES
-    .filter((type) => counts[type] > 0)
-    .map((type) => {
-      const qtd = counts[type];
-      const total = qtd * PLAN_UNIT_VALUES[type];
-      return {
-        type,
-        qtd,
-        total,
-        label: `${qtd}x ${PLAN_TYPE_LABELS[type]}`
-      };
-    });
-
-  const total = lines.reduce((sum, line) => sum + line.total, 0);
-  return { lines, total };
-}
-
-function getMockUnitNode(unitId) {
-  return mockAlunosPorUnidade?.[unitId];
+  return { lines: [], total: 0 };
 }
 
 function getTodayDateKey() {
@@ -975,11 +922,7 @@ function getFinanceTodayPayments(unitId) {
   const fromFirebase = toArray(relatoriosPorUnidade[unitId]?.pagamentosHoje);
   if (fromFirebase.length) return fromFirebase;
 
-  const mockUnit = getMockUnitNode(unitId);
-  const fromMockUnit = !Array.isArray(mockUnit) ? toArray(mockUnit?.pagamentosHoje) : [];
-  if (fromMockUnit.length) return fromMockUnit;
-
-  return toArray(mockAlunosPorUnidade?._financeiro?.pagamentosHoje?.[unitId]);
+  return [];
 }
 
 function getPaymentPlanType(payment) {
@@ -1139,16 +1082,6 @@ function renderFinanceSubView() {
     if (!pagamentosHojePorUnidade[unitId] && !pagamentosHojeFetchPromises.has(unitId)) {
       list.innerHTML = '<div class="mini-note">Carregando pagamentos...</div>';
       carregarPagamentosHojeFirebase(unitId).then(() => {
-        if (financeSubView?.view === "dia" && financeSubView?.unitId === unitId) {
-          renderFinanceSubView();
-        }
-      });
-      return;
-    }
-
-    if (!pagamentosHojePorUnidade[unitId]?.length && !mockAlunosPorUnidade) {
-      list.innerHTML = '<div class="mini-note">Carregando pagamentos...</div>';
-      carregarMockAlunos().then(() => {
         if (financeSubView?.view === "dia" && financeSubView?.unitId === unitId) {
           renderFinanceSubView();
         }
@@ -1581,28 +1514,6 @@ function renderVirtualStudents(unitBlock) {
   bindStudentImageFallbacks(grid);
 }
 
-async function carregarMockAlunos() {
-  if (mockAlunosPorUnidade) return mockAlunosPorUnidade;
-  if (mockAlunosPromise) return mockAlunosPromise;
-
-  mockAlunosPromise = fetch("./mock-alunos.json", { cache: "no-cache" })
-    .then((res) => {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then((data) => {
-      mockAlunosPorUnidade = data && typeof data === "object" ? data : {};
-      return mockAlunosPorUnidade;
-    })
-    .catch((error) => {
-      console.warn("Mock de alunos indisponível:", error.message);
-      mockAlunosPorUnidade = {};
-      return mockAlunosPorUnidade;
-    });
-
-  return mockAlunosPromise;
-}
-
 async function carregarAlunosFirebase(unitId) {
   if (alunosPorUnidade[unitId]) return alunosPorUnidade[unitId];
   if (alunosFetchPromises.has(unitId)) return alunosFetchPromises.get(unitId);
@@ -1636,8 +1547,7 @@ function alunosDaUnidade(unitId, data) {
   const fromFirebase = toArray(data?.alunos);
   if (fromFirebase.length) return fromFirebase;
 
-  const mock = getMockUnitNode(unitId);
-  return toArray(Array.isArray(mock) ? mock : mock?.alunos);
+  return [];
 }
 
 async function renderAlunosUnitsCards(loadRemote = false) {
@@ -1656,10 +1566,6 @@ async function renderAlunosUnitsCards(loadRemote = false) {
   if (loadRemote) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Carregando alunos...</div>';
     await Promise.all(unitIds.map((unitId) => carregarAlunosFirebase(unitId)));
-
-    if (unitIds.every((unitId) => !alunosPorUnidade[unitId]?.length)) {
-      await carregarMockAlunos();
-    }
   } else if (!unitIds.some((unitId) => alunosPorUnidade[unitId]?.length || toArray(relatoriosPorUnidade[unitId]?.alunos).length)) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Abra a aba para carregar os alunos.</div>';
     return;

@@ -1,0 +1,116 @@
+{
+  "authorized_users": {
+    "FIREBASE_AUTH_UID": true
+  },
+  "units": {
+    "58780-000": {
+      "id": "58780-000",
+      "nome": "Nome da unidade"
+    }
+  },
+  "relatorios": {
+    "58780-000": {
+      "resumo": {
+        "total": 0,
+        "total30d": 0,
+        "total3m": 0,
+        "alunos": 0,
+        "ativos": 0,
+        "atrasados": 0,
+        "diariasTotal": 0,
+        "diariasCount": 0,
+        "ticketMedio30d": 0,
+        "ticketMedioGeral": 0
+      },
+      "frequencia": {
+        "mediaPorAluno30d": 0
+      },
+      "mesAMes": {
+        "2026-07": 0
+      },
+      "diarias": {
+        "total": 0,
+        "count": 0
+      },
+      "diariasMensais": {
+        "2026-07": {
+          "valor": 0,
+          "qtd": 0
+        }
+      },
+      "picoHoras": {
+        "05": 0,
+        "06": 0,
+        "07": 0,
+        "08": 0,
+        "09": 0,
+        "10": 0,
+        "11": 0,
+        "12": 0,
+        "13": 0,
+        "14": 0,
+        "15": 0,
+        "16": 0,
+        "17": 0,
+        "18": 0,
+        "19": 0,
+        "20": 0,
+        "21": 0,
+        "22": 0,
+        "23": 0,
+        "pico": {
+          "hora": 0,
+          "media": 0
+        },
+        "vale": {
+          "hora": 0,
+          "media": 0
+        }
+      },
+      "topPessoas": [
+        {
+          "id": "ALUNO_ID",
+          "codigo": 0,
+          "nome": "Nome da pessoa",
+          "total": 0,
+          "percentual": 0
+        }
+      ],
+      "topPlanosGlobal": [
+        {
+          "valor": 0,
+          "qtd": 0,
+          "percentual": 0
+        }
+      ]
+    }
+  },
+  "alunosById": {
+    "58780-000": {
+      "ALUNO_ID": {
+        "id": "ALUNO_ID",
+        "codigo": 0,
+        "nome": "Nome do aluno",
+        "cartao": "0000",
+        "perfil": "aluno",
+        "vencimento": "2026-07-31",
+        "foto": ""
+      }
+    }
+  },
+  "pagamentosByDate": {
+    "58780-000": {
+      "2026-07-31": {
+        "PAGAMENTO_ID": {
+          "id": "PAGAMENTO_ID",
+          "alunoId": "ALUNO_ID",
+          "alunoNome": "Nome do aluno",
+          "plano": "mensal",
+          "valor": 0,
+          "formaPagamento": "Pix",
+          "pagoEm": "2026-07-31T12:00:00-03:00"
+        }
+      }
+    }
+  }
+}
