@@ -1576,6 +1576,15 @@ function renderStudentPhoto(student) {
 
 function renderStudentCard(student) {
   const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
+  let vencimentoHtml = "";
+
+  if (student._isColaborador) {
+    vencimentoHtml = `<b class="student-vencimento student-vencimento--colaborador">-</b>`;
+  } else if (student._isAtrasado) {
+    vencimentoHtml = `<b class="student-vencimento student-vencimento--atrasado">${formatDateBR(student.vencimento)}</b>`;
+  } else {
+    vencimentoHtml = `<b class="student-vencimento student-vencimento--ativo">${formatDateBR(student.vencimento)}</b>`;
+  }
 
   return `
     <article class="student-card">
@@ -1584,7 +1593,7 @@ function renderStudentCard(student) {
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
         <span class="student-meta"><span>Cartão</span><b>${escapeHTML(student.cartao)}</b></span>
         <span class="student-meta"><span>Perfil</span><b class="student-profile student-profile--${perfil}">${perfilLabel(perfil)}</b></span>
-        <span class="student-meta"><span>Vencimento</span><b>${formatDateBR(student.vencimento)}</b></span>
+        <span class="student-meta"><span>Vencimento</span>${vencimentoHtml}</span>
       </div>
     </article>
   `;
@@ -1615,15 +1624,60 @@ function normalizeStudentSearch(value) {
     .trim();
 }
 
-function prepareStudentRecord(student, unitId = "") {
+function getTodayISO() {
+  try {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  } catch {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+}
+
+function parseVencimentoISO(value) {
+  if (!value) return "";
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+
+  return "";
+}
+
+function isStudentAtrasado(student, todayISO) {
+  if (student.atrasado === true || student.ativo === false) return true;
+  if (student.atrasado === false || student.ativo === true) return false;
+
+  const statusStr = String(student.status || student.situacao || "").toLowerCase();
+  if (statusStr.includes("atrasad") || statusStr.includes("vencid") || statusStr.includes("inativ")) return true;
+  if (statusStr.includes("ativ") || statusStr.includes("dia") || statusStr.includes("ok")) return false;
+
+  const vencISO = parseVencimentoISO(student.vencimento);
+  if (vencISO && todayISO) {
+    return vencISO < todayISO;
+  }
+
+  return false;
+}
+
+function prepareStudentRecord(student, unitId = "", todayISO = getTodayISO()) {
   const cartao = String(student?.cartao || student?.id || "").trim();
-  const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
+  const perfil = student?.perfil === "colaborador" ? "colaborador" : "aluno";
+  const isColaborador = perfil === "colaborador";
+  const isAtrasado = !isColaborador && isStudentAtrasado(student, todayISO);
+
   return {
     ...student,
     id: String(student?.id || cartao),
     cartao,
     perfil,
     unidadeId: String(student?.unidadeId || student?.unitId || unitId || "").trim(),
+    _isColaborador: isColaborador,
+    _isAtrasado: isAtrasado,
     _search: normalizeStudentSearch(`${student.nome} ${cartao} ${perfilLabel(perfil)} ${student.codigo || ""}`)
   };
 }
@@ -1855,10 +1909,12 @@ async function renderAlunosUnitsCards(loadRemote = false) {
   }
 
   let html = "";
+  const todayISO = getTodayISO();
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
-    const alunos = alunosDaUnidade(unitId, data).map((student) => prepareStudentRecord(student, unitId));
+    const alunos = alunosDaUnidade(unitId, data).map((student) => prepareStudentRecord(student, unitId, todayISO));
     const debug = alunosDebugPorUnidade[unitId] || `unit=${unitId}\nstatus=sem tentativa`;
+    const hasError = /erro=/i.test(debug);
     studentVirtualState.set(unitId, {
       students: alunos,
       filtered: alunos,
@@ -1894,7 +1950,7 @@ async function renderAlunosUnitsCards(loadRemote = false) {
           </div>
         </div>
         <p class="students-empty"${alunos.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
-        <pre class="students-debug">${escapeHTML(debug)}</pre>
+        ${hasError ? `<pre class="students-debug">${escapeHTML(debug)}</pre>` : ""}
       </section>
     `;
   });
