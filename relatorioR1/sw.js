@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-v12-cache-reset-2026-07-14";
+const VERSION = "relatorio-r1-v16-physik-server-students-2026-07-23";
 const CACHE_PREFIXES_TO_DELETE = [
   "relatorio-r1-",
   "relatorio-r1-v",

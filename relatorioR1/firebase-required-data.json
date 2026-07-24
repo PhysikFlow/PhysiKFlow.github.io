@@ -2,6 +2,17 @@
   "authorized_users": {
     "FIREBASE_AUTH_UID": true
   },
+  "app_config": {
+    "physik_server": {
+      "baseUrl": "https://abc.trycloudflare.com",
+      "status": "online",
+      "updatedAt": "2026-07-22T12:00:00-03:00",
+      "source": "physikflow-desktop",
+      "apiBearerToken": "TOKEN_ADMIN_BEARER",
+      "pwaReadToken": "TOKEN_READ_ONLY",
+      "linkTtlSeconds": 86400
+    }
+  },
   "units": {
     "58780-000": {
       "id": "58780-000",
@@ -83,19 +94,6 @@
           "percentual": 0
         }
       ]
-    }
-  },
-  "alunosById": {
-    "58780-000": {
-      "ALUNO_ID": {
-        "id": "ALUNO_ID",
-        "codigo": 0,
-        "nome": "Nome do aluno",
-        "cartao": "0000",
-        "perfil": "aluno",
-        "vencimento": "2026-07-31",
-        "foto": ""
-      }
     }
   },
   "pagamentosByDate": {

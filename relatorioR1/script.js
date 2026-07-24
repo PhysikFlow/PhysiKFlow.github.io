@@ -23,15 +23,17 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-14-cache-reset-1";
+const APP_BUILD_ID = "2026-07-23-physik-server-students-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
 const REPORT_ROOT = "relatorios";
 const UNITS_ROOT = "units";
-const ALUNOS_ROOT = "alunosById";
 const PAGAMENTOS_BY_DATE_ROOT = "pagamentosByDate";
+const PHYSIK_SERVER_CONFIG_ROOT = "app_config/physik_server";
+const PHOTO_LINK_CACHE_KEY = "relatorio_photo_links_v1";
+const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
 const REPORT_LIGHT_FIELDS = [
   "meta",
   "resumo",
@@ -50,7 +52,10 @@ let alunosPorUnidade = {};
 let pagamentosHojePorUnidade = {};
 const alunosFetchPromises = new Map();
 const pagamentosHojeFetchPromises = new Map();
+const photoLinkMemoryCache = new Map();
 let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
+let physikServerConfig = null;
+let physikServerConfigPromise = null;
 let deferredInstallPrompt = null;
 let appAuthorized = false;
 let authStateReady = false;
@@ -289,6 +294,136 @@ async function readFirebaseValue(path, label = path) {
   } catch (sdkError) {
     console.warn("Leitura via SDK falhou; tentando REST:", label, sdkError.code || sdkError.message);
     return readFirebaseRestValue(path, label);
+  }
+}
+
+function normalizePhysikServerConfig(value) {
+  if (!value || typeof value !== "object") return null;
+
+  const baseUrl = String(value.baseUrl || "").trim().replace(/\/+$/, "");
+  const pwaReadToken = String(value.pwaReadToken || "").trim();
+  const linkTtlSeconds = Number(value.linkTtlSeconds) || 86400;
+  const status = String(value.status || "").trim().toLowerCase();
+
+  if (!baseUrl) return null;
+
+  return {
+    baseUrl,
+    pwaReadToken,
+    linkTtlSeconds,
+    status: status || "online"
+  };
+}
+
+async function carregarPhysikServerConfig(force = false) {
+  if (!force && physikServerConfig) return physikServerConfig;
+  if (!force && physikServerConfigPromise) return physikServerConfigPromise;
+
+  physikServerConfigPromise = readFirebaseValue(PHYSIK_SERVER_CONFIG_ROOT, "physik-server-config")
+    .then((value) => {
+      physikServerConfig = normalizePhysikServerConfig(value);
+      return physikServerConfig;
+    })
+    .catch((error) => {
+      console.warn("Config PhysikServer indisponivel:", error.code || error.message, error.message);
+      physikServerConfig = null;
+      return null;
+    })
+    .finally(() => {
+      physikServerConfigPromise = null;
+    });
+
+  return physikServerConfigPromise;
+}
+
+function loadPhotoLinkCache() {
+  try {
+    const raw = localStorage.getItem(PHOTO_LINK_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePhotoLinkCache(cache) {
+  try {
+    localStorage.setItem(PHOTO_LINK_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Cache de foto e apenas otimizacao.
+  }
+}
+
+function getCachedPhotoLink(cacheKey) {
+  const now = Math.floor(Date.now() / 1000);
+  const cached = photoLinkMemoryCache.get(cacheKey) || loadPhotoLinkCache()[cacheKey];
+  if (!cached || !cached.url || !cached.expires) return "";
+  if (Number(cached.expires) - PHOTO_LINK_REFRESH_GRACE_SECONDS <= now) return "";
+  photoLinkMemoryCache.set(cacheKey, cached);
+  return cached.url;
+}
+
+function setCachedPhotoLink(cacheKey, url, expires) {
+  const item = { url, expires };
+  photoLinkMemoryCache.set(cacheKey, item);
+
+  const cache = loadPhotoLinkCache();
+  cache[cacheKey] = item;
+  savePhotoLinkCache(cache);
+}
+
+function physikServerReadToken(config) {
+  return String(config?.pwaReadToken || "").trim();
+}
+
+function encodePhysikObjectId(objectId) {
+  return encodeURIComponent(String(objectId || "").trim());
+}
+
+function physikServerObjectUrl(config, area, objectId, ttl) {
+  return `${config.baseUrl}/links/${area}/${encodePhysikObjectId(objectId)}?ttl=${encodeURIComponent(ttl)}`;
+}
+
+function resolvePhysikServerUrl(config, urlPath) {
+  if (!urlPath) return "";
+  return /^https?:\/\//i.test(urlPath) ? urlPath : `${config.baseUrl}${urlPath}`;
+}
+
+async function obterSignedPhotoUrl(photoId) {
+  const cleanPhotoId = String(photoId || "").trim();
+  if (!cleanPhotoId) return "";
+
+  const config = await carregarPhysikServerConfig();
+  const bearerToken = physikServerReadToken(config);
+  if (!config || config.status !== "online" || !bearerToken) return "";
+
+  const cacheKey = `${config.baseUrl}|${cleanPhotoId}`;
+  const cached = getCachedPhotoLink(cacheKey);
+  if (cached) return cached;
+
+  const ttl = Math.max(60, Math.min(Number(config.linkTtlSeconds) || 86400, 86400));
+  const url = physikServerObjectUrl(config, "fotos", cleanPhotoId, ttl);
+
+  try {
+    const data = await fetchJsonWithTimeout(url, {
+      headers: {
+        Authorization: `Bearer ${bearerToken}`
+      }
+    }, FIREBASE_REST_TIMEOUT_MS);
+
+    if (!data?.urlPath) return "";
+
+    const signedUrl = resolvePhysikServerUrl(config, data.urlPath);
+    if (!signedUrl) return "";
+
+    const expires = Number(data.expires) || (Math.floor(Date.now() / 1000) + ttl);
+    setCachedPhotoLink(cacheKey, signedUrl, expires);
+    return signedUrl;
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      physikServerConfig = null;
+    }
+    return "";
   }
 }
 
@@ -1385,12 +1520,23 @@ function perfilLabel(perfil) {
   return perfil === "colaborador" ? "Colaborador" : "Aluno";
 }
 
-function renderStudentPhoto(foto) {
-  if (foto) {
-    return `<img class="student-photo" src="${escapeHTML(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
+function studentPhotoId(student) {
+  const unitId = String(student?.unidadeId || student?.unitId || "").trim();
+  const cartao = String(student?.cartao || "").trim();
+  return unitId && cartao ? `${unitId}/${cartao}.jpg` : "";
+}
+
+function renderEmptyStudentPhoto(photoId = "") {
+  const attr = photoId ? ` data-photo-id="${escapeHTML(photoId)}"` : "";
+  return `<div class="student-photo student-photo--empty"${attr}>${NO_PHOTO_SVG}</div>`;
+}
+
+function renderStudentPhoto(student) {
+  if (student.foto) {
+    return `<img class="student-photo" src="${escapeHTML(student.foto)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`;
   }
 
-  return `<div class="student-photo student-photo--empty">${NO_PHOTO_SVG}</div>`;
+  return renderEmptyStudentPhoto(studentPhotoId(student));
 }
 
 function renderStudentCard(student) {
@@ -1398,7 +1544,7 @@ function renderStudentCard(student) {
 
   return `
     <article class="student-card">
-      ${renderStudentPhoto(student.foto)}
+      ${renderStudentPhoto(student)}
       <div class="student-card-body">
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
         <span class="student-meta"><span>Cartão</span><b>${escapeHTML(student.cartao)}</b></span>
@@ -1434,11 +1580,16 @@ function normalizeStudentSearch(value) {
     .trim();
 }
 
-function prepareStudentRecord(student) {
+function prepareStudentRecord(student, unitId = "") {
+  const cartao = String(student?.cartao || student?.id || "").trim();
   const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
   return {
     ...student,
-    _search: normalizeStudentSearch(`${student.nome} ${student.cartao} ${perfilLabel(perfil)} ${student.codigo || ""}`)
+    id: String(student?.id || cartao),
+    cartao,
+    perfil,
+    unidadeId: String(student?.unidadeId || student?.unitId || unitId || "").trim(),
+    _search: normalizeStudentSearch(`${student.nome} ${cartao} ${perfilLabel(perfil)} ${student.codigo || ""}`)
   };
 }
 
@@ -1462,14 +1613,44 @@ function updateStudentsMeta(unitBlock, visible) {
   if (count) count.textContent = `${visible.toLocaleString("pt-BR")} aluno${visible === 1 ? "" : "s"}`;
 }
 
+function replaceWithStudentPhotoFallback(node) {
+  const fallback = document.createElement("div");
+  fallback.className = "student-photo student-photo--empty";
+  fallback.innerHTML = NO_PHOTO_SVG;
+  node.replaceWith(fallback);
+}
+
 function bindStudentImageFallbacks(scope) {
   scope.querySelectorAll("img.student-photo").forEach((img) => {
     img.addEventListener("error", () => {
-      const fallback = document.createElement("div");
-      fallback.className = "student-photo student-photo--empty";
-      fallback.innerHTML = NO_PHOTO_SVG;
-      img.replaceWith(fallback);
+      replaceWithStudentPhotoFallback(img);
     }, { once: true });
+  });
+}
+
+function hydrateStudentPhotos(scope) {
+  scope.querySelectorAll("[data-photo-id]").forEach((placeholder) => {
+    if (placeholder.dataset.photoLoading === "true") return;
+    const photoId = placeholder.dataset.photoId;
+    if (!photoId) return;
+
+    placeholder.dataset.photoLoading = "true";
+    obterSignedPhotoUrl(photoId).then((url) => {
+      if (!url || !placeholder.isConnected) return;
+
+      const img = document.createElement("img");
+      img.className = "student-photo";
+      img.alt = "";
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.src = url;
+      img.addEventListener("error", () => {
+        replaceWithStudentPhotoFallback(img);
+      }, { once: true });
+      placeholder.replaceWith(img);
+    }).catch(() => {
+      // Foto remota indisponivel nao deve quebrar a lista.
+    });
   });
 }
 
@@ -1507,20 +1688,52 @@ function renderVirtualStudents(unitBlock) {
   after.style.width = `${Math.max(0, (total - end) * itemSize)}px`;
   grid.innerHTML = state.filtered.slice(start, end).map(renderStudentCard).join("");
   bindStudentImageFallbacks(grid);
+  hydrateStudentPhotos(grid);
 }
 
-async function carregarAlunosFirebase(unitId) {
+function normalizarAlunosPhysikServer(data, unitId) {
+  if (!data || typeof data !== "object") return [];
+
+  return Object.entries(data)
+    .filter(([cartao, aluno]) => cartao && aluno && typeof aluno === "object")
+    .map(([cartao, aluno]) => ({
+      ...aluno,
+      id: String(aluno.id || cartao),
+      cartao: String(cartao).trim(),
+      unidadeId: String(unitId || "").trim(),
+      foto: ""
+    }))
+    .filter((aluno) => aluno.cartao);
+}
+
+async function carregarAlunosPhysikServer(unitId) {
   if (alunosPorUnidade[unitId]) return alunosPorUnidade[unitId];
   if (alunosFetchPromises.has(unitId)) return alunosFetchPromises.get(unitId);
 
-  const promise = readFirebaseValue(`${ALUNOS_ROOT}/${unitId}`, `alunos-${unitId}`)
-    .then((data) => {
-      const alunos = toArray(data);
+  const promise = carregarPhysikServerConfig()
+    .then(async (config) => {
+      const bearerToken = physikServerReadToken(config);
+      if (!config || config.status !== "online" || !bearerToken) return [];
+
+      const ttl = Math.max(60, Math.min(Number(config.linkTtlSeconds) || 86400, 86400));
+      const objectId = `${unitId}/alunos.json`;
+      const linkUrl = physikServerObjectUrl(config, "alunos", objectId, ttl);
+      const link = await fetchJsonWithTimeout(linkUrl, {
+        headers: {
+          Authorization: `Bearer ${bearerToken}`
+        }
+      }, FIREBASE_REST_TIMEOUT_MS);
+
+      const signedUrl = resolvePhysikServerUrl(config, link?.urlPath);
+      if (!signedUrl) return [];
+
+      const data = await fetchJsonWithTimeout(signedUrl, {}, FIREBASE_REST_TIMEOUT_MS);
+      const alunos = normalizarAlunosPhysikServer(data, unitId);
       alunosPorUnidade[unitId] = alunos;
       return alunos;
     })
     .catch((error) => {
-      console.warn("Alunos indisponiveis:", error.code || error.message, error.message);
+      console.warn("Alunos via PhysikServer indisponiveis:", error.status || error.code || error.message, error.message);
       alunosPorUnidade[unitId] = [];
       return [];
     })
@@ -1553,7 +1766,7 @@ async function renderAlunosUnitsCards(loadRemote = false) {
 
   if (loadRemote) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Carregando alunos...</div>';
-    await Promise.all(unitIds.map((unitId) => carregarAlunosFirebase(unitId)));
+    await Promise.all(unitIds.map((unitId) => carregarAlunosPhysikServer(unitId)));
   } else if (!unitIds.some((unitId) => alunosPorUnidade[unitId]?.length)) {
     container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem;">Abra a aba para carregar os alunos.</div>';
     return;
@@ -1562,7 +1775,7 @@ async function renderAlunosUnitsCards(loadRemote = false) {
   let html = "";
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
-    const alunos = alunosDaUnidade(unitId, data).map(prepareStudentRecord);
+    const alunos = alunosDaUnidade(unitId, data).map((student) => prepareStudentRecord(student, unitId));
     studentVirtualState.set(unitId, {
       students: alunos,
       filtered: alunos,
@@ -3256,6 +3469,10 @@ function signOut() {
   auth.signOut()
     .then(() => {
       relatoriosPorUnidade = {};
+      physikServerConfig = null;
+      physikServerConfigPromise = null;
+      photoLinkMemoryCache.clear();
+      localStorage.removeItem(PHOTO_LINK_CACHE_KEY);
       updateUIForSignedOutUser();
     })
     .catch((error) => {
@@ -3298,6 +3515,10 @@ function updateUIForSignedInUser(user) {
 function updateUIForSignedOutUser() {
   const error = pendingLoginError;
   pendingLoginError = "";
+  physikServerConfig = null;
+  physikServerConfigPromise = null;
+  photoLinkMemoryCache.clear();
+  localStorage.removeItem(PHOTO_LINK_CACHE_KEY);
   showLogin(error ? { error } : {});
   updateSyncDot("idle");
   updateLoginButton();
