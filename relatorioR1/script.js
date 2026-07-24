@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-23-students-debug-1";
+const APP_BUILD_ID = "2026-07-23-config-debug-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
@@ -57,6 +57,7 @@ const photoLinkMemoryCache = new Map();
 let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let physikServerConfig = null;
 let physikServerConfigPromise = null;
+let physikServerConfigError = "";
 let deferredInstallPrompt = null;
 let appAuthorized = false;
 let authStateReady = false;
@@ -322,13 +323,16 @@ async function carregarPhysikServerConfig(force = false) {
   if (!force && physikServerConfig) return physikServerConfig;
   if (!force && physikServerConfigPromise) return physikServerConfigPromise;
 
+  physikServerConfigError = "";
   physikServerConfigPromise = readFirebaseValue(PHYSIK_SERVER_CONFIG_ROOT, "physik-server-config")
     .then((value) => {
       physikServerConfig = normalizePhysikServerConfig(value);
+      if (!physikServerConfig) physikServerConfigError = value ? "config-invalida" : "config-null";
       return physikServerConfig;
     })
     .catch((error) => {
       console.warn("Config PhysikServer indisponivel:", error.code || error.message, error.message);
+      physikServerConfigError = error.code || error.status || error.message || "erro-config";
       physikServerConfig = null;
       return null;
     })
@@ -1755,7 +1759,8 @@ async function carregarAlunosPhysikServer(unitId) {
         `base=${config?.baseUrl || "ausente"}`,
         `status=${config?.status || "ausente"}`,
         `token=${tokenDebug(bearerToken)}`,
-        `ids=${physikUnitIdCandidates(unitId).join(",") || "nenhum"}`
+        `ids=${physikUnitIdCandidates(unitId).join(",") || "nenhum"}`,
+        physikServerConfigError ? `configErro=${physikServerConfigError}` : ""
       ];
 
       if (!config || config.status !== "online" || !bearerToken) {
@@ -3551,6 +3556,7 @@ function signOut() {
       relatoriosPorUnidade = {};
       physikServerConfig = null;
       physikServerConfigPromise = null;
+      physikServerConfigError = "";
       photoLinkMemoryCache.clear();
       localStorage.removeItem(PHOTO_LINK_CACHE_KEY);
       updateUIForSignedOutUser();
@@ -3597,6 +3603,7 @@ function updateUIForSignedOutUser() {
   pendingLoginError = "";
   physikServerConfig = null;
   physikServerConfigPromise = null;
+  physikServerConfigError = "";
   photoLinkMemoryCache.clear();
   localStorage.removeItem(PHOTO_LINK_CACHE_KEY);
   showLogin(error ? { error } : {});
