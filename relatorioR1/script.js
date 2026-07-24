@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-23-physik-server-unit-id-1";
+const APP_BUILD_ID = "2026-07-23-physik-server-global-token-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
@@ -301,6 +301,7 @@ function normalizePhysikServerConfig(value) {
   if (!value || typeof value !== "object") return null;
 
   const baseUrl = String(value.baseUrl || "").trim().replace(/\/+$/, "");
+  const apiBearerToken = String(value.apiBearerToken || "").trim();
   const pwaReadToken = String(value.pwaReadToken || "").trim();
   const linkTtlSeconds = Number(value.linkTtlSeconds) || 86400;
   const status = String(value.status || "").trim().toLowerCase();
@@ -309,6 +310,7 @@ function normalizePhysikServerConfig(value) {
 
   return {
     baseUrl,
+    apiBearerToken,
     pwaReadToken,
     linkTtlSeconds,
     status: status || "online"
@@ -373,7 +375,7 @@ function setCachedPhotoLink(cacheKey, url, expires) {
 }
 
 function physikServerReadToken(config) {
-  return String(config?.pwaReadToken || "").trim();
+  return String(config?.apiBearerToken || config?.pwaReadToken || "").trim();
 }
 
 function encodePhysikObjectId(objectId) {

@@ -15,6 +15,6 @@ Campos esperados:
 
 - `baseUrl`: URL publica atual do Cloudflare Tunnel.
 - `status`: `online` para habilitar busca de fotos.
-- `apiBearerToken`: token mestre da API PhysikServer, lido do Firebase por usuarios autorizados.
-- `pwaReadToken`: token read-only para `GET /links/fotos/{cartao}.jpg`; fica como fallback se `apiBearerToken` nao estiver publicado.
+- `apiBearerToken`: token global da API PhysikServer, usado pelo PWA para gerar links temporarios de alunos e fotos.
+- `pwaReadToken`: token read-only alternativo; usado apenas se `apiBearerToken` nao estiver publicado.
 - `linkTtlSeconds`: TTL do link assinado, padrao `86400`.

@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-v17-physik-server-unit-id-2026-07-23";
+const VERSION = "relatorio-r1-v18-physik-server-global-token-2026-07-23";
 const CACHE_PREFIXES_TO_DELETE = [
   "relatorio-r1-",
   "relatorio-r1-v",
