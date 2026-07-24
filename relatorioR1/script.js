@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-23-physik-server-global-token-1";
+const APP_BUILD_ID = "2026-07-23-students-debug-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
@@ -49,6 +49,7 @@ const REPORT_LIGHT_FIELDS = [
 let relatoriosPorUnidade = {};
 let unitsMeta = {};
 let alunosPorUnidade = {};
+let alunosDebugPorUnidade = {};
 let pagamentosHojePorUnidade = {};
 const alunosFetchPromises = new Map();
 const pagamentosHojeFetchPromises = new Map();
@@ -401,6 +402,22 @@ function canonicalPhysikUnitId(unitId) {
   };
 
   return aliases[candidate] || candidate;
+}
+
+function physikUnitIdCandidates(unitId) {
+  return [...new Set([
+    canonicalPhysikUnitId(unitId),
+    String(unitId || "").trim()
+  ].filter(Boolean))];
+}
+
+function tokenDebug(token) {
+  const value = String(token || "");
+  return value ? `${value.slice(0, 6)}...${value.length}` : "ausente";
+}
+
+function setAlunosDebug(unitId, lines) {
+  alunosDebugPorUnidade[unitId] = lines.filter(Boolean).join("\n");
 }
 
 async function obterSignedPhotoUrl(photoId) {
@@ -1535,7 +1552,7 @@ function perfilLabel(perfil) {
 }
 
 function studentPhotoId(student) {
-  const unitId = canonicalPhysikUnitId(student?.unidadeId || student?.unitId);
+  const unitId = String(student?.physikUnitId || canonicalPhysikUnitId(student?.unidadeId || student?.unitId)).trim();
   const cartao = String(student?.cartao || "").trim();
   return unitId && cartao ? `${unitId}/${cartao}.jpg` : "";
 }
@@ -1705,7 +1722,7 @@ function renderVirtualStudents(unitBlock) {
   hydrateStudentPhotos(grid);
 }
 
-function normalizarAlunosPhysikServer(data, unitId) {
+function normalizarAlunosPhysikServer(data, unitId, physikUnitId) {
   if (!data || typeof data !== "object") return [];
 
   return Object.entries(data)
@@ -1715,6 +1732,7 @@ function normalizarAlunosPhysikServer(data, unitId) {
       id: String(aluno.id || cartao),
       cartao: String(cartao).trim(),
       unidadeId: String(unitId || "").trim(),
+      physikUnitId: String(physikUnitId || unitId || "").trim(),
       foto: ""
     }))
     .filter((aluno) => aluno.cartao);
@@ -1724,32 +1742,76 @@ async function carregarAlunosPhysikServer(unitId) {
   if (alunosPorUnidade[unitId]) return alunosPorUnidade[unitId];
   if (alunosFetchPromises.has(unitId)) return alunosFetchPromises.get(unitId);
 
+  setAlunosDebug(unitId, [
+    `unit=${unitId}`,
+    "status=carregando"
+  ]);
+
   const promise = carregarPhysikServerConfig()
     .then(async (config) => {
       const bearerToken = physikServerReadToken(config);
-      if (!config || config.status !== "online" || !bearerToken) return [];
+      const debug = [
+        `unit=${unitId}`,
+        `base=${config?.baseUrl || "ausente"}`,
+        `status=${config?.status || "ausente"}`,
+        `token=${tokenDebug(bearerToken)}`,
+        `ids=${physikUnitIdCandidates(unitId).join(",") || "nenhum"}`
+      ];
+
+      if (!config || config.status !== "online" || !bearerToken) {
+        setAlunosDebug(unitId, [...debug, "erro=config/token"]);
+        return [];
+      }
 
       const ttl = Math.max(60, Math.min(Number(config.linkTtlSeconds) || 86400, 86400));
-      const physikUnitId = canonicalPhysikUnitId(unitId);
-      const objectId = `${physikUnitId}/alunos.json`;
-      const linkUrl = physikServerObjectUrl(config, "alunos", objectId, ttl);
-      const link = await fetchJsonWithTimeout(linkUrl, {
-        headers: {
-          Authorization: `Bearer ${bearerToken}`
+      for (const physikUnitId of physikUnitIdCandidates(unitId)) {
+        const objectId = `${physikUnitId}/alunos.json`;
+        const linkUrl = physikServerObjectUrl(config, "alunos", objectId, ttl);
+        debug.push(`try=${objectId}`);
+
+        try {
+          const link = await fetchJsonWithTimeout(linkUrl, {
+            headers: {
+              Authorization: `Bearer ${bearerToken}`
+            }
+          }, FIREBASE_REST_TIMEOUT_MS);
+
+          const signedUrl = resolvePhysikServerUrl(config, link?.urlPath);
+          if (!signedUrl) {
+            debug.push("link=sem-urlPath");
+            continue;
+          }
+          debug.push("link=ok");
+
+          const data = await fetchJsonWithTimeout(signedUrl, {}, FIREBASE_REST_TIMEOUT_MS);
+          const alunos = normalizarAlunosPhysikServer(data, unitId, physikUnitId);
+          alunosPorUnidade[unitId] = alunos;
+          setAlunosDebug(unitId, [
+            ...debug,
+            `json=ok`,
+            `alunos=${alunos.length}`
+          ]);
+          return alunos;
+        } catch (error) {
+          debug.push(`http=${error?.status || error?.code || error?.message || "erro"}`);
+          if (error?.status !== 404) {
+            setAlunosDebug(unitId, debug);
+            throw error;
+          }
         }
-      }, FIREBASE_REST_TIMEOUT_MS);
+      }
 
-      const signedUrl = resolvePhysikServerUrl(config, link?.urlPath);
-      if (!signedUrl) return [];
-
-      const data = await fetchJsonWithTimeout(signedUrl, {}, FIREBASE_REST_TIMEOUT_MS);
-      const alunos = normalizarAlunosPhysikServer(data, unitId);
-      alunosPorUnidade[unitId] = alunos;
-      return alunos;
+      alunosPorUnidade[unitId] = [];
+      setAlunosDebug(unitId, [...debug, "erro=nao-encontrado"]);
+      return [];
     })
     .catch((error) => {
       console.warn("Alunos via PhysikServer indisponiveis:", error.status || error.code || error.message, error.message);
       alunosPorUnidade[unitId] = [];
+      setAlunosDebug(unitId, [
+        `unit=${unitId}`,
+        `erro=${error.status || error.code || error.message || "falha"}`
+      ]);
       return [];
     })
     .finally(() => {
@@ -1791,6 +1853,7 @@ async function renderAlunosUnitsCards(loadRemote = false) {
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
     const alunos = alunosDaUnidade(unitId, data).map((student) => prepareStudentRecord(student, unitId));
+    const debug = alunosDebugPorUnidade[unitId] || `unit=${unitId}\nstatus=sem tentativa`;
     studentVirtualState.set(unitId, {
       students: alunos,
       filtered: alunos,
@@ -1826,6 +1889,7 @@ async function renderAlunosUnitsCards(loadRemote = false) {
           </div>
         </div>
         <p class="students-empty"${alunos.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
+        <pre class="students-debug">${escapeHTML(debug)}</pre>
       </section>
     `;
   });
@@ -3342,6 +3406,7 @@ async function clearAppStorageCaches() {
   relatoriosPorUnidade = {};
   unitsMeta = {};
   alunosPorUnidade = {};
+  alunosDebugPorUnidade = {};
   pagamentosHojePorUnidade = {};
   alunosFetchPromises.clear();
   pagamentosHojeFetchPromises.clear();
