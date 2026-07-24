@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-23-physik-server-students-1";
+const APP_BUILD_ID = "2026-07-23-physik-server-unit-id-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
@@ -387,6 +387,18 @@ function physikServerObjectUrl(config, area, objectId, ttl) {
 function resolvePhysikServerUrl(config, urlPath) {
   if (!urlPath) return "";
   return /^https?:\/\//i.test(urlPath) ? urlPath : `${config.baseUrl}${urlPath}`;
+}
+
+function canonicalPhysikUnitId(unitId) {
+  const raw = String(unitId || "").trim();
+  const configuredId = String(unitsMeta[raw]?.physikServerUnitId || unitsMeta[raw]?.id || "").trim();
+  const candidate = configuredId || raw;
+  const aliases = {
+    "58780-00": "58780-000",
+    "58970-00": "58970-000"
+  };
+
+  return aliases[candidate] || candidate;
 }
 
 async function obterSignedPhotoUrl(photoId) {
@@ -1521,7 +1533,7 @@ function perfilLabel(perfil) {
 }
 
 function studentPhotoId(student) {
-  const unitId = String(student?.unidadeId || student?.unitId || "").trim();
+  const unitId = canonicalPhysikUnitId(student?.unidadeId || student?.unitId);
   const cartao = String(student?.cartao || "").trim();
   return unitId && cartao ? `${unitId}/${cartao}.jpg` : "";
 }
@@ -1716,7 +1728,8 @@ async function carregarAlunosPhysikServer(unitId) {
       if (!config || config.status !== "online" || !bearerToken) return [];
 
       const ttl = Math.max(60, Math.min(Number(config.linkTtlSeconds) || 86400, 86400));
-      const objectId = `${unitId}/alunos.json`;
+      const physikUnitId = canonicalPhysikUnitId(unitId);
+      const objectId = `${physikUnitId}/alunos.json`;
       const linkUrl = physikServerObjectUrl(config, "alunos", objectId, ttl);
       const link = await fetchJsonWithTimeout(linkUrl, {
         headers: {
