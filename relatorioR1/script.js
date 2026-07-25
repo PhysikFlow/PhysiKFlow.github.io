@@ -1587,7 +1587,7 @@ function renderStudentCard(student) {
   }
 
   return `
-    <article class="student-card">
+    <article class="student-card" data-student-id="${escapeHTML(student.id)}">
       ${renderStudentPhoto(student)}
       <div class="student-card-body">
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
@@ -1778,6 +1778,8 @@ function renderVirtualStudents(unitBlock) {
   grid.innerHTML = state.filtered.slice(start, end).map(renderStudentCard).join("");
   bindStudentImageFallbacks(grid);
   hydrateStudentPhotos(grid);
+  // Bind click events for opening student modal
+  bindStudentCardClicks(grid);
 }
 
 function normalizarAlunosPhysikServer(data, unitId, physikUnitId) {
