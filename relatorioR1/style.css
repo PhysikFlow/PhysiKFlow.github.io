@@ -2103,6 +2103,28 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+.finance-payment-student {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.finance-payment-student:hover,
+.finance-payment-student:focus-visible {
+  color: #9fd7ff;
+  text-decoration: underline;
+  outline: none;
+}
+
 .finance-payment-row strong {
   color: var(--muted);
   font-size: 0.78rem;
@@ -2387,6 +2409,16 @@ button:focus-visible {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(8, 12, 20, 0.55);
   overflow: hidden;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.student-card:hover,
+.student-card:focus-visible {
+  border-color: rgba(159, 215, 255, 0.55);
+  background: rgba(12, 18, 30, 0.78);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .student-photo {
@@ -2469,6 +2501,139 @@ button:focus-visible {
 .student-card[hidden],
 .students-scroll[hidden] {
   display: none;
+}
+
+.student-detail-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.student-detail-modal.is-hidden {
+  display: none;
+}
+
+.student-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.student-detail-dialog {
+  position: relative;
+  width: min(46rem, 100%);
+  max-height: min(88vh, 42rem);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  background: #141b29;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.student-detail-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 1;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(8, 12, 20, 0.78);
+  color: var(--text);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.student-detail-content {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.student-detail-photo-wrap .student-photo {
+  width: min(15rem, 58vw);
+  margin: 0 auto;
+  border-radius: var(--radius-sm);
+}
+
+.student-detail-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.student-detail-header {
+  display: grid;
+  gap: 0.16rem;
+  padding-right: 2.5rem;
+}
+
+.student-detail-header span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.student-detail-header h2 {
+  font-size: 1.35rem;
+  line-height: 1.16;
+}
+
+.student-detail-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.student-detail-row,
+.student-payment-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.72rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.student-detail-row span,
+.student-payment-item span,
+.student-payment-item small {
+  color: var(--muted);
+}
+
+.student-detail-row strong,
+.student-payment-item b {
+  text-align: right;
+}
+
+.student-detail-payments {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.student-detail-payments h3 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.student-payment-item > div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+@media (min-width: 720px) {
+  .student-detail-content {
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .student-detail-photo-wrap .student-photo {
+    width: 100%;
+  }
 }
 
 @media (min-width: 600px) {

@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-v21-config-debug-2026-07-23";
+const VERSION = "relatorio-r1-v22-student-modal-navigation-2026-07-26";
 const CACHE_PREFIXES_TO_DELETE = [
   "relatorio-r1-",
   "relatorio-r1-v",

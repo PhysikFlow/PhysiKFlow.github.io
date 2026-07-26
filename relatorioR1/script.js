@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-23-config-debug-1";
+const APP_BUILD_ID = "2026-07-26-student-modal-navigation-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
@@ -50,10 +50,13 @@ let relatoriosPorUnidade = {};
 let unitsMeta = {};
 let alunosPorUnidade = {};
 let alunosDebugPorUnidade = {};
+let alunosUiState = { pageScrollTop: 0, units: {} };
+let pendingStudentFocus = null;
 let pagamentosHojePorUnidade = {};
 const alunosFetchPromises = new Map();
 const pagamentosHojeFetchPromises = new Map();
 const photoLinkMemoryCache = new Map();
+let studentModalEscapeBound = false;
 let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let physikServerConfig = null;
 let physikServerConfigPromise = null;
@@ -1196,7 +1199,14 @@ function renderFinanceTodayList(breakdown) {
       .map((payment) => `
         <div class="finance-payment-row">
           <time>${escapeHTML(formatPaymentTime(payment))}</time>
-          <span>${escapeHTML(getPaymentStudentName(payment))}</span>
+          <button
+            type="button"
+            class="finance-payment-student"
+            data-student-nav
+            data-unit-id="${escapeHTML(financeSubView?.unitId || "")}"
+            data-student-name="${escapeHTML(getPaymentStudentName(payment))}"
+            data-student-card="${escapeHTML(payment?.cartao || payment?.alunoId || payment?.codigoPessoa || "")}"
+          >${escapeHTML(getPaymentStudentName(payment))}</button>
           <strong>${escapeHTML(getPaymentMethod(payment))}</strong>
         </div>
       `).join("");
@@ -1519,6 +1529,17 @@ function setupFinanceSubView() {
     openFinanceSubView(button.dataset.financeView, button.dataset.unitId, true, true);
   });
 
+  qs("financeSubList")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-student-nav]");
+    if (!button) return;
+
+    navegarParaAlunoDoPagamento({
+      unitId: button.dataset.unitId,
+      nome: button.dataset.studentName,
+      cartao: button.dataset.studentCard
+    });
+  });
+
   window.addEventListener("popstate", () => {
     if (!appAuthorized) return;
 
@@ -1574,11 +1595,23 @@ function renderStudentPhoto(student) {
   return renderEmptyStudentPhoto(studentPhotoId(student));
 }
 
+function studentDomKey(student) {
+  return `${student?.unidadeId || ""}|${student?.cartao || student?.id || ""}`;
+}
+
 function renderStudentCard(student) {
   const perfil = student.perfil === "colaborador" ? "colaborador" : "aluno";
 
   return `
-    <article class="student-card">
+    <article
+      class="student-card"
+      role="button"
+      tabindex="0"
+      data-student-card
+      data-unit-id="${escapeHTML(student.unidadeId || "")}"
+      data-student-cartao="${escapeHTML(student.cartao || "")}"
+      data-student-key="${escapeHTML(studentDomKey(student))}"
+    >
       ${renderStudentPhoto(student)}
       <div class="student-card-body">
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
@@ -1590,12 +1623,59 @@ function renderStudentCard(student) {
   `;
 }
 
-function filterStudentsInUnit(unitBlock, query) {
+function studentsUnitUiState(unitId) {
+  if (!alunosUiState.units[unitId]) {
+    alunosUiState.units[unitId] = { query: "", scrollLeft: 0 };
+  }
+  return alunosUiState.units[unitId];
+}
+
+function saveStudentsPageState() {
+  const page = document.querySelector('.app-page[data-page="alunos"]');
+  if (page) alunosUiState.pageScrollTop = page.scrollTop || 0;
+
+  document.querySelectorAll(".students-unit-block").forEach((unitBlock) => {
+    const unitId = unitBlock.dataset.unitBlock;
+    if (!unitId) return;
+
+    const state = studentsUnitUiState(unitId);
+    const input = unitBlock.querySelector(".students-search");
+    state.query = input ? input.value || "" : state.query || "";
+    const scroller = unitBlock.querySelector(".students-scroll");
+    state.scrollLeft = scroller ? scroller.scrollLeft || 0 : state.scrollLeft || 0;
+  });
+}
+
+function restoreStudentsPageScroll() {
+  const page = document.querySelector('.app-page[data-page="alunos"]');
+  if (!page) return;
+
+  window.requestAnimationFrame(() => {
+    page.scrollTop = alunosUiState.pageScrollTop || 0;
+  });
+}
+
+function findPreparedStudent(unitId, cartao) {
+  const key = String(cartao || "").trim();
+  if (!unitId || !key) return null;
+
+  const state = studentVirtualState.get(unitId);
+  const fromState = state?.students?.find((student) => String(student.cartao) === key || String(student.id) === key);
+  if (fromState) return fromState;
+
+  return alunosDaUnidade(unitId).map((student) => prepareStudentRecord(student, unitId))
+    .find((student) => String(student.cartao) === key || String(student.id) === key) || null;
+}
+
+function filterStudentsInUnit(unitBlock, query, resetScroll = true) {
   const state = getStudentsUnitState(unitBlock);
   const scroll = unitBlock.querySelector(".students-scroll");
   if (!state || !scroll) return;
 
   const normalized = normalizeStudentSearch(query);
+  const unitUi = studentsUnitUiState(unitBlock.dataset.unitBlock || "");
+  unitUi.query = query || "";
+
   state.query = normalized;
   state.filtered = normalized
     ? state.students.filter((student) => student._search.includes(normalized))
@@ -1603,7 +1683,10 @@ function filterStudentsInUnit(unitBlock, query) {
   state.lastStart = -1;
   state.lastEnd = -1;
   state.lastQuery = "";
-  scroll.scrollLeft = 0;
+  if (resetScroll) {
+    scroll.scrollLeft = 0;
+    unitUi.scrollLeft = 0;
+  }
   renderVirtualStudents(unitBlock);
 }
 
@@ -1687,6 +1770,220 @@ function hydrateStudentPhotos(scope) {
       // Foto remota indisponivel nao deve quebrar a lista.
     });
   });
+}
+
+function studentDetailLabel(key) {
+  const labels = {
+    cpf: "CPF",
+    rg: "RG",
+    email: "E-mail",
+    endereco: "Endereco",
+    nascimento: "Nascimento",
+    plano: "Plano",
+    modalidade: "Modalidade",
+    turma: "Turma",
+    situacao: "Situacao",
+    status: "Status"
+  };
+  if (labels[key]) return labels[key];
+
+  return String(key || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function studentExtraDetailRows(student) {
+  const hiddenKeys = new Set([
+    "id",
+    "nome",
+    "cartao",
+    "codigo",
+    "perfil",
+    "vencimento",
+    "telefone",
+    "unidadeId",
+    "unitId",
+    "physikUnitId",
+    "foto",
+    "photo",
+    "fotoUrl",
+    "pagamentos",
+    "_search"
+  ]);
+
+  return Object.entries(student || {})
+    .filter(([key, value]) => (
+      !hiddenKeys.has(key) &&
+      value !== undefined &&
+      value !== null &&
+      ["string", "number", "boolean"].includes(typeof value) &&
+      String(value).trim() !== ""
+    ))
+    .map(([key, value]) => [studentDetailLabel(key), String(value)]);
+}
+
+function studentDetailRows(student) {
+  const rows = [
+    ["Unidade", nomeUnidade(student.unidadeId)],
+    ["Cartão", student.cartao],
+    ["Perfil", perfilLabel(student.perfil)],
+    ["Vencimento", formatDateBR(student.vencimento)],
+    ["Telefone", student.telefone],
+    ["Código", student.codigo]
+  ].concat(studentExtraDetailRows(student));
+
+  return rows
+    .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
+    .map(([label, value]) => `
+      <div class="student-detail-row">
+        <span>${escapeHTML(label)}</span>
+        <strong>${escapeHTML(value)}</strong>
+      </div>
+    `).join("");
+}
+
+function formatStudentPaymentDate(payment) {
+  return payment?.data || payment?.pagoEm || payment?.timestampCreatedAt || payment?.createdAt || "---";
+}
+
+function renderStudentPayments(student) {
+  const payments = toArray(student?.pagamentos);
+  if (!payments.length) return '<div class="mini-note">Nenhum pagamento disponível.</div>';
+
+  return payments.map((payment) => `
+    <div class="student-payment-item">
+      <div>
+        <strong>${escapeHTML(payment?.descricao || payment?.plano || payment?.tipo || "Pagamento")}</strong>
+        <span>${escapeHTML(formatDateBR(formatStudentPaymentDate(payment)))}</span>
+        ${payment?.observacao ? `<small>${escapeHTML(payment.observacao)}</small>` : ""}
+      </div>
+      <b>${formatBRL(payment?.valor ?? payment?.valorPago ?? payment?.total ?? 0)}</b>
+    </div>
+  `).join("");
+}
+
+function ensureStudentModal() {
+  let modal = qs("studentDetailModal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "studentDetailModal";
+  modal.className = "student-detail-modal is-hidden";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="student-detail-backdrop" data-student-modal-close></div>
+    <section class="student-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="studentDetailTitle">
+      <button type="button" class="student-detail-close" data-student-modal-close aria-label="Fechar">×</button>
+      <div class="student-detail-content"></div>
+    </section>
+  `;
+  document.body.appendChild(modal);
+
+  modal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-student-modal-close]")) closeStudentModal();
+  });
+
+  if (!studentModalEscapeBound) {
+    studentModalEscapeBound = true;
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeStudentModal();
+    });
+  }
+
+  return modal;
+}
+
+function openStudentModal(student) {
+  if (!student) return;
+
+  const modal = ensureStudentModal();
+  const content = modal.querySelector(".student-detail-content");
+  if (!content) return;
+
+  content.innerHTML = `
+    <div class="student-detail-photo-wrap">
+      ${renderStudentPhoto(student)}
+    </div>
+    <div class="student-detail-main">
+      <header class="student-detail-header">
+        <span>${escapeHTML(nomeUnidade(student.unidadeId))}</span>
+        <h2 id="studentDetailTitle">${escapeHTML(student.nome || "Aluno")}</h2>
+      </header>
+      <div class="student-detail-grid">
+        ${studentDetailRows(student)}
+      </div>
+      <section class="student-detail-payments">
+        <h3>Pagamentos</h3>
+        ${renderStudentPayments(student)}
+      </section>
+    </div>
+  `;
+
+  bindStudentImageFallbacks(content);
+  hydrateStudentPhotos(content);
+  modal.classList.remove("is-hidden");
+  modal.setAttribute("aria-hidden", "false");
+  modal.querySelector("[data-student-modal-close]")?.focus({ preventScroll: true });
+}
+
+function closeStudentModal() {
+  const modal = qs("studentDetailModal");
+  if (!modal || modal.classList.contains("is-hidden")) return;
+  modal.classList.add("is-hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function openStudentModalByCard(card) {
+  const student = findPreparedStudent(card?.dataset.unitId, card?.dataset.studentCartao);
+  openStudentModal(student);
+}
+
+function focusStudentInUnit({ unitId, nome = "", cartao = "" } = {}) {
+  if (!unitId) return;
+
+  const unitBlock = Array.from(document.querySelectorAll(".students-unit-block"))
+    .find((block) => block.dataset.unitBlock === unitId);
+  if (!unitBlock) return;
+
+  const query = String(nome || cartao || "").trim();
+  const unitUi = studentsUnitUiState(unitId);
+  unitUi.query = query;
+  unitUi.scrollLeft = 0;
+
+  const input = unitBlock.querySelector(".students-search");
+  if (input) input.value = query;
+  filterStudentsInUnit(unitBlock, query);
+
+  window.requestAnimationFrame(() => {
+    unitBlock.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    const scroller = unitBlock.querySelector(".students-scroll");
+    if (!scroller) return;
+
+    const state = getStudentsUnitState(unitBlock);
+    const targetIndex = state?.filtered.findIndex((student) => {
+      const sameCard = cartao && String(student.cartao || "") === String(cartao);
+      const sameName = query && normalizeStudentSearch(student.nome || "") === normalizeStudentSearch(query);
+      return sameCard || sameName;
+    });
+
+    if (targetIndex >= 0) {
+      scroller.scrollLeft = Math.max(0, targetIndex * (STUDENT_CARD_WIDTH + STUDENT_CARD_GAP) - 12);
+      unitUi.scrollLeft = scroller.scrollLeft;
+      renderVirtualStudents(unitBlock);
+    }
+  });
+}
+
+function navegarParaAlunoDoPagamento({ unitId, nome = "", cartao = "" } = {}) {
+  if (!unitId) return;
+
+  const unitUi = studentsUnitUiState(unitId);
+  unitUi.query = String(nome || cartao || "").trim();
+  unitUi.scrollLeft = 0;
+
+  pendingStudentFocus = { unitId, nome, cartao };
+  setActiveTab("alunos", true, true);
 }
 
 function renderVirtualStudents(unitBlock) {
@@ -1859,10 +2156,16 @@ async function renderAlunosUnitsCards(loadRemote = false) {
     const data = relatoriosPorUnidade[unitId];
     const alunos = alunosDaUnidade(unitId, data).map((student) => prepareStudentRecord(student, unitId));
     const debug = alunosDebugPorUnidade[unitId] || `unit=${unitId}\nstatus=sem tentativa`;
+    const unitUi = studentsUnitUiState(unitId);
+    const query = unitUi.query || "";
+    const normalizedQuery = normalizeStudentSearch(query);
+    const filtered = normalizedQuery
+      ? alunos.filter((student) => student._search.includes(normalizedQuery))
+      : alunos;
     studentVirtualState.set(unitId, {
       students: alunos,
-      filtered: alunos,
-      query: "",
+      filtered,
+      query: normalizedQuery,
       lastStart: -1,
       lastEnd: -1,
       lastQuery: ""
@@ -1883,24 +2186,30 @@ async function renderAlunosUnitsCards(loadRemote = false) {
               placeholder="Buscar por nome, cartão ou perfil"
               autocomplete="off"
               spellcheck="false"
+              value="${escapeHTML(query)}"
             />
           </label>
         </div>
-        <div class="students-scroll"${alunos.length ? "" : " hidden"}>
+        <div class="students-scroll"${filtered.length ? "" : " hidden"}>
           <div class="students-virtual-track">
             <div class="students-virtual-spacer" data-virtual-spacer="before" aria-hidden="true"></div>
             <div class="students-grid"></div>
             <div class="students-virtual-spacer" data-virtual-spacer="after" aria-hidden="true"></div>
           </div>
         </div>
-        <p class="students-empty"${alunos.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
+        <p class="students-empty"${filtered.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
         <pre class="students-debug">${escapeHTML(debug)}</pre>
       </section>
     `;
   });
 
   container.innerHTML = html;
-  container.querySelectorAll(".students-unit-block").forEach(renderVirtualStudents);
+  container.querySelectorAll(".students-unit-block").forEach((unitBlock) => {
+    const unitId = unitBlock.dataset.unitBlock;
+    const scroller = unitBlock.querySelector(".students-scroll");
+    if (scroller) scroller.scrollLeft = studentsUnitUiState(unitId).scrollLeft || 0;
+    renderVirtualStudents(unitBlock);
+  });
   observeStudentScrollers(container);
 }
 
@@ -1935,6 +2244,21 @@ function setupStudentsSearch() {
     }, 260);
   });
 
+  container.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-student-card]");
+    if (!card) return;
+    openStudentModalByCard(card);
+  });
+
+  container.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    const card = event.target.closest("[data-student-card]");
+    if (!card) return;
+    event.preventDefault();
+    openStudentModalByCard(card);
+  });
+
   container.addEventListener("scroll", (event) => {
     const scroller = event.target.closest?.(".students-scroll");
     if (!scroller) return;
@@ -1942,7 +2266,10 @@ function setupStudentsSearch() {
     const unitBlock = scroller.closest(".students-unit-block");
     if (!unitBlock) return;
 
-    window.requestAnimationFrame(() => renderVirtualStudents(unitBlock));
+    window.requestAnimationFrame(() => {
+      studentsUnitUiState(unitBlock.dataset.unitBlock).scrollLeft = scroller.scrollLeft || 0;
+      renderVirtualStudents(unitBlock);
+    });
   }, true);
 
   container.addEventListener("wheel", (event) => {
@@ -3260,6 +3587,10 @@ function setActiveTab(tabName, shouldUpdateHash = true, animate = false) {
 
   if (pageSlideLock && animate) return;
 
+  if (currentTab === "alunos") {
+    saveStudentsPageState();
+  }
+
   if (targetTab !== "financeiro" && financeSubView) {
     closeFinanceSubView(false, false);
   }
@@ -3292,10 +3623,19 @@ function setActiveTab(tabName, shouldUpdateHash = true, animate = false) {
     }
 
     if (targetTab === "alunos") {
-      renderAlunosUnitsCards(true);
-    }
+      renderAlunosUnitsCards(true).then(() => {
+        if (pendingStudentFocus) {
+          const focus = pendingStudentFocus;
+          pendingStudentFocus = null;
+          focusStudentInUnit(focus);
+          return;
+        }
 
-    scrollActivePageToTop();
+        restoreStudentsPageScroll();
+      });
+    } else {
+      scrollActivePageToTop();
+    }
   };
 
   const shouldAnimate =
