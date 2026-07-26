@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-26-student-modal-navigation-1";
+const APP_BUILD_ID = "2026-07-26-firebase-realtime-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
@@ -61,6 +61,12 @@ let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let physikServerConfig = null;
 let physikServerConfigPromise = null;
 let physikServerConfigError = "";
+let firebaseRealtimeStarted = false;
+let firebaseRealtimeApplyTimer = null;
+let firebaseRealtimeFallbackTimer = null;
+let firebaseRealtimeDateTimer = null;
+let firebaseRealtimeTodayKey = "";
+let firebaseRealtimeUnitsReady = false;
 let deferredInstallPrompt = null;
 let appAuthorized = false;
 let authStateReady = false;
@@ -68,6 +74,7 @@ let pendingLoginError = "";
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
 const studentVirtualState = new Map();
+const firebaseRealtimeUnsubscribers = new Map();
 const STUDENT_CARD_WIDTH = 152;
 const STUDENT_CARD_GAP = 10;
 const STUDENT_VIRTUAL_BUFFER = 6;
@@ -300,6 +307,171 @@ async function readFirebaseValue(path, label = path) {
     console.warn("Leitura via SDK falhou; tentando REST:", label, sdkError.code || sdkError.message);
     return readFirebaseRestValue(path, label);
   }
+}
+
+function stopFirebaseRealtimeSync() {
+  firebaseRealtimeUnsubscribers.forEach((unsubscribe) => {
+    try {
+      unsubscribe();
+    } catch (error) {
+      console.warn("Falha ao remover listener Firebase:", error.code || error.message);
+    }
+  });
+  firebaseRealtimeUnsubscribers.clear();
+  firebaseRealtimeStarted = false;
+  firebaseRealtimeUnitsReady = false;
+
+  if (firebaseRealtimeApplyTimer) {
+    clearTimeout(firebaseRealtimeApplyTimer);
+    firebaseRealtimeApplyTimer = null;
+  }
+
+  if (firebaseRealtimeFallbackTimer) {
+    clearTimeout(firebaseRealtimeFallbackTimer);
+    firebaseRealtimeFallbackTimer = null;
+  }
+
+  if (firebaseRealtimeDateTimer) {
+    clearTimeout(firebaseRealtimeDateTimer);
+    firebaseRealtimeDateTimer = null;
+  }
+}
+
+function watchFirebaseValue(path, label, onValue) {
+  if (firebaseRealtimeUnsubscribers.has(label)) return;
+
+  const ref = db.ref(path);
+  const handleValue = (snapshot) => onValue(snapshot.val());
+  const handleError = (error) => {
+    console.warn("Listener Firebase falhou:", label, error.code || error.message, error.message);
+    setText("statusCache", "realtime indisponivel");
+    updateSyncDot("erro");
+  };
+
+  ref.on("value", handleValue, handleError);
+  firebaseRealtimeUnsubscribers.set(label, () => ref.off("value", handleValue));
+}
+
+function unwatchFirebaseLabel(label) {
+  const unsubscribe = firebaseRealtimeUnsubscribers.get(label);
+  if (!unsubscribe) return;
+
+  unsubscribe();
+  firebaseRealtimeUnsubscribers.delete(label);
+}
+
+function scheduleRealtimeApply() {
+  if (firebaseRealtimeApplyTimer) clearTimeout(firebaseRealtimeApplyTimer);
+
+  firebaseRealtimeApplyTimer = setTimeout(() => {
+    firebaseRealtimeApplyTimer = null;
+
+    const reports = stripReportsHeavyFields(relatoriosPorUnidade);
+    if (!Object.keys(reports).length) return;
+    salvarCache(reports);
+    aplicarRelatorios(reports);
+    setText("statusCache", "online ao vivo");
+    updateSyncDot("online");
+  }, 180);
+}
+
+function reconcileRealtimeUnitListeners(unitIds) {
+  const activeUnits = new Set(unitIds);
+  const todayKey = getTodayDateKey();
+  firebaseRealtimeTodayKey = todayKey;
+
+  [...firebaseRealtimeUnsubscribers.keys()].forEach((label) => {
+    const reportMatch = label.match(/^report:([^:]+):/);
+    const paymentMatch = label.match(/^paymentsToday:([^:]+)$/);
+    const unitId = reportMatch?.[1] || paymentMatch?.[1];
+    if (unitId && !activeUnits.has(unitId)) {
+      unwatchFirebaseLabel(label);
+      delete relatoriosPorUnidade[unitId];
+      delete pagamentosHojePorUnidade[unitId];
+    }
+  });
+
+  unitIds.forEach((unitId) => {
+    relatoriosPorUnidade[unitId] = relatoriosPorUnidade[unitId] || {};
+
+    REPORT_LIGHT_FIELDS.forEach((field) => {
+      watchFirebaseValue(`${REPORT_ROOT}/${unitId}/${field}`, `report:${unitId}:${field}`, (value) => {
+        if (!relatoriosPorUnidade[unitId]) relatoriosPorUnidade[unitId] = {};
+        if (value === null || value === undefined) {
+          delete relatoriosPorUnidade[unitId][field];
+        } else {
+          relatoriosPorUnidade[unitId][field] = value;
+        }
+        scheduleRealtimeApply();
+      });
+    });
+
+    watchFirebaseValue(`${PAGAMENTOS_BY_DATE_ROOT}/${unitId}/${todayKey}`, `paymentsToday:${unitId}`, (value) => {
+      pagamentosHojePorUnidade[unitId] = toArray(value);
+      if (financeSubView?.view === "dia" && financeSubView.unitId === unitId) {
+        renderFinanceSubView();
+      }
+    });
+  });
+}
+
+function scheduleRealtimeDateRollover() {
+  if (firebaseRealtimeDateTimer) clearTimeout(firebaseRealtimeDateTimer);
+
+  const nextMidnight = new Date();
+  nextMidnight.setHours(24, 0, 5, 0);
+  const delay = Math.max(1000, nextMidnight.getTime() - Date.now());
+
+  firebaseRealtimeDateTimer = setTimeout(() => {
+    firebaseRealtimeDateTimer = null;
+    [...firebaseRealtimeUnsubscribers.keys()]
+      .filter((label) => label.startsWith("paymentsToday:"))
+      .forEach(unwatchFirebaseLabel);
+
+    pagamentosHojePorUnidade = {};
+    reconcileRealtimeUnitListeners(Object.keys(unitsMeta));
+    if (financeSubView?.view === "dia") renderFinanceSubView();
+    scheduleRealtimeDateRollover();
+  }, delay);
+}
+
+function startFirebaseRealtimeSync() {
+  if (firebaseRealtimeStarted) return;
+  firebaseRealtimeStarted = true;
+  firebaseRealtimeUnitsReady = false;
+
+  watchFirebaseValue(UNITS_ROOT, "units", (value) => {
+    unitsMeta = normalizeUnitsMap(value);
+    firebaseRealtimeUnitsReady = true;
+    reconcileRealtimeUnitListeners(Object.keys(unitsMeta));
+    scheduleRealtimeApply();
+  });
+
+  watchFirebaseValue(PHYSIK_SERVER_CONFIG_ROOT, "physikServerConfig", (value) => {
+    const previousKey = physikServerConfig ? `${physikServerConfig.baseUrl}|${physikServerReadToken(physikServerConfig)}` : "";
+    const nextConfig = normalizePhysikServerConfig(value);
+    const nextKey = nextConfig ? `${nextConfig.baseUrl}|${physikServerReadToken(nextConfig)}` : "";
+    physikServerConfig = nextConfig;
+    physikServerConfigPromise = null;
+    physikServerConfigError = physikServerConfig ? "" : (value ? "config-invalida" : "config-null");
+
+    if (previousKey && nextKey && previousKey !== nextKey) {
+      alunosPorUnidade = {};
+      alunosFetchPromises.clear();
+      photoLinkMemoryCache.clear();
+      localStorage.removeItem(PHOTO_LINK_CACHE_KEY);
+      if (getActivePageTab() === "alunos") renderAlunosUnitsCards(true);
+    }
+  });
+
+  firebaseRealtimeFallbackTimer = setTimeout(() => {
+    firebaseRealtimeFallbackTimer = null;
+    if (!firebaseRealtimeUnitsReady || !Object.keys(relatoriosPorUnidade).length) {
+      buscarFirebase();
+    }
+  }, 5000);
+
+  scheduleRealtimeDateRollover();
 }
 
 function normalizePhysikServerConfig(value) {
@@ -3745,6 +3917,7 @@ function setupPwaInstall() {
 }
 
 async function clearAppStorageCaches() {
+  stopFirebaseRealtimeSync();
   localStorage.removeItem(CACHE_KEY);
   relatoriosPorUnidade = {};
   unitsMeta = {};
@@ -3937,6 +4110,7 @@ function updateUIForSignedInUser(user) {
 }
 
 function updateUIForSignedOutUser() {
+  stopFirebaseRealtimeSync();
   const error = pendingLoginError;
   pendingLoginError = "";
   physikServerConfig = null;
@@ -3991,10 +4165,12 @@ async function handleAuthState(user) {
     aplicarRelatorios(cache);
     setText("statusCache", "cache local");
     updateSyncDot("cache local");
-    setTimeout(buscarFirebase, 1500);
   } else {
-    buscarFirebase();
+    setText("statusCache", "carregando");
+    updateSyncDot("carregando");
   }
+
+  startFirebaseRealtimeSync();
 }
 
 // ==========================
