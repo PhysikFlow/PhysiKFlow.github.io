@@ -2155,7 +2155,6 @@ async function renderAlunosUnitsCards(loadRemote = false) {
   unitIds.forEach((unitId) => {
     const data = relatoriosPorUnidade[unitId];
     const alunos = alunosDaUnidade(unitId, data).map((student) => prepareStudentRecord(student, unitId));
-    const debug = alunosDebugPorUnidade[unitId] || `unit=${unitId}\nstatus=sem tentativa`;
     const unitUi = studentsUnitUiState(unitId);
     const query = unitUi.query || "";
     const normalizedQuery = normalizeStudentSearch(query);
@@ -2198,7 +2197,6 @@ async function renderAlunosUnitsCards(loadRemote = false) {
           </div>
         </div>
         <p class="students-empty"${filtered.length ? " hidden" : ""}>Nenhum aluno encontrado.</p>
-        <pre class="students-debug">${escapeHTML(debug)}</pre>
       </section>
     `;
   });
