@@ -37,6 +37,8 @@ const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
 const GEMINI_API_KEY = "AQ.Ab8RN6JdcEdMavFNJ_bwv1gKX3FYuBvNM2-YIw-zh5DRqeRD1w";
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_beta_gemini_stream_unavailable";
 const REPORT_LIGHT_FIELDS = [
   "meta",
   "resumo",
@@ -3989,9 +3991,20 @@ function setAiBusy(isBusy) {
   if (input) input.disabled = isBusy;
 }
 
-function scrollAiChatToBottom() {
+function isAiChatNearBottom() {
   const messages = qs("aiChatMessages");
-  if (messages) messages.scrollTop = messages.scrollHeight;
+  if (!messages) return true;
+  return messages.scrollHeight - messages.scrollTop - messages.clientHeight < 96;
+}
+
+function scrollAiChatToBottom({ force = false } = {}) {
+  const messages = qs("aiChatMessages");
+  if (!messages) return;
+  if (!force && !isAiChatNearBottom()) return;
+
+  requestAnimationFrame(() => {
+    messages.scrollTop = messages.scrollHeight;
+  });
 }
 
 function appendAiMessage(role, text, { loading = false } = {}) {
@@ -4010,20 +4023,21 @@ function appendAiMessage(role, text, { loading = false } = {}) {
   }
   item.appendChild(content);
   messages.appendChild(item);
-  scrollAiChatToBottom();
+  scrollAiChatToBottom({ force: true });
 
   return item;
 }
 
-function updateAiLoadingMessage(element, text, isError = false) {
+function updateAiLoadingMessage(element, text, isError = false, { forceScroll = false } = {}) {
   if (!element) return;
+  const shouldStick = forceScroll || isAiChatNearBottom();
   element.classList.remove("is-loading");
   if (isError) element.classList.add("ai-message-error");
   const content = element.querySelector(".ai-message-content");
   if (content) {
     content.innerHTML = isError ? escapeHTML(text) : renderBasicMarkdown(text);
   }
-  scrollAiChatToBottom();
+  if (shouldStick) scrollAiChatToBottom({ force: true });
 }
 
 function extractGeminiText(data) {
@@ -4035,25 +4049,29 @@ function extractGeminiText(data) {
     .trim();
 }
 
+function createGeminiRequestBody(message) {
+  return {
+    systemInstruction: {
+      parts: [{
+        text: "Voce e uma IA simples dentro do laboratorio beta do PhysikFlow. Responda em portugues do Brasil, seja clara e direta, e nao invente acesso aos dados do relatorio."
+      }]
+    },
+    contents: [{
+      role: "user",
+      parts: [{ text: message }]
+    }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 700
+    }
+  };
+}
+
 async function requestGeminiChatReply(message) {
   const response = await fetch(GEMINI_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{
-          text: "Voce e uma IA simples dentro do laboratorio beta do PhysikFlow. Responda em portugues do Brasil, seja clara e direta, e nao invente acesso aos dados do relatorio."
-        }]
-      },
-      contents: [{
-        role: "user",
-        parts: [{ text: message }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 700
-      }
-    })
+    body: JSON.stringify(createGeminiRequestBody(message))
   });
 
   const data = await response.json().catch(() => ({}));
@@ -4064,6 +4082,105 @@ async function requestGeminiChatReply(message) {
   }
 
   return extractGeminiText(data) || "Recebi, mas a resposta veio vazia.";
+}
+
+function parseGeminiSseChunk(buffer, onText) {
+  const events = buffer.split(/\n\n/);
+  const rest = events.pop() || "";
+
+  events.forEach((eventBlock) => {
+    const dataLines = eventBlock
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.replace(/^data:\s?/, ""));
+
+    if (!dataLines.length) return;
+
+    const payload = dataLines.join("\n");
+    if (payload === "[DONE]") return;
+
+    try {
+      const text = extractGeminiText(JSON.parse(payload));
+      if (text) onText(text);
+    } catch (error) {
+      console.warn("Gemini stream parse error:", error);
+    }
+  });
+
+  return rest;
+}
+
+async function requestGeminiChatReplyStream(message, onUpdate) {
+  if (sessionStorage.getItem(GEMINI_STREAM_UNAVAILABLE_KEY) === "1") {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  let response;
+  try {
+    response = await fetch(GEMINI_STREAM_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
+      },
+      body: JSON.stringify(createGeminiRequestBody(message))
+    });
+  } catch (error) {
+    console.warn("Gemini stream unavailable, falling back:", error);
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) {
+      sessionStorage.setItem(GEMINI_STREAM_UNAVAILABLE_KEY, "1");
+    }
+    console.warn("Gemini stream unavailable, falling back:", data?.error?.message || response.status);
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  if (!response.body) {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    buffer = parseGeminiSseChunk(buffer, (text) => {
+      fullText += text;
+      onUpdate(fullText);
+    });
+  }
+
+  buffer += decoder.decode();
+  parseGeminiSseChunk(`${buffer}\n\n`, (text) => {
+    fullText += text;
+    onUpdate(fullText);
+  });
+
+  if (!fullText.trim()) {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  return fullText;
 }
 
 async function handleAiChatSubmit(event) {
@@ -4081,7 +4198,9 @@ async function handleAiChatSubmit(event) {
   setAiBusy(true);
 
   try {
-    const reply = await requestGeminiChatReply(message);
+    const reply = await requestGeminiChatReplyStream(message, (partialReply) => {
+      updateAiLoadingMessage(loading, partialReply, false);
+    });
     aiChatHistory.push({ role: "user", text: message }, { role: "assistant", text: reply });
     if (aiChatHistory.length > 12) aiChatHistory.splice(0, aiChatHistory.length - 12);
     updateAiLoadingMessage(loading, reply);
