@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-4";
+const APP_BUILD_ID = "2026-07-28-ai-lab-5";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -32,12 +32,9 @@ const REPORT_ROOT = "relatorios";
 const UNITS_ROOT = "units";
 const PAGAMENTOS_BY_DATE_ROOT = "pagamentosByDate";
 const PHYSIK_SERVER_CONFIG_ROOT = "app_config/physik_server";
+const GEMINI_CONFIG_ROOT = "app_config/gemini";
 const PHOTO_LINK_CACHE_KEY = "relatorio_beta_photo_links_v1";
 const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
-const GEMINI_API_KEY = "AQ.Ab8RN6K7qn7egNwf2SHdJ3fjCCTm1VWTFpSAYgJECDLgpew1sQ";
-const GEMINI_MODEL = "gemini-3.5-flash-lite";
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
 const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_beta_gemini_stream_unavailable";
 const GEMINI_STREAM_ENABLED = false;
 const REPORT_LIGHT_FIELDS = [
@@ -67,6 +64,9 @@ let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let physikServerConfig = null;
 let physikServerConfigPromise = null;
 let physikServerConfigError = "";
+let geminiConfig = null;
+let geminiConfigPromise = null;
+let geminiConfigError = "";
 let firebaseRealtimeStarted = false;
 let firebaseRealtimeApplyTimer = null;
 let firebaseRealtimeFallbackTimer = null;
@@ -576,6 +576,12 @@ function startFirebaseRealtimeSync() {
     }
   });
 
+  watchFirebaseValue(GEMINI_CONFIG_ROOT, "geminiConfig", (value) => {
+    geminiConfig = normalizeGeminiConfig(value);
+    geminiConfigPromise = null;
+    geminiConfigError = geminiConfig ? "" : (value ? "config-invalida" : "config-null");
+  });
+
   firebaseRealtimeFallbackTimer = setTimeout(() => {
     firebaseRealtimeFallbackTimer = null;
     if (!firebaseRealtimeUnitsReady || !Object.keys(relatoriosPorUnidade).length) {
@@ -604,6 +610,42 @@ function normalizePhysikServerConfig(value) {
     linkTtlSeconds,
     status: status || "online"
   };
+}
+
+function normalizeGeminiConfig(value) {
+  if (!value || typeof value !== "object") return null;
+
+  const enabled = value.enabled !== false;
+  const apiKey = String(value.apiKey || "").trim();
+  const model = String(value.model || "gemini-flash-latest").trim();
+
+  if (!enabled || !apiKey || !model) return null;
+
+  return { enabled, apiKey, model };
+}
+
+async function carregarGeminiConfig(force = false) {
+  if (!force && geminiConfig) return geminiConfig;
+  if (!force && geminiConfigPromise) return geminiConfigPromise;
+
+  geminiConfigError = "";
+  geminiConfigPromise = readFirebaseValue(GEMINI_CONFIG_ROOT, "gemini-config")
+    .then((value) => {
+      geminiConfig = normalizeGeminiConfig(value);
+      if (!geminiConfig) geminiConfigError = value ? "config-invalida" : "config-null";
+      return geminiConfig;
+    })
+    .catch((error) => {
+      console.warn("Config Gemini indisponivel:", error.code || error.status || error.message, error.message);
+      geminiConfigError = error.code || error.status || error.message || "erro-config";
+      geminiConfig = null;
+      return null;
+    })
+    .finally(() => {
+      geminiConfigPromise = null;
+    });
+
+  return geminiConfigPromise;
 }
 
 async function carregarPhysikServerConfig(force = false) {
@@ -4068,10 +4110,28 @@ function createGeminiRequestBody(message) {
   };
 }
 
+function geminiGenerateEndpoint(config) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`;
+}
+
+function geminiStreamEndpoint(config) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:streamGenerateContent?alt=sse`;
+}
+
 async function requestGeminiChatReply(message) {
-  const response = await fetch(GEMINI_ENDPOINT, {
+  const config = await carregarGeminiConfig();
+  if (!config) {
+    const error = new Error(geminiConfigError || "gemini-config-missing");
+    error.reason = geminiConfigError || "gemini-config-missing";
+    throw error;
+  }
+
+  const response = await fetch(geminiGenerateEndpoint(config), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-goog-api-key": config.apiKey
+    },
     body: JSON.stringify(createGeminiRequestBody(message))
   });
 
@@ -4082,6 +4142,7 @@ async function requestGeminiChatReply(message) {
     error.status = response.status;
     error.reason = data?.error?.details?.find((detail) => detail?.reason)?.reason || "";
     error.apiStatus = data?.error?.status || "";
+    error.model = config.model;
     throw error;
   }
 
@@ -4089,11 +4150,33 @@ async function requestGeminiChatReply(message) {
 }
 
 function geminiUserErrorMessage(error) {
+  const details = [
+    error?.status ? `status: ${error.status}` : "",
+    error?.apiStatus ? `apiStatus: ${error.apiStatus}` : "",
+    error?.reason ? `reason: ${error.reason}` : "",
+    error?.model ? `model: ${error.model}` : "",
+    error?.message ? `message: ${error.message}` : ""
+  ].filter(Boolean);
+
+  const technical = details.length
+    ? ["", "Detalhes tecnicos:", ...details.map((detail) => `- ${detail}`)].join("\n")
+    : "";
+
+  if (error?.reason === "config-null" || error?.reason === "config-invalida" || error?.reason === "gemini-config-missing") {
+    return [
+      "A IA ainda nao encontrou uma configuracao valida no Firebase.",
+      "",
+      "Confira `/app_config/gemini` com `enabled`, `apiKey` e `model`.",
+      technical
+    ].join("\n");
+  }
+
   if (error?.status === 401 || error?.apiStatus === "UNAUTHENTICATED") {
     return [
       "A chave Gemini configurada no beta foi recusada pela API.",
       "",
-      "Troque por uma API key valida do Google AI Studio em `GEMINI_API_KEY`."
+      "Confira se a chave publicada em `/app_config/gemini/apiKey` esta ativa no Google AI Studio.",
+      technical
     ].join("\n");
   }
 
@@ -4101,11 +4184,15 @@ function geminiUserErrorMessage(error) {
     return [
       "A chave foi reconhecida, mas o acesso ao Gemini esta bloqueado neste projeto.",
       "",
-      "Verifique se a Generative Language API esta ativa para essa chave."
+      "Verifique se a Generative Language API esta ativa para essa chave.",
+      technical
     ].join("\n");
   }
 
-  return "Nao consegui responder agora. Tente novamente em instantes.";
+  return [
+    "Nao consegui responder agora. Tente novamente em instantes.",
+    technical
+  ].join("\n");
 }
 
 function parseGeminiSseChunk(buffer, onText) {
@@ -4148,13 +4235,20 @@ async function requestGeminiChatReplyStream(message, onUpdate) {
     return fallback;
   }
 
+  const config = await carregarGeminiConfig();
+  if (!config) {
+    const error = new Error(geminiConfigError || "gemini-config-missing");
+    error.reason = geminiConfigError || "gemini-config-missing";
+    throw error;
+  }
+
   let response;
   try {
-    response = await fetch(GEMINI_STREAM_ENDPOINT, {
+    response = await fetch(geminiStreamEndpoint(config), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY
+        "X-goog-api-key": config.apiKey
       },
       body: JSON.stringify(createGeminiRequestBody(message))
     });
