@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-3";
+const APP_BUILD_ID = "2026-07-28-ai-lab-4";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -34,7 +34,7 @@ const PAGAMENTOS_BY_DATE_ROOT = "pagamentosByDate";
 const PHYSIK_SERVER_CONFIG_ROOT = "app_config/physik_server";
 const PHOTO_LINK_CACHE_KEY = "relatorio_beta_photo_links_v1";
 const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
-const GEMINI_API_KEY = "AQ.Ab8RN6JdcEdMavFNJ_bwv1gKX3FYuBvNM2-YIw-zh5DRqeRD1w";
+const GEMINI_API_KEY = "AQ.Ab8RN6K7qn7egNwf2SHdJ3fjCCTm1VWTFpSAYgJECDLgpew1sQ";
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
