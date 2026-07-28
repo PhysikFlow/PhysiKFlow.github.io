@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-6";
+const APP_BUILD_ID = "2026-07-28-ai-lab-7";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -285,7 +285,6 @@ function renderMarkdownBlock(lines) {
   }
 
   if (/^#{1,3}\s+/.test(first)) {
-    const level = Math.min((first.match(/^#+/)?.[0].length || 2) + 2, 4);
     const text = first.replace(/^#{1,3}\s+/, "");
     return `<strong class="ai-md-heading">${renderInlineMarkdown(text)}</strong>`;
   }
@@ -332,6 +331,13 @@ function renderBasicMarkdown(value) {
     }
 
     if (!line.trim()) {
+      flushText();
+      return;
+    }
+
+    if (/^#{1,3}\s+/.test(line)) {
+      flushText();
+      current.push(line);
       flushText();
       return;
     }
@@ -4105,7 +4111,7 @@ function createGeminiRequestBody(message) {
     }],
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 700
+      maxOutputTokens: 1400
     }
   };
 }
@@ -4116,6 +4122,16 @@ function geminiGenerateEndpoint(config) {
 
 function geminiStreamEndpoint(config) {
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:streamGenerateContent?alt=sse`;
+}
+
+function geminiFinishNotice(finishReason) {
+  if (!finishReason || finishReason === "STOP") return "";
+
+  if (finishReason === "MAX_TOKENS") {
+    return "\n\n> Resposta interrompida pelo limite de tokens. Tente pedir uma resposta menor se isso acontecer de novo.";
+  }
+
+  return `\n\n> Resposta encerrada pela API. finishReason: ${finishReason}`;
 }
 
 async function requestGeminiChatReply(message) {
@@ -4146,7 +4162,8 @@ async function requestGeminiChatReply(message) {
     throw error;
   }
 
-  return extractGeminiText(data) || "Recebi, mas a resposta veio vazia.";
+  const text = extractGeminiText(data) || "Recebi, mas a resposta veio vazia.";
+  return text + geminiFinishNotice(data?.candidates?.[0]?.finishReason);
 }
 
 function geminiUserErrorMessage(error) {
@@ -4195,7 +4212,7 @@ function geminiUserErrorMessage(error) {
   ].join("\n");
 }
 
-function parseGeminiSseChunk(buffer, onText) {
+function parseGeminiSseChunk(buffer, onText, onFinish) {
   const events = buffer.split(/\n\n/);
   const rest = events.pop() || "";
 
@@ -4212,8 +4229,11 @@ function parseGeminiSseChunk(buffer, onText) {
     if (payload === "[DONE]") return;
 
     try {
-      const text = extractGeminiText(JSON.parse(payload));
+      const data = JSON.parse(payload);
+      const text = extractGeminiText(data);
       if (text) onText(text);
+      const finishReason = data?.candidates?.[0]?.finishReason;
+      if (finishReason) onFinish(finishReason);
     } catch (error) {
       console.warn("Gemini stream parse error:", error);
     }
@@ -4280,23 +4300,36 @@ async function requestGeminiChatReplyStream(message, onUpdate) {
   const decoder = new TextDecoder();
   let buffer = "";
   let fullText = "";
+  let finishReason = "";
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-    buffer = parseGeminiSseChunk(buffer, (text) => {
-      fullText += text;
-      onUpdate(fullText);
-    });
+    buffer = parseGeminiSseChunk(
+      buffer,
+      (text) => {
+        fullText += text;
+        onUpdate(fullText);
+      },
+      (reason) => {
+        finishReason = reason;
+      }
+    );
   }
 
   buffer += decoder.decode();
-  parseGeminiSseChunk(`${buffer}\n\n`, (text) => {
-    fullText += text;
-    onUpdate(fullText);
-  });
+  parseGeminiSseChunk(
+    `${buffer}\n\n`,
+    (text) => {
+      fullText += text;
+      onUpdate(fullText);
+    },
+    (reason) => {
+      finishReason = reason;
+    }
+  );
 
   if (!fullText.trim()) {
     const fallback = await requestGeminiChatReply(message);
@@ -4304,7 +4337,7 @@ async function requestGeminiChatReplyStream(message, onUpdate) {
     return fallback;
   }
 
-  return fullText;
+  return fullText + geminiFinishNotice(finishReason);
 }
 
 async function handleAiChatSubmit(event) {
