@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-7";
+const APP_BUILD_ID = "2026-07-28-ai-lab-8";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -254,6 +254,7 @@ function renderInlineMarkdown(value) {
   });
 
   html = html
+    .replace(/~~([^~]+)~~/g, "<s>$1</s>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/__([^_]+)__/g, "<strong>$1</strong>")
     .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
@@ -266,93 +267,168 @@ function renderInlineMarkdown(value) {
   return html;
 }
 
-function renderMarkdownBlock(lines) {
-  const first = lines[0] || "";
+const isMarkdownHr = (line) => /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line);
+const isMarkdownTableSeparator = (line) => /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+const isMarkdownTableRow = (line) => line.includes("|") && !isMarkdownHr(line);
 
-  if (lines.every((line) => /^>\s?/.test(line))) {
-    const content = lines.map((line) => line.replace(/^>\s?/, "")).join("\n");
-    return `<blockquote>${renderBasicMarkdown(content)}</blockquote>`;
-  }
+function splitMarkdownTableRow(line) {
+  let clean = line.trim();
+  if (clean.startsWith("|")) clean = clean.slice(1);
+  if (clean.endsWith("|")) clean = clean.slice(0, -1);
+  return clean.split("|").map((cell) => cell.trim());
+}
 
-  if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
-    const items = lines.map((line) => `<li>${renderInlineMarkdown(line.replace(/^\s*[-*]\s+/, ""))}</li>`).join("");
-    return `<ul>${items}</ul>`;
-  }
+function renderMarkdownTable(lines) {
+  const header = splitMarkdownTableRow(lines[0] || "");
+  const bodyRows = lines.slice(2).filter((line) => isMarkdownTableRow(line));
 
-  if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
-    const items = lines.map((line) => `<li>${renderInlineMarkdown(line.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("");
-    return `<ol>${items}</ol>`;
-  }
+  const headHtml = header
+    .map((cell) => `<th>${renderInlineMarkdown(cell)}</th>`)
+    .join("");
 
-  if (/^#{1,3}\s+/.test(first)) {
-    const text = first.replace(/^#{1,3}\s+/, "");
-    return `<strong class="ai-md-heading">${renderInlineMarkdown(text)}</strong>`;
-  }
+  const bodyHtml = bodyRows
+    .map((line) => {
+      const cells = splitMarkdownTableRow(line);
+      return `<tr>${cells.map((cell) => `<td>${renderInlineMarkdown(cell)}</td>`).join("")}</tr>`;
+    })
+    .join("");
 
+  return `<div class="ai-md-table-wrap"><table><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+}
+
+function renderMarkdownList(lines, ordered = false) {
+  const tag = ordered ? "ol" : "ul";
+  const marker = ordered ? /^\s*\d+\.\s+/ : /^\s*[-*+]\s+/;
+  const items = lines
+    .filter((line) => marker.test(line))
+    .map((line) => {
+      const depth = Math.min(Math.floor((line.match(/^\s*/)?.[0].length || 0) / 2), 3);
+      return `<li class="ai-md-indent-${depth}">${renderInlineMarkdown(line.replace(marker, ""))}</li>`;
+    })
+    .join("");
+
+  return `<${tag}>${items}</${tag}>`;
+}
+
+function renderParagraph(lines) {
   return `<p>${renderInlineMarkdown(lines.join("\n")).replace(/\n/g, "<br>")}</p>`;
+}
+
+function collectParagraph(lines, startIndex) {
+  const block = [];
+  let index = startIndex;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) break;
+    if (/^```/.test(line.trim())) break;
+    if (/^#{1,4}\s+/.test(line)) break;
+    if (isMarkdownHr(line)) break;
+    if (/^\s*>\s?/.test(line)) break;
+    if (/^\s*[-*+]\s+/.test(line)) break;
+    if (/^\s*\d+\.\s+/.test(line)) break;
+    if (isMarkdownTableRow(line) && isMarkdownTableSeparator(lines[index + 1] || "")) break;
+
+    block.push(line);
+    index += 1;
+  }
+
+  return { block, index };
 }
 
 function renderBasicMarkdown(value) {
   const text = String(value ?? "").replace(/\r\n/g, "\n").trim();
   if (!text) return "";
 
-  const blocks = [];
+  const html = [];
   const lines = text.split("\n");
-  let current = [];
-  let code = [];
-  let inCode = false;
+  let index = 0;
 
-  const flushText = () => {
-    if (!current.length) return;
-    blocks.push(renderMarkdownBlock(current));
-    current = [];
-  };
-
-  const flushCode = () => {
-    blocks.push(`<pre><code>${escapeHTML(code.join("\n"))}</code></pre>`);
-    code = [];
-  };
-
-  lines.forEach((line) => {
-    if (/^```/.test(line.trim())) {
-      if (inCode) {
-        flushCode();
-        inCode = false;
-      } else {
-        flushText();
-        inCode = true;
-      }
-      return;
-    }
-
-    if (inCode) {
-      code.push(line);
-      return;
-    }
+  while (index < lines.length) {
+    const line = lines[index];
 
     if (!line.trim()) {
-      flushText();
-      return;
+      index += 1;
+      continue;
     }
 
-    if (/^#{1,3}\s+/.test(line)) {
-      flushText();
-      current.push(line);
-      flushText();
-      return;
+    if (/^```/.test(line.trim())) {
+      const code = [];
+      index += 1;
+      while (index < lines.length && !/^```/.test(lines[index].trim())) {
+        code.push(lines[index]);
+        index += 1;
+      }
+      if (index < lines.length) index += 1;
+      html.push(`<pre><code>${escapeHTML(code.join("\n"))}</code></pre>`);
+      continue;
     }
 
-    const currentKind = current[0]?.match(/^\s*(?:[-*]|\d+\.|>)/)?.[0]?.replace(/\d+\./, "1.") || "text";
-    const nextKind = line.match(/^\s*(?:[-*]|\d+\.|>)/)?.[0]?.replace(/\d+\./, "1.") || "text";
-    if (current.length && currentKind !== nextKind) flushText();
+    if (/^#{1,4}\s+/.test(line)) {
+      html.push(`<strong class="ai-md-heading">${renderInlineMarkdown(line.replace(/^#{1,4}\s+/, ""))}</strong>`);
+      index += 1;
+      continue;
+    }
 
-    current.push(line);
-  });
+    if (isMarkdownHr(line)) {
+      html.push('<hr class="ai-md-hr">');
+      index += 1;
+      continue;
+    }
 
-  if (inCode) flushCode();
-  flushText();
+    if (/^\s*>\s?/.test(line)) {
+      const block = [];
+      while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+        block.push(lines[index].replace(/^\s*>\s?/, ""));
+        index += 1;
+      }
+      html.push(`<blockquote>${renderBasicMarkdown(block.join("\n"))}</blockquote>`);
+      continue;
+    }
 
-  return blocks.join("");
+    if (isMarkdownTableRow(line) && isMarkdownTableSeparator(lines[index + 1] || "")) {
+      const tableLines = [line, lines[index + 1]];
+      index += 2;
+      while (index < lines.length && isMarkdownTableRow(lines[index]) && lines[index].trim()) {
+        tableLines.push(lines[index]);
+        index += 1;
+      }
+      html.push(renderMarkdownTable(tableLines));
+      continue;
+    }
+
+    if (/^\s*[-*+]\s+/.test(line)) {
+      const block = [];
+      while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
+        block.push(lines[index]);
+        index += 1;
+      }
+      html.push(renderMarkdownList(block, false));
+      continue;
+    }
+
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const block = [];
+      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
+        block.push(lines[index]);
+        index += 1;
+      }
+      html.push(renderMarkdownList(block, true));
+      continue;
+    }
+
+    const paragraph = collectParagraph(lines, index);
+    if (paragraph.block.length) {
+      html.push(renderParagraph(paragraph.block));
+      index = paragraph.index;
+      continue;
+    }
+
+    html.push(renderParagraph([line]));
+    index += 1;
+  }
+
+  return html.join("");
 }
 
 function toArray(value) {
