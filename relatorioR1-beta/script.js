@@ -242,6 +242,110 @@ const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
   "'": "&#039;"
 }[char]));
 
+function renderInlineMarkdown(value) {
+  const codeTokens = [];
+  let html = escapeHTML(value).replace(/`([^`]+)`/g, (_, code) => {
+    const token = `@@CODE_${codeTokens.length}@@`;
+    codeTokens.push(`<code>${code}</code>`);
+    return token;
+  });
+
+  html = html
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+    .replace(/_([^_\n]+)_/g, "<em>$1</em>");
+
+  codeTokens.forEach((code, index) => {
+    html = html.replace(`@@CODE_${index}@@`, code);
+  });
+
+  return html;
+}
+
+function renderMarkdownBlock(lines) {
+  const first = lines[0] || "";
+
+  if (lines.every((line) => /^>\s?/.test(line))) {
+    const content = lines.map((line) => line.replace(/^>\s?/, "")).join("\n");
+    return `<blockquote>${renderBasicMarkdown(content)}</blockquote>`;
+  }
+
+  if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+    const items = lines.map((line) => `<li>${renderInlineMarkdown(line.replace(/^\s*[-*]\s+/, ""))}</li>`).join("");
+    return `<ul>${items}</ul>`;
+  }
+
+  if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+    const items = lines.map((line) => `<li>${renderInlineMarkdown(line.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("");
+    return `<ol>${items}</ol>`;
+  }
+
+  if (/^#{1,3}\s+/.test(first)) {
+    const level = Math.min((first.match(/^#+/)?.[0].length || 2) + 2, 4);
+    const text = first.replace(/^#{1,3}\s+/, "");
+    return `<strong class="ai-md-heading">${renderInlineMarkdown(text)}</strong>`;
+  }
+
+  return `<p>${renderInlineMarkdown(lines.join("\n")).replace(/\n/g, "<br>")}</p>`;
+}
+
+function renderBasicMarkdown(value) {
+  const text = String(value ?? "").replace(/\r\n/g, "\n").trim();
+  if (!text) return "";
+
+  const blocks = [];
+  const lines = text.split("\n");
+  let current = [];
+  let code = [];
+  let inCode = false;
+
+  const flushText = () => {
+    if (!current.length) return;
+    blocks.push(renderMarkdownBlock(current));
+    current = [];
+  };
+
+  const flushCode = () => {
+    blocks.push(`<pre><code>${escapeHTML(code.join("\n"))}</code></pre>`);
+    code = [];
+  };
+
+  lines.forEach((line) => {
+    if (/^```/.test(line.trim())) {
+      if (inCode) {
+        flushCode();
+        inCode = false;
+      } else {
+        flushText();
+        inCode = true;
+      }
+      return;
+    }
+
+    if (inCode) {
+      code.push(line);
+      return;
+    }
+
+    if (!line.trim()) {
+      flushText();
+      return;
+    }
+
+    const currentKind = current[0]?.match(/^\s*(?:[-*]|\d+\.|>)/)?.[0]?.replace(/\d+\./, "1.") || "text";
+    const nextKind = line.match(/^\s*(?:[-*]|\d+\.|>)/)?.[0]?.replace(/\d+\./, "1.") || "text";
+    if (current.length && currentKind !== nextKind) flushText();
+
+    current.push(line);
+  });
+
+  if (inCode) flushCode();
+  flushText();
+
+  return blocks.join("");
+}
+
 function toArray(value) {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== "object") return [];
@@ -3877,18 +3981,12 @@ function setupBottomNav() {
 // ==========================
 // AI LAB CHAT
 // ==========================
-function setAiStatus(message) {
-  const status = qs("aiStatus");
-  if (status) status.textContent = message;
-}
-
 function setAiBusy(isBusy) {
   aiChatBusy = isBusy;
   const send = qs("aiChatSend");
   const input = qs("aiChatInput");
   if (send) send.disabled = isBusy;
   if (input) input.disabled = isBusy;
-  setAiStatus(isBusy ? "Pensando..." : "Gemini 3.5 Flash-Lite");
 }
 
 function scrollAiChatToBottom() {
@@ -3903,8 +4001,13 @@ function appendAiMessage(role, text, { loading = false } = {}) {
   const item = document.createElement("article");
   item.className = `ai-message ai-message-${role}${loading ? " is-loading" : ""}`;
 
-  const content = document.createElement("span");
-  content.textContent = text;
+  const content = document.createElement("div");
+  content.className = "ai-message-content";
+  if (role === "assistant" && !loading) {
+    content.innerHTML = renderBasicMarkdown(text);
+  } else {
+    content.textContent = text;
+  }
   item.appendChild(content);
   messages.appendChild(item);
   scrollAiChatToBottom();
@@ -3916,8 +4019,10 @@ function updateAiLoadingMessage(element, text, isError = false) {
   if (!element) return;
   element.classList.remove("is-loading");
   if (isError) element.classList.add("ai-message-error");
-  const content = element.querySelector("span");
-  if (content) content.textContent = text;
+  const content = element.querySelector(".ai-message-content");
+  if (content) {
+    content.innerHTML = isError ? escapeHTML(text) : renderBasicMarkdown(text);
+  }
   scrollAiChatToBottom();
 }
 
