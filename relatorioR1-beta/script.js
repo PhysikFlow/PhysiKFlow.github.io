@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-2";
+const APP_BUILD_ID = "2026-07-28-ai-lab-3";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -4078,11 +4078,34 @@ async function requestGeminiChatReply(message) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const detail = data?.error?.message || `HTTP ${response.status}`;
-    throw new Error(detail);
+    const error = new Error(data?.error?.message || `HTTP ${response.status}`);
+    error.status = response.status;
+    error.reason = data?.error?.details?.find((detail) => detail?.reason)?.reason || "";
+    error.apiStatus = data?.error?.status || "";
+    throw error;
   }
 
   return extractGeminiText(data) || "Recebi, mas a resposta veio vazia.";
+}
+
+function geminiUserErrorMessage(error) {
+  if (error?.status === 401 || error?.apiStatus === "UNAUTHENTICATED") {
+    return [
+      "A chave Gemini configurada no beta foi recusada pela API.",
+      "",
+      "Troque por uma API key valida do Google AI Studio em `GEMINI_API_KEY`."
+    ].join("\n");
+  }
+
+  if (error?.status === 403 || error?.reason === "API_KEY_SERVICE_BLOCKED") {
+    return [
+      "A chave foi reconhecida, mas o acesso ao Gemini esta bloqueado neste projeto.",
+      "",
+      "Verifique se a Generative Language API esta ativa para essa chave."
+    ].join("\n");
+  }
+
+  return "Nao consegui responder agora. Tente novamente em instantes.";
 }
 
 function parseGeminiSseChunk(buffer, onText) {
@@ -4215,7 +4238,7 @@ async function handleAiChatSubmit(event) {
     console.error("Gemini chat error:", error);
     updateAiLoadingMessage(
       loading,
-      "Nao consegui responder agora. Tente novamente em instantes.",
+      geminiUserErrorMessage(error),
       true
     );
   } finally {
