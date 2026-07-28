@@ -7,11 +7,21 @@ Laboratorio de teste do app de relatorios. Esta pasta parte da versao atual de p
 
 ## IA
 
-O chat da aba IA usa o Gemini diretamente no client por enquanto:
+O chat da aba IA usa o Gemini diretamente no client por enquanto, lendo a configuracao do Firebase:
 
-- Modelo: `gemini-3.5-flash-lite`
+- Configuracao: `/app_config/gemini`
 - Contexto: nenhuma leitura dos dados do relatorio nesta fase
-- Chave: definida em `script.js` apenas para testes
+- Plano tecnico: `AI-ARCHITECTURE.md`
+
+Comandos locais do chat, sem gastar cota Gemini:
+
+- `/help`: lista comandos disponiveis.
+- `/mock`: gera resposta fake com Markdown completo.
+- `/json`: busca `manifest`, `daily_summary` e `finance_rollup` da unidade atual via PhysikServer.
+- `/json manifest`: busca apenas `manifest.json`.
+- `/json daily`: busca apenas `daily_summary.json`.
+- `/json finance`: busca apenas `finance_rollup.json`.
+- `/json finance 58780-000`: busca dataset de uma unidade especifica.
 
 ## Fotos dos alunos
 

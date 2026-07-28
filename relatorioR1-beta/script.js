@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-10";
+const APP_BUILD_ID = "2026-07-28-ai-lab-11";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -35,6 +35,14 @@ const PHYSIK_SERVER_CONFIG_ROOT = "app_config/physik_server";
 const GEMINI_CONFIG_ROOT = "app_config/gemini";
 const PHOTO_LINK_CACHE_KEY = "relatorio_beta_photo_links_v1";
 const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
+const AI_ANALYTICS_AREA = "financeiro";
+const AI_ANALYTICS_DATASETS = {
+  manifest: "manifest.json",
+  daily: "daily_summary.json",
+  finance: "finance_rollup.json",
+  daily_summary: "daily_summary.json",
+  finance_rollup: "finance_rollup.json"
+};
 const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_beta_gemini_stream_unavailable";
 const GEMINI_STREAM_ENABLED = false;
 const REPORT_LIGHT_FIELDS = [
@@ -4226,6 +4234,229 @@ function attachAiCopyButton(message, text) {
   message.appendChild(button);
 }
 
+function aiCommandHelp() {
+  return [
+    "**Comandos locais de teste**",
+    "",
+    "| Comando | O que faz |",
+    "|---|---|",
+    "| `/help` | Mostra esta lista. |",
+    "| `/mock` | Gera uma resposta fake com Markdown completo, sem gastar Gemini. |",
+    "| `/json` | Busca `manifest`, `daily_summary` e `finance_rollup` da unidade atual. |",
+    "| `/json manifest` | Busca apenas `manifest.json`. |",
+    "| `/json daily` | Busca apenas `daily_summary.json`. |",
+    "| `/json finance` | Busca apenas `finance_rollup.json`. |",
+    "| `/json all` | Igual ao `/json`, mas explicito. |",
+    "",
+    "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000`."
+  ].join("\n");
+}
+
+function aiMockReply() {
+  return [
+    "## Mock local do chat",
+    "",
+    "Esta resposta **nao chamou o Gemini** e serve para testar visual.",
+    "",
+    "---",
+    "",
+    "### Lista",
+    "",
+    "- **Negrito** funcionando",
+    "- _Italico_ funcionando",
+    "- ~~Tachado~~ funcionando",
+    "- `codigo inline` funcionando",
+    "",
+    "### Tabela",
+    "",
+    "| Grandeza | Simbolo | Unidade |",
+    "|---|---|---|",
+    "| Massa | $m$ | $\\text{kg}$ |",
+    "| Forca | $F$ | $\\text{N}$ |",
+    "| Energia | $E$ | $\\text{J}$ |",
+    "",
+    "### Bloco de codigo",
+    "",
+    "```json",
+    JSON.stringify({
+      type: "tool_call",
+      tool: "get_dashboard_summary",
+      args: { unitId: "demo" }
+    }, null, 2),
+    "```",
+    "",
+    "> Se isto apareceu formatado, o renderizador esta ok."
+  ].join("\n");
+}
+
+function aiUnitIds() {
+  return [...new Set([
+    ...Object.keys(unitsMeta || {}),
+    ...Object.keys(relatoriosPorUnidade || {})
+  ])].filter(Boolean).sort((a, b) => nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR"));
+}
+
+function resolveAiUnitId(input = "") {
+  const requested = String(input || "").trim().toLowerCase();
+  const unitIds = aiUnitIds();
+
+  if (requested) {
+    const direct = unitIds.find((unitId) => unitId.toLowerCase() === requested);
+    if (direct) return direct;
+
+    const byName = unitIds.find((unitId) => nomeUnidade(unitId).toLowerCase() === requested);
+    if (byName) return byName;
+  }
+
+  if (unidadeSelecionada && unitIds.includes(unidadeSelecionada)) return unidadeSelecionada;
+  return unitIds[0] || "";
+}
+
+function aiDatasetKeys(input = "") {
+  const key = String(input || "").trim().toLowerCase();
+  if (!key || key === "all") return ["manifest", "daily", "finance"];
+  return AI_ANALYTICS_DATASETS[key] ? [key] : [];
+}
+
+async function fetchAnalyticsDataset(unitId, datasetKey, config, bearerToken) {
+  const fileName = AI_ANALYTICS_DATASETS[datasetKey];
+  const ttl = Math.max(60, Math.min(Number(config.linkTtlSeconds) || 86400, 86400));
+  const attempts = [];
+
+  for (const physikUnitId of physikUnitIdCandidates(unitId)) {
+    const objectId = `analytics/${physikUnitId}/${fileName}`;
+    const linkUrl = physikServerObjectUrl(config, AI_ANALYTICS_AREA, objectId, ttl);
+    attempts.push(objectId);
+
+    try {
+      const link = await fetchJsonWithTimeout(linkUrl, {
+        headers: {
+          Authorization: `Bearer ${bearerToken}`
+        }
+      }, FIREBASE_REST_TIMEOUT_MS);
+
+      const signedUrl = resolvePhysikServerUrl(config, link?.urlPath);
+      if (!signedUrl) {
+        return { ok: false, datasetKey, fileName, attempts, error: "signed-url-ausente" };
+      }
+
+      const data = await fetchJsonWithTimeout(signedUrl, {}, FIREBASE_REST_TIMEOUT_MS);
+      return { ok: true, datasetKey, fileName, objectId, data };
+    } catch (error) {
+      if (error?.status && error.status !== 404) {
+        return {
+          ok: false,
+          datasetKey,
+          fileName,
+          attempts,
+          error: error.status || error.code || error.message || "erro"
+        };
+      }
+    }
+  }
+
+  return { ok: false, datasetKey, fileName, attempts, error: "nao-encontrado" };
+}
+
+function summarizeAnalyticsPayload(data) {
+  if (!data || typeof data !== "object") return String(data ?? "null");
+
+  const keys = Object.keys(data);
+  const summary = {};
+  keys.slice(0, 10).forEach((key) => {
+    const value = data[key];
+    if (Array.isArray(value)) summary[key] = `array(${value.length})`;
+    else if (value && typeof value === "object") summary[key] = `object(${Object.keys(value).length})`;
+    else summary[key] = value;
+  });
+
+  return JSON.stringify(summary, null, 2);
+}
+
+function renderAnalyticsCommandResult(unitId, results) {
+  const rows = results.map((result) => {
+    const status = result.ok ? "OK" : "Falhou";
+    const detail = result.ok ? result.objectId : `${result.error} (${(result.attempts || []).join(", ") || "sem tentativa"})`;
+    return `| ${result.fileName} | ${status} | ${detail} |`;
+  });
+
+  const previews = results
+    .filter((result) => result.ok)
+    .map((result) => [
+      `### ${result.fileName}`,
+      "",
+      "```json",
+      summarizeAnalyticsPayload(result.data),
+      "```"
+    ].join("\n"));
+
+  return [
+    `## JSON analitico: ${nomeUnidade(unitId) || unitId}`,
+    "",
+    "| Dataset | Status | Detalhe |",
+    "|---|---|---|",
+    ...rows,
+    "",
+    previews.length ? previews.join("\n\n") : "> Nenhum dataset foi baixado com sucesso."
+  ].join("\n");
+}
+
+async function handleAiJsonCommand(args) {
+  const firstArg = String(args[0] || "").toLowerCase();
+  const datasetKey = firstArg && AI_ANALYTICS_DATASETS[firstArg]
+    ? String(args.shift()).toLowerCase()
+    : (firstArg === "all" ? String(args.shift()).toLowerCase() : "");
+  const datasetKeys = aiDatasetKeys(datasetKey);
+  if (!datasetKeys.length) return `Comando desconhecido. Use:\n\n${aiCommandHelp()}`;
+
+  const unitId = resolveAiUnitId(args.join(" "));
+  if (!unitId) {
+    return [
+      "Nao encontrei nenhuma unidade carregada no PWA.",
+      "",
+      "Abra o app autenticado e aguarde os relatorios carregarem antes de usar `/json`."
+    ].join("\n");
+  }
+
+  const config = await carregarPhysikServerConfig();
+  const bearerToken = physikServerReadToken(config);
+  if (!config || config.status !== "online" || !bearerToken) {
+    return [
+      "Nao consegui acessar o PhysikServer para buscar os JSONs analiticos.",
+      "",
+      "Detalhes tecnicos:",
+      `- config: ${config ? "ok" : "ausente"}`,
+      `- status: ${config?.status || "ausente"}`,
+      `- token: ${tokenDebug(bearerToken)}`,
+      `- erroConfig: ${physikServerConfigError || "nenhum"}`
+    ].join("\n");
+  }
+
+  const results = await Promise.all(
+    datasetKeys.map((key) => fetchAnalyticsDataset(unitId, key, config, bearerToken))
+  );
+
+  return renderAnalyticsCommandResult(unitId, results);
+}
+
+async function handleAiLocalCommand(message) {
+  const text = String(message || "").trim();
+  if (!text.startsWith("/")) return null;
+
+  const [commandRaw, ...args] = text.split(/\s+/);
+  const command = commandRaw.toLowerCase();
+
+  if (command === "/help" || command === "/comandos") return aiCommandHelp();
+  if (command === "/mock") return aiMockReply();
+  if (command === "/json") return handleAiJsonCommand(args);
+
+  return [
+    `Comando local desconhecido: \`${commandRaw}\``,
+    "",
+    aiCommandHelp()
+  ].join("\n");
+}
+
 function updateAiLoadingMessage(element, text, isError = false, { forceScroll = false } = {}) {
   if (!element) return;
   const shouldStick = forceScroll || isAiChatNearBottom();
@@ -4508,7 +4739,8 @@ async function handleAiChatSubmit(event) {
   setAiBusy(true);
 
   try {
-    const reply = await requestGeminiChatReplyStream(message, (partialReply) => {
+    const localReply = await handleAiLocalCommand(message);
+    const reply = localReply ?? await requestGeminiChatReplyStream(message, (partialReply) => {
       updateAiLoadingMessage(loading, partialReply, false);
     });
     aiChatHistory.push({ role: "user", text: message }, { role: "assistant", text: reply });
