@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-8";
+const APP_BUILD_ID = "2026-07-28-ai-lab-10";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -247,7 +247,14 @@ const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 
 function renderInlineMarkdown(value) {
   const codeTokens = [];
-  let html = escapeHTML(value).replace(/`([^`]+)`/g, (_, code) => {
+  const mathTokens = [];
+  let html = String(value ?? "").replace(/\$([^$\n]+)\$/g, (_, math) => {
+    const token = `@@MATH_${mathTokens.length}@@`;
+    mathTokens.push(`<span class="ai-md-math">${escapeHTML(formatInlineMath(math))}</span>`);
+    return token;
+  });
+
+  html = escapeHTML(html).replace(/`([^`]+)`/g, (_, code) => {
     const token = `@@CODE_${codeTokens.length}@@`;
     codeTokens.push(`<code>${code}</code>`);
     return token;
@@ -264,7 +271,23 @@ function renderInlineMarkdown(value) {
     html = html.replace(`@@CODE_${index}@@`, code);
   });
 
+  mathTokens.forEach((math, index) => {
+    html = html.replace(`@@MATH_${index}@@`, math);
+  });
+
   return html;
+}
+
+function formatInlineMath(value) {
+  return String(value || "")
+    .replace(/\\text\{([^}]+)\}/g, "$1")
+    .replace(/\\mathrm\{([^}]+)\}/g, "$1")
+    .replace(/\\operatorname\{([^}]+)\}/g, "$1")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\times/g, "x")
+    .replace(/\\,/g, " ")
+    .replace(/\\/g, "")
+    .trim();
 }
 
 const isMarkdownHr = (line) => /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line);
@@ -4138,6 +4161,7 @@ function appendAiMessage(role, text, { loading = false } = {}) {
 
   const item = document.createElement("article");
   item.className = `ai-message ai-message-${role}${loading ? " is-loading" : ""}`;
+  item.dataset.rawText = text;
 
   const content = document.createElement("div");
   content.className = "ai-message-content";
@@ -4147,10 +4171,59 @@ function appendAiMessage(role, text, { loading = false } = {}) {
     content.textContent = text;
   }
   item.appendChild(content);
+  if (role === "assistant" && !loading) {
+    attachAiCopyButton(item, text);
+  }
   messages.appendChild(item);
   scrollAiChatToBottom({ force: true });
 
   return item;
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+function attachAiCopyButton(message, text) {
+  if (!message || message.querySelector(".ai-copy-btn")) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ai-copy-btn";
+  button.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+    <span>Copiar</span>
+  `;
+
+  button.addEventListener("click", async () => {
+    try {
+      await copyTextToClipboard(message.dataset.rawText || text || "");
+      button.classList.add("copied");
+      button.querySelector("span").textContent = "Copiado";
+      window.setTimeout(() => {
+        button.classList.remove("copied");
+        button.querySelector("span").textContent = "Copiar";
+      }, 1400);
+    } catch (error) {
+      console.warn("Falha ao copiar mensagem:", error);
+      button.querySelector("span").textContent = "Erro";
+    }
+  });
+
+  message.appendChild(button);
 }
 
 function updateAiLoadingMessage(element, text, isError = false, { forceScroll = false } = {}) {
@@ -4158,9 +4231,13 @@ function updateAiLoadingMessage(element, text, isError = false, { forceScroll = 
   const shouldStick = forceScroll || isAiChatNearBottom();
   element.classList.remove("is-loading");
   if (isError) element.classList.add("ai-message-error");
+  element.dataset.rawText = text;
   const content = element.querySelector(".ai-message-content");
   if (content) {
     content.innerHTML = isError ? escapeHTML(text) : renderBasicMarkdown(text);
+  }
+  if (!isError) {
+    attachAiCopyButton(element, text);
   }
   if (shouldStick) scrollAiChatToBottom({ force: true });
 }
@@ -4454,6 +4531,13 @@ function setupAiChat() {
   const form = qs("aiChatForm");
   const input = qs("aiChatInput");
   if (!form || !input) return;
+
+  document.querySelectorAll(".ai-message-assistant:not(.is-loading)").forEach((message) => {
+    const content = message.querySelector(".ai-message-content");
+    const text = message.dataset.rawText || content?.textContent || "";
+    message.dataset.rawText = text;
+    attachAiCopyButton(message, text);
+  });
 
   form.addEventListener("submit", handleAiChatSubmit);
 

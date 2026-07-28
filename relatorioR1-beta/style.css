@@ -2357,6 +2357,11 @@ button:focus-visible {
   text-decoration-color: rgba(255, 255, 255, 0.55);
 }
 
+.ai-md-math {
+  font-weight: 700;
+  color: #dfe9ff;
+}
+
 .ai-md-indent-1 {
   margin-left: 0.9rem;
 }
@@ -2447,6 +2452,37 @@ button:focus-visible {
 
 .ai-message-content tr:last-child td {
   border-bottom: 0;
+}
+
+.ai-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  width: fit-content;
+  margin-top: 0.68rem;
+  padding: 0.26rem 0.42rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.ai-copy-btn svg {
+  width: 0.78rem;
+  height: 0.78rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ai-copy-btn.copied {
+  color: #a9e4b9;
+  border-color: rgba(97, 192, 122, 0.26);
+  background: rgba(97, 192, 122, 0.08);
 }
 
 .ai-message-user .ai-message-content {
