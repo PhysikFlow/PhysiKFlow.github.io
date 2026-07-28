@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-1";
+const APP_BUILD_ID = "2026-07-28-ai-lab-2";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -39,6 +39,7 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
 const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_beta_gemini_stream_unavailable";
+const GEMINI_STREAM_ENABLED = false;
 const REPORT_LIGHT_FIELDS = [
   "meta",
   "resumo",
@@ -4112,6 +4113,12 @@ function parseGeminiSseChunk(buffer, onText) {
 }
 
 async function requestGeminiChatReplyStream(message, onUpdate) {
+  if (!GEMINI_STREAM_ENABLED) {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
   if (sessionStorage.getItem(GEMINI_STREAM_UNAVAILABLE_KEY) === "1") {
     const fallback = await requestGeminiChatReply(message);
     onUpdate(fallback);
@@ -4208,7 +4215,7 @@ async function handleAiChatSubmit(event) {
     console.error("Gemini chat error:", error);
     updateAiLoadingMessage(
       loading,
-      `Nao consegui responder agora. ${error?.message || "Tente novamente em instantes."}`,
+      "Nao consegui responder agora. Tente novamente em instantes.",
       true
     );
   } finally {
