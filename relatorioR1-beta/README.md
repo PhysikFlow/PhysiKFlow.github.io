@@ -22,6 +22,9 @@ Comandos locais do chat, sem gastar cota Gemini:
 - `/json daily`: busca apenas `daily_summary.json`.
 - `/json finance`: busca apenas `finance_rollup.json`.
 - `/json finance 58780-000`: busca dataset de uma unidade especifica.
+- `/context`: mostra o contexto analitico que seria enviado ao Gemini.
+- `/context 58780-000`: mostra o contexto de uma unidade especifica.
+- `/desktop <pedido>`: gera um JSON `desktop_request` para dados/acoes que dependem do app desktop.
 
 ## Fotos dos alunos
 

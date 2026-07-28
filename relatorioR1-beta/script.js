@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-11";
+const APP_BUILD_ID = "2026-07-28-ai-lab-12";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -4247,8 +4247,10 @@ function aiCommandHelp() {
     "| `/json daily` | Busca apenas `daily_summary.json`. |",
     "| `/json finance` | Busca apenas `finance_rollup.json`. |",
     "| `/json all` | Igual ao `/json`, mas explicito. |",
+    "| `/context` | Mostra o contexto analitico que seria enviado para a IA. |",
+    "| `/desktop <pedido>` | Gera um `desktop_request` para dados/acoes que dependem do app desktop. |",
     "",
-    "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000`."
+    "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000` ou `/context 58780-000`."
   ].join("\n");
 }
 
@@ -4358,6 +4360,38 @@ async function fetchAnalyticsDataset(unitId, datasetKey, config, bearerToken) {
   return { ok: false, datasetKey, fileName, attempts, error: "nao-encontrado" };
 }
 
+async function fetchAnalyticsBundle(unitId, datasetKeys = ["manifest", "daily", "finance"]) {
+  const config = await carregarPhysikServerConfig();
+  const bearerToken = physikServerReadToken(config);
+
+  if (!config || config.status !== "online" || !bearerToken) {
+    return {
+      ok: false,
+      unitId,
+      error: "physik-server-indisponivel",
+      diagnostics: {
+        config: config ? "ok" : "ausente",
+        status: config?.status || "ausente",
+        token: tokenDebug(bearerToken),
+        erroConfig: physikServerConfigError || "nenhum"
+      },
+      results: []
+    };
+  }
+
+  const results = await Promise.all(
+    datasetKeys.map((key) => fetchAnalyticsDataset(unitId, key, config, bearerToken))
+  );
+
+  return {
+    ok: results.some((result) => result.ok),
+    unitId,
+    error: "",
+    diagnostics: null,
+    results
+  };
+}
+
 function summarizeAnalyticsPayload(data) {
   if (!data || typeof data !== "object") return String(data ?? "null");
 
@@ -4418,25 +4452,168 @@ async function handleAiJsonCommand(args) {
     ].join("\n");
   }
 
-  const config = await carregarPhysikServerConfig();
-  const bearerToken = physikServerReadToken(config);
-  if (!config || config.status !== "online" || !bearerToken) {
+  const bundle = await fetchAnalyticsBundle(unitId, datasetKeys);
+  if (!bundle.ok && bundle.error === "physik-server-indisponivel") {
     return [
       "Nao consegui acessar o PhysikServer para buscar os JSONs analiticos.",
       "",
       "Detalhes tecnicos:",
-      `- config: ${config ? "ok" : "ausente"}`,
-      `- status: ${config?.status || "ausente"}`,
-      `- token: ${tokenDebug(bearerToken)}`,
-      `- erroConfig: ${physikServerConfigError || "nenhum"}`
+      `- config: ${bundle.diagnostics.config}`,
+      `- status: ${bundle.diagnostics.status}`,
+      `- token: ${bundle.diagnostics.token}`,
+      `- erroConfig: ${bundle.diagnostics.erroConfig}`
     ].join("\n");
   }
 
-  const results = await Promise.all(
-    datasetKeys.map((key) => fetchAnalyticsDataset(unitId, key, config, bearerToken))
-  );
+  return renderAnalyticsCommandResult(unitId, bundle.results);
+}
 
-  return renderAnalyticsCommandResult(unitId, results);
+function reportSnapshotForAi(unitId) {
+  const report = relatoriosPorUnidade[unitId] || {};
+  const resumo = report.resumo || {};
+  const frequencia = report.frequencia || {};
+
+  return {
+    hasReport: Boolean(Object.keys(report).length),
+    resumo: {
+      alunos: Number(resumo.alunos) || 0,
+      ativos: Number(resumo.ativos) || 0,
+      atrasados: Number(resumo.atrasados) || 0,
+      total30d: Number(resumo.total30d || resumo.total) || 0,
+      ticketMedio30d: Number(resumo.ticketMedio30d) || 0,
+      ticketMedioGeral: Number(resumo.ticketMedioGeral) || 0
+    },
+    frequencia: {
+      mediaPorAluno30d: Number(frequencia.mediaPorAluno30d) || 0
+    }
+  };
+}
+
+function analyticsDataByKind(results) {
+  const data = {};
+
+  results.forEach((result) => {
+    if (!result.ok) return;
+    const kind = result.data?.kind || result.datasetKey;
+    data[kind] = result.data;
+  });
+
+  return data;
+}
+
+function buildDesktopRequestTemplate({ unitId, reason, missingData = [], suggestedDatasets = [] } = {}) {
+  return {
+    type: "desktop_request",
+    schemaVersion: "1.0.0",
+    requestedAt: new Date().toISOString(),
+    unitId: unitId || "",
+    unitName: unitId ? nomeUnidade(unitId) : "",
+    reason: reason || "O PWA nao tem dados suficientes para responder com seguranca.",
+    missingData,
+    suggestedDatasets,
+    suggestedOwner: "PhysikFlow Desktop / report worker",
+    status: "draft"
+  };
+}
+
+async function buildAiContext(unitInput = "") {
+  const unitId = resolveAiUnitId(unitInput);
+  const context = {
+    schemaVersion: "1.0.0",
+    kind: "physikflow_ai_context",
+    generatedAt: new Date().toISOString(),
+    activePage: getActivePageTab(),
+    unit: unitId ? {
+      id: unitId,
+      name: nomeUnidade(unitId)
+    } : null,
+    availableUnits: aiUnitIds().map((id) => ({
+      id,
+      name: nomeUnidade(id)
+    })),
+    operationalSnapshot: unitId ? reportSnapshotForAi(unitId) : null,
+    analyticsStatus: [],
+    analytics: {},
+    gaps: []
+  };
+
+  if (!unitId) {
+    context.gaps.push("Nenhuma unidade carregada no PWA.");
+    context.desktopRequestTemplate = buildDesktopRequestTemplate({
+      reason: "PWA sem unidade carregada para montar contexto.",
+      missingData: ["units", "reports"]
+    });
+    return context;
+  }
+
+  const bundle = await fetchAnalyticsBundle(unitId);
+  context.analyticsStatus = bundle.results.map((result) => ({
+    dataset: result.fileName,
+    ok: result.ok,
+    objectId: result.objectId || "",
+    error: result.ok ? "" : result.error
+  }));
+  context.analytics = analyticsDataByKind(bundle.results);
+
+  if (!context.analytics.daily_summary) context.gaps.push("daily_summary ausente.");
+  if (!context.analytics.finance_rollup) context.gaps.push("finance_rollup ausente.");
+  if (!context.analytics.analytics_manifest && !context.analytics.manifest) context.gaps.push("manifest analitico ausente.");
+  if (!context.analytics.students_index) context.gaps.push("students_index ainda nao publicado; busca de alunos profunda continua limitada.");
+
+  if (context.gaps.length) {
+    context.desktopRequestTemplate = buildDesktopRequestTemplate({
+      unitId,
+      reason: "Complementar datasets analiticos para respostas mais profundas no PWA.",
+      missingData: context.gaps,
+      suggestedDatasets: ["students_index", "retention_summary", "risk_alerts"]
+    });
+  }
+
+  return context;
+}
+
+function contextSizeNote(context) {
+  const bytes = new Blob([JSON.stringify(context)]).size;
+  return `${bytes.toLocaleString("pt-BR")} bytes`;
+}
+
+async function handleAiContextCommand(args) {
+  const context = await buildAiContext(args.join(" "));
+
+  return [
+    `## Contexto IA: ${context.unit?.name || "sem unidade"}`,
+    "",
+    `Tamanho aproximado: ${contextSizeNote(context)}`,
+    "",
+    context.gaps.length
+      ? `> Lacunas detectadas: ${context.gaps.join(" | ")}`
+      : "> Contexto analitico basico disponivel.",
+    "",
+    "```json",
+    JSON.stringify(context, null, 2),
+    "```"
+  ].join("\n");
+}
+
+function handleAiDesktopCommand(args) {
+  const text = args.join(" ").trim();
+  const unitId = resolveAiUnitId("");
+  const request = buildDesktopRequestTemplate({
+    unitId,
+    reason: text || "Gerar dados complementares para a IA do PWA.",
+    missingData: ["dados nao disponiveis no snapshot atual"],
+    suggestedDatasets: ["students_index", "retention_summary", "risk_alerts"]
+  });
+
+  return [
+    "## Pedido para o app desktop",
+    "",
+    "Este JSON ainda nao executa nada. Ele serve como contrato para a proxima fase.",
+    "",
+    "```json",
+    JSON.stringify(request, null, 2),
+    "```"
+  ].join("\n");
 }
 
 async function handleAiLocalCommand(message) {
@@ -4449,6 +4626,8 @@ async function handleAiLocalCommand(message) {
   if (command === "/help" || command === "/comandos") return aiCommandHelp();
   if (command === "/mock") return aiMockReply();
   if (command === "/json") return handleAiJsonCommand(args);
+  if (command === "/context" || command === "/contexto") return handleAiContextCommand(args);
+  if (command === "/desktop") return handleAiDesktopCommand(args);
 
   return [
     `Comando local desconhecido: \`${commandRaw}\``,
@@ -4482,16 +4661,35 @@ function extractGeminiText(data) {
     .trim();
 }
 
-function createGeminiRequestBody(message) {
+function createGeminiRequestBody(message, context = null) {
+  const contextText = context
+    ? [
+      "Contexto analitico disponivel no PWA:",
+      "```json",
+      JSON.stringify(context),
+      "```",
+      "",
+      "Pergunta do usuario:",
+      message
+    ].join("\n")
+    : message;
+
   return {
     systemInstruction: {
       parts: [{
-        text: "Voce e uma IA simples dentro do laboratorio beta do PhysikFlow. Responda em portugues do Brasil, seja clara e direta, e nao invente acesso aos dados do relatorio."
+        text: [
+          "Voce e a IA beta do portal PhysikFlow.",
+          "Responda em portugues do Brasil, de forma clara e objetiva.",
+          "Use apenas o contexto fornecido pelo PWA e deixe claro quando uma conclusao for limitada pelos dados disponiveis.",
+          "Nao invente dados de alunos, pagamentos, auditoria ou historico se eles nao estiverem no contexto.",
+          "Se a pergunta exigir dados que dependem do app desktop ou de datasets ainda ausentes, responda de forma util e inclua um bloco JSON `desktop_request` sugerindo o que o desktop deve gerar.",
+          "Nao mencione tokens, chaves ou detalhes internos de seguranca."
+        ].join(" ")
       }]
     },
     contents: [{
       role: "user",
-      parts: [{ text: message }]
+      parts: [{ text: contextText }]
     }],
     generationConfig: {
       temperature: 0.7,
@@ -4526,13 +4724,14 @@ async function requestGeminiChatReply(message) {
     throw error;
   }
 
+  const context = await buildAiContext();
   const response = await fetch(geminiGenerateEndpoint(config), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-goog-api-key": config.apiKey
     },
-    body: JSON.stringify(createGeminiRequestBody(message))
+    body: JSON.stringify(createGeminiRequestBody(message, context))
   });
 
   const data = await response.json().catch(() => ({}));
@@ -4648,13 +4847,14 @@ async function requestGeminiChatReplyStream(message, onUpdate) {
 
   let response;
   try {
+    const context = await buildAiContext();
     response = await fetch(geminiStreamEndpoint(config), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-goog-api-key": config.apiKey
       },
-      body: JSON.stringify(createGeminiRequestBody(message))
+      body: JSON.stringify(createGeminiRequestBody(message, context))
     });
   } catch (error) {
     console.warn("Gemini stream unavailable, falling back:", error);
