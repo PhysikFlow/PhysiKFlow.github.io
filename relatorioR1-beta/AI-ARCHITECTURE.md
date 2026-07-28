@@ -13,9 +13,13 @@ O beta ja tem:
 - Dados leves do relatorio carregados do Realtime Database.
 - Dados de alunos carregados sob demanda via PhysikServer/MinIO usando signed URLs.
 - Fotos de alunos carregadas sob demanda via PhysikServer/MinIO.
+- Comandos locais de laboratorio: `/help`, `/mock`, `/json`, `/context` e `/desktop`.
+- Contexto real para Gemini montado a partir do snapshot operacional e dos JSONs analiticos publicados.
+- Compactacao do contexto antes da chamada Gemini para reduzir cortes por limite de tokens.
+- Contrato `desktop_request` para pedir novos datasets ao app desktop.
 - Service worker, cache e localStorage isolados do PWA de producao.
 
-Hoje a IA ainda nao usa contexto real do relatorio. Ela apenas responde como chat basico.
+Hoje a IA ja usa contexto real do relatorio, mas ainda fica limitada aos datasets publicados por unidade. Em 28/07/2026, a unidade Itaporanga (`58780-000`) ja publica `manifest.json`, `daily_summary.json` e `finance_rollup.json`.
 
 ## Dados disponiveis hoje no PWA
 
@@ -90,6 +94,8 @@ analytics/{unitId}/manifest.json
 analytics/{unitId}/daily_summary.json
 analytics/{unitId}/finance_rollup.json
 analytics/{unitId}/students_index.json
+analytics/{unitId}/student_activity_rollup.json
+analytics/{unitId}/student_finance_rollup.json
 analytics/{unitId}/retention_summary.json
 analytics/{unitId}/risk_alerts.json
 ```
@@ -140,11 +146,23 @@ Antes de publicar varios JSONs, criar um `manifest.json` por unidade:
 
 O PWA pode consultar o manifest, comparar versao/hash e buscar apenas os datasets necessarios.
 
-## O que falta para a IA ser util
+## O que falta para a IA ser mais util
 
 ### 1. Montador de contexto
 
-Precisamos criar uma funcao que transforme os dados atuais em um pacote pequeno para a IA.
+Status: implementado no beta.
+
+O PWA monta um pacote com:
+
+- unidade atual;
+- unidades disponiveis;
+- snapshot operacional leve;
+- status dos datasets analiticos;
+- `manifest`, `daily_summary` e `finance_rollup`;
+- lacunas conhecidas;
+- template `desktop_request` quando faltar dado.
+
+O comando `/context` mostra o pacote completo. O comando `/context compact` mostra a versao compactada usada na chamada Gemini.
 
 Exemplo de contexto inicial:
 
@@ -179,6 +197,8 @@ Regra: mandar para a IA apenas o que ela precisa para responder. Evitar mandar l
 
 ### 2. Ferramentas locais de leitura
 
+Status: planejado.
+
 Antes de qualquer acao que altere dados, a IA deve conseguir pedir leituras estruturadas.
 
 Ferramentas iniciais sugeridas:
@@ -195,6 +215,8 @@ Ferramentas iniciais sugeridas:
 Essas ferramentas podem rodar no proprio PWA porque usam dados ja carregados ou dados read-only obtidos pelo fluxo atual.
 
 ### 3. Contrato JSON para pedidos da IA
+
+Status: parcialmente implementado via `/desktop`.
 
 A IA nao deve "executar" texto solto. Ela deve devolver um JSON estruturado quando quiser usar uma ferramenta.
 
@@ -246,6 +268,8 @@ Resposta final ao usuario:
 ```
 
 ### 4. Loop de ferramenta
+
+Status: planejado.
 
 O fluxo recomendado:
 
@@ -340,6 +364,37 @@ Campos que devem ficar fora do indice e ir para recortes sob demanda:
 - auditoria;
 - dados internos de operadores.
 
+## Pedido para desktop ja engatilhado
+
+O comando `/desktop <pedido>` gera um contrato read-only para orientar o app desktop/worker. Para pedidos de risco de evasao, o beta ja sugere:
+
+```json
+{
+  "type": "desktop_request",
+  "schemaVersion": "1.0.0",
+  "unitId": "58780-000",
+  "reason": "ranking de alunos com maior risco de evasao",
+  "missingData": [
+    "students_index com id, nome, status, plano atual, vencimento e ultimo_acesso",
+    "student_activity_rollup com frequencia por aluno em 7/30/60/90 dias",
+    "student_finance_rollup com atraso, valor em aberto e historico resumido de pagamentos",
+    "retention_summary com funil de risco por unidade",
+    "risk_alerts com score, motivos e data de calculo por aluno"
+  ],
+  "suggestedDatasets": [
+    "students_index",
+    "student_activity_rollup",
+    "student_finance_rollup",
+    "retention_summary",
+    "risk_alerts"
+  ],
+  "priority": "high",
+  "status": "draft"
+}
+```
+
+Esses arquivos devem ser publicados no manifest quando estiverem prontos. O beta ja tenta descobrir novos datasets pelo `manifest.json`, entao nao deve precisar de mudanca no PWA para comecar a usa-los no contexto.
+
 ## Execucao de acoes
 
 ### Fase 1: apenas leitura
@@ -395,13 +450,11 @@ No Firebase atual, isso exigiria uma regra nova e bem limitada. Se a regra conti
 
 ## Proximos passos
 
-1. Definir e publicar `analytics/{unitId}/manifest.json`.
-2. Criar `daily_summary.json`.
-3. Criar `finance_rollup.json`.
-4. Adaptar o PWA para ler o manifest e baixar datasets analiticos por signed URL.
-5. Criar `buildAiContext()` usando snapshot operacional + snapshot analitico disponivel.
-6. Criar allowlist de ferramentas read-only.
-7. Adaptar prompt do Gemini para responder final ou `tool_call`.
-8. Implementar loop de ferramentas com limite de chamadas.
-9. Adicionar `students_index.json` enxuto.
-10. Depois adicionar recortes sob demanda e decidir se acoes reais vao por Cloud Function ou desktop bridge.
+1. Publicar os mesmos 3 JSONs para as demais unidades.
+2. Adicionar `students_index.json` enxuto.
+3. Adicionar `student_activity_rollup.json` e `student_finance_rollup.json`.
+4. Adicionar `retention_summary.json` e `risk_alerts.json`.
+5. Criar allowlist de ferramentas read-only no PWA.
+6. Adaptar prompt do Gemini para responder final ou `tool_call`.
+7. Implementar loop de ferramentas com limite de chamadas.
+8. Depois adicionar recortes sob demanda e decidir se acoes reais vao por Cloud Function ou desktop bridge.

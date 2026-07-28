@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-12";
+const APP_BUILD_ID = "2026-07-28-ai-lab-13";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
@@ -41,7 +41,37 @@ const AI_ANALYTICS_DATASETS = {
   daily: "daily_summary.json",
   finance: "finance_rollup.json",
   daily_summary: "daily_summary.json",
-  finance_rollup: "finance_rollup.json"
+  finance_rollup: "finance_rollup.json",
+  students: "students_index.json",
+  students_index: "students_index.json",
+  retention: "retention_summary.json",
+  retention_summary: "retention_summary.json",
+  risk: "risk_alerts.json",
+  risk_alerts: "risk_alerts.json",
+  activity: "student_activity_rollup.json",
+  student_activity_rollup: "student_activity_rollup.json",
+  student_finance: "student_finance_rollup.json",
+  student_finance_rollup: "student_finance_rollup.json"
+};
+const AI_ANALYTICS_BASE_KEYS = ["manifest", "daily", "finance"];
+const AI_ANALYTICS_ALL_KEYS = [
+  "manifest",
+  "daily",
+  "finance",
+  "students",
+  "retention",
+  "risk",
+  "activity",
+  "student_finance"
+];
+const GEMINI_MAX_OUTPUT_TOKENS = 4096;
+const AI_COMPACT_DEFAULT_ARRAY_LIMIT = 12;
+const AI_COMPACT_ARRAY_LIMITS = {
+  monthly: 12,
+  avulsosMonthly: 12,
+  paymentValueDistribution: 8,
+  topStudents: 8,
+  peakHours: 12
 };
 const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_beta_gemini_stream_unavailable";
 const GEMINI_STREAM_ENABLED = false;
@@ -4246,11 +4276,14 @@ function aiCommandHelp() {
     "| `/json manifest` | Busca apenas `manifest.json`. |",
     "| `/json daily` | Busca apenas `daily_summary.json`. |",
     "| `/json finance` | Busca apenas `finance_rollup.json`. |",
-    "| `/json all` | Igual ao `/json`, mas explicito. |",
+    "| `/json students` | Testa o futuro `students_index.json`. |",
+    "| `/json risk` | Testa o futuro `risk_alerts.json`. |",
+    "| `/json all` | Testa todos os datasets conhecidos, inclusive os ainda planejados. |",
     "| `/context` | Mostra o contexto analitico que seria enviado para a IA. |",
+    "| `/context compact` | Mostra a versao compactada que a chamada Gemini recebe. |",
     "| `/desktop <pedido>` | Gera um `desktop_request` para dados/acoes que dependem do app desktop. |",
     "",
-    "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000` ou `/context 58780-000`."
+    "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000`, `/context 58780-000` ou `/context compact 58780-000`."
   ].join("\n");
 }
 
@@ -4316,8 +4349,24 @@ function resolveAiUnitId(input = "") {
 
 function aiDatasetKeys(input = "") {
   const key = String(input || "").trim().toLowerCase();
-  if (!key || key === "all") return ["manifest", "daily", "finance"];
-  return AI_ANALYTICS_DATASETS[key] ? [key] : [];
+  if (!key) return uniqueAnalyticsDatasetKeys(AI_ANALYTICS_BASE_KEYS);
+  if (key === "all") return uniqueAnalyticsDatasetKeys(AI_ANALYTICS_ALL_KEYS);
+  return AI_ANALYTICS_DATASETS[key] ? uniqueAnalyticsDatasetKeys([key]) : [];
+}
+
+function uniqueAnalyticsDatasetKeys(keys) {
+  const seenFiles = new Set();
+  return keys.filter((key) => {
+    const fileName = AI_ANALYTICS_DATASETS[key];
+    if (!fileName || seenFiles.has(fileName)) return false;
+    seenFiles.add(fileName);
+    return true;
+  });
+}
+
+function datasetKeyFromAnalyticsPath(path = "") {
+  const fileName = String(path || "").split("/").pop();
+  return Object.keys(AI_ANALYTICS_DATASETS).find((key) => AI_ANALYTICS_DATASETS[key] === fileName) || "";
 }
 
 async function fetchAnalyticsDataset(unitId, datasetKey, config, bearerToken) {
@@ -4360,7 +4409,7 @@ async function fetchAnalyticsDataset(unitId, datasetKey, config, bearerToken) {
   return { ok: false, datasetKey, fileName, attempts, error: "nao-encontrado" };
 }
 
-async function fetchAnalyticsBundle(unitId, datasetKeys = ["manifest", "daily", "finance"]) {
+async function fetchAnalyticsBundle(unitId, datasetKeys = AI_ANALYTICS_BASE_KEYS) {
   const config = await carregarPhysikServerConfig();
   const bearerToken = physikServerReadToken(config);
 
@@ -4389,6 +4438,41 @@ async function fetchAnalyticsBundle(unitId, datasetKeys = ["manifest", "daily", 
     error: "",
     diagnostics: null,
     results
+  };
+}
+
+function datasetKeysFromAnalyticsManifest(manifest) {
+  const keys = [...AI_ANALYTICS_BASE_KEYS];
+  const datasets = manifest?.datasets;
+  if (!datasets || typeof datasets !== "object") return uniqueAnalyticsDatasetKeys(keys);
+
+  Object.entries(datasets).forEach(([name, meta]) => {
+    const directKey = String(name || "").toLowerCase();
+    if (AI_ANALYTICS_DATASETS[directKey]) keys.push(directKey);
+
+    const pathKey = datasetKeyFromAnalyticsPath(meta?.path);
+    if (pathKey) keys.push(pathKey);
+  });
+
+  return uniqueAnalyticsDatasetKeys(keys);
+}
+
+async function fetchAnalyticsContextBundle(unitId) {
+  const baseBundle = await fetchAnalyticsBundle(unitId, AI_ANALYTICS_BASE_KEYS);
+  if (!baseBundle.ok) return baseBundle;
+
+  const manifest = analyticsDataByKind(baseBundle.results).analytics_manifest;
+  const contextKeys = datasetKeysFromAnalyticsManifest(manifest);
+  const baseFiles = new Set(baseBundle.results.map((result) => result.fileName));
+  const extraKeys = contextKeys.filter((key) => !baseFiles.has(AI_ANALYTICS_DATASETS[key]));
+
+  if (!extraKeys.length) return baseBundle;
+
+  const extraBundle = await fetchAnalyticsBundle(unitId, extraKeys);
+  return {
+    ...baseBundle,
+    ok: baseBundle.ok || extraBundle.ok,
+    results: [...baseBundle.results, ...extraBundle.results]
   };
 }
 
@@ -4501,8 +4585,15 @@ function analyticsDataByKind(results) {
   return data;
 }
 
-function buildDesktopRequestTemplate({ unitId, reason, missingData = [], suggestedDatasets = [] } = {}) {
-  return {
+function buildDesktopRequestTemplate({
+  unitId,
+  reason,
+  missingData = [],
+  suggestedDatasets = [],
+  priority = "normal",
+  expectedShape = null
+} = {}) {
+  const request = {
     type: "desktop_request",
     schemaVersion: "1.0.0",
     requestedAt: new Date().toISOString(),
@@ -4512,7 +4603,78 @@ function buildDesktopRequestTemplate({ unitId, reason, missingData = [], suggest
     missingData,
     suggestedDatasets,
     suggestedOwner: "PhysikFlow Desktop / report worker",
+    priority,
     status: "draft"
+  };
+
+  if (expectedShape) request.expectedShape = expectedShape;
+  return request;
+}
+
+function inferDesktopRequestNeeds(reason = "") {
+  const normalized = String(reason || "").toLowerCase();
+
+  if (/(evas|reten|retenc|risco|churn|abandono)/.test(normalized)) {
+    return {
+      priority: "high",
+      missingData: [
+        "students_index com id, nome, status, plano atual, vencimento e ultimo_acesso",
+        "student_activity_rollup com frequencia por aluno em 7/30/60/90 dias",
+        "student_finance_rollup com atraso, valor em aberto e historico resumido de pagamentos",
+        "retention_summary com funil de risco por unidade",
+        "risk_alerts com score, motivos e data de calculo por aluno"
+      ],
+      suggestedDatasets: [
+        "students_index",
+        "student_activity_rollup",
+        "student_finance_rollup",
+        "retention_summary",
+        "risk_alerts"
+      ],
+      expectedShape: {
+        datasets: {
+          students_index: {
+            path: "analytics/{unitId}/students_index.json",
+            fields: ["studentId", "name", "status", "currentPlan", "dueDate", "lastAccessAt", "tags"]
+          },
+          risk_alerts: {
+            path: "analytics/{unitId}/risk_alerts.json",
+            fields: ["studentId", "riskScore", "riskLevel", "reasons", "recommendedAction", "calculatedAt"]
+          },
+          retention_summary: {
+            path: "analytics/{unitId}/retention_summary.json",
+            fields: ["period", "riskBuckets", "inactiveTrend", "recoveredStudents", "lostStudents"]
+          }
+        }
+      }
+    };
+  }
+
+  if (/(aluno|cliente|pessoa|buscar|encontrar|perfil)/.test(normalized)) {
+    return {
+      priority: "normal",
+      missingData: [
+        "students_index com campos seguros para busca e filtro no PWA",
+        "get_student_snapshot sob demanda para detalhes de um aluno especifico"
+      ],
+      suggestedDatasets: ["students_index"],
+      expectedShape: {
+        datasets: {
+          students_index: {
+            path: "analytics/{unitId}/students_index.json",
+            fields: ["studentId", "name", "status", "currentPlan", "dueDate", "lastAccessAt"]
+          }
+        },
+        tools: ["get_student_snapshot"]
+      }
+    };
+  }
+
+  return {
+    priority: "normal",
+    missingData: ["dados nao disponiveis no snapshot atual"],
+    suggestedDatasets: ["students_index", "retention_summary", "risk_alerts"],
+    expectedShape: null
   };
 }
 
@@ -4546,7 +4708,7 @@ async function buildAiContext(unitInput = "") {
     return context;
   }
 
-  const bundle = await fetchAnalyticsBundle(unitId);
+  const bundle = await fetchAnalyticsContextBundle(unitId);
   context.analyticsStatus = bundle.results.map((result) => ({
     dataset: result.fileName,
     ok: result.ok,
@@ -4565,11 +4727,71 @@ async function buildAiContext(unitInput = "") {
       unitId,
       reason: "Complementar datasets analiticos para respostas mais profundas no PWA.",
       missingData: context.gaps,
-      suggestedDatasets: ["students_index", "retention_summary", "risk_alerts"]
+      suggestedDatasets: [
+        "students_index",
+        "student_activity_rollup",
+        "student_finance_rollup",
+        "retention_summary",
+        "risk_alerts"
+      ]
     });
   }
 
   return context;
+}
+
+function compactArrayForAi(value, key, notes, path, depth) {
+  const limit = AI_COMPACT_ARRAY_LIMITS[key] || AI_COMPACT_DEFAULT_ARRAY_LIMIT;
+  const shouldKeepTail = key === "monthly" || key === "avulsosMonthly";
+  const sliced = value.length > limit
+    ? (shouldKeepTail ? value.slice(-limit) : value.slice(0, limit))
+    : value;
+
+  if (value.length > limit) {
+    const kept = shouldKeepTail ? `ultimos ${limit}` : `primeiros ${limit}`;
+    notes.push(`${path}: array(${value.length}) reduzido para ${kept}`);
+  }
+
+  return sliced.map((item, index) => compactValueForAi(item, String(index), notes, `${path}[${index}]`, depth + 1));
+}
+
+function compactValueForAi(value, key, notes, path, depth = 0) {
+  if (Array.isArray(value)) {
+    return compactArrayForAi(value, key, notes, path, depth);
+  }
+
+  if (!value || typeof value !== "object") return value;
+
+  const keys = Object.keys(value);
+  if (depth >= 7) {
+    notes.push(`${path}: objeto profundo resumido`);
+    return {
+      __summary: "object",
+      keys: keys.slice(0, 20)
+    };
+  }
+
+  return keys.reduce((acc, childKey) => {
+    const childPath = path ? `${path}.${childKey}` : childKey;
+    acc[childKey] = compactValueForAi(value[childKey], childKey, notes, childPath, depth + 1);
+    return acc;
+  }, {});
+}
+
+function compactAiContextForGemini(context) {
+  const notes = [];
+  const compacted = compactValueForAi(context, "context", notes, "context");
+
+  if (compacted && typeof compacted === "object" && !Array.isArray(compacted)) {
+    compacted.contextDelivery = {
+      compactedForGemini: true,
+      outputTokenBudget: GEMINI_MAX_OUTPUT_TOKENS,
+      note: "O comando /context mostra o contexto completo; a chamada Gemini recebe uma versao compactada para evitar cortes.",
+      reductions: notes
+    };
+  }
+
+  return compacted;
 }
 
 function contextSizeNote(context) {
@@ -4578,10 +4800,16 @@ function contextSizeNote(context) {
 }
 
 async function handleAiContextCommand(args) {
-  const context = await buildAiContext(args.join(" "));
+  const normalizedArgs = [...args];
+  const compactMode = normalizedArgs.some((arg) => String(arg || "").toLowerCase() === "compact");
+  const unitInput = normalizedArgs
+    .filter((arg) => String(arg || "").toLowerCase() !== "compact")
+    .join(" ");
+  const fullContext = await buildAiContext(unitInput);
+  const context = compactMode ? compactAiContextForGemini(fullContext) : fullContext;
 
   return [
-    `## Contexto IA: ${context.unit?.name || "sem unidade"}`,
+    `## Contexto IA: ${context.unit?.name || "sem unidade"}${compactMode ? " (compacto Gemini)" : ""}`,
     "",
     `Tamanho aproximado: ${contextSizeNote(context)}`,
     "",
@@ -4598,11 +4826,14 @@ async function handleAiContextCommand(args) {
 function handleAiDesktopCommand(args) {
   const text = args.join(" ").trim();
   const unitId = resolveAiUnitId("");
+  const inferred = inferDesktopRequestNeeds(text);
   const request = buildDesktopRequestTemplate({
     unitId,
     reason: text || "Gerar dados complementares para a IA do PWA.",
-    missingData: ["dados nao disponiveis no snapshot atual"],
-    suggestedDatasets: ["students_index", "retention_summary", "risk_alerts"]
+    missingData: inferred.missingData,
+    suggestedDatasets: inferred.suggestedDatasets,
+    priority: inferred.priority,
+    expectedShape: inferred.expectedShape
   });
 
   return [
@@ -4680,6 +4911,7 @@ function createGeminiRequestBody(message, context = null) {
         text: [
           "Voce e a IA beta do portal PhysikFlow.",
           "Responda em portugues do Brasil, de forma clara e objetiva.",
+          "Por padrao, limite respostas comuns a ate 500 palavras ou 8 bullets; aprofunde apenas quando o usuario pedir.",
           "Use apenas o contexto fornecido pelo PWA e deixe claro quando uma conclusao for limitada pelos dados disponiveis.",
           "Nao invente dados de alunos, pagamentos, auditoria ou historico se eles nao estiverem no contexto.",
           "Se a pergunta exigir dados que dependem do app desktop ou de datasets ainda ausentes, responda de forma util e inclua um bloco JSON `desktop_request` sugerindo o que o desktop deve gerar.",
@@ -4693,7 +4925,7 @@ function createGeminiRequestBody(message, context = null) {
     }],
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 1400
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS
     }
   };
 }
@@ -4710,7 +4942,7 @@ function geminiFinishNotice(finishReason) {
   if (!finishReason || finishReason === "STOP") return "";
 
   if (finishReason === "MAX_TOKENS") {
-    return "\n\n> Resposta interrompida pelo limite de tokens. Tente pedir uma resposta menor se isso acontecer de novo.";
+    return `\n\n> Resposta interrompida pelo limite de tokens da API (${GEMINI_MAX_OUTPUT_TOKENS}). O contexto ja foi compactado para reduzir esse risco; se repetir, peca uma resposta mais curta ou use /desktop para solicitar um dataset mais especifico.`;
   }
 
   return `\n\n> Resposta encerrada pela API. finishReason: ${finishReason}`;
@@ -4724,7 +4956,7 @@ async function requestGeminiChatReply(message) {
     throw error;
   }
 
-  const context = await buildAiContext();
+  const context = compactAiContextForGemini(await buildAiContext());
   const response = await fetch(geminiGenerateEndpoint(config), {
     method: "POST",
     headers: {
@@ -4847,7 +5079,7 @@ async function requestGeminiChatReplyStream(message, onUpdate) {
 
   let response;
   try {
-    const context = await buildAiContext();
+    const context = compactAiContextForGemini(await buildAiContext());
     response = await fetch(geminiStreamEndpoint(config), {
       method: "POST",
       headers: {
