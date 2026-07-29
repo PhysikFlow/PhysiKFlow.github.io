@@ -2,6 +2,8 @@
 
 Este documento define o que ja existe no PWA beta, o que ainda falta para a IA trabalhar com dados reais e como a IA deve pedir leituras/acoes usando JSON.
 
+Para a matriz detalhada de perguntas reais e dados faltantes, veja `AI-QUESTION-COVERAGE.md`.
+
 ## Estado atual
 
 O beta ja tem:
@@ -16,6 +18,9 @@ O beta ja tem:
 - Comandos locais de laboratorio: `/help`, `/mock`, `/json`, `/context` e `/desktop`.
 - Contexto real para Gemini montado a partir do snapshot operacional e dos JSONs analiticos publicados.
 - Compactacao do contexto antes da chamada Gemini para reduzir cortes por limite de tokens.
+- Historico local das ultimas 12 mensagens no `localStorage` do beta.
+- Cache curto de respostas Gemini por pergunta + assinatura do contexto.
+- Fallback de modelo: primario do Firebase, depois `fallbackModels`, depois modelos leves padrao.
 - Contrato `desktop_request` para pedir novos datasets ao app desktop.
 - Service worker, cache e localStorage isolados do PWA de producao.
 
@@ -163,6 +168,21 @@ O PWA monta um pacote com:
 - template `desktop_request` quando faltar dado.
 
 O comando `/context` mostra o pacote completo. O comando `/context compact` mostra a versao compactada usada na chamada Gemini.
+
+### Cache, historico e fallback
+
+Status: implementado no beta.
+
+- Historico visual: salva as ultimas 12 mensagens em `relatorio_beta_ai_chat_history_v1`.
+- Cache de resposta: salva ate 20 respostas por 3 minutos em `relatorio_beta_ai_reply_cache_v1`.
+- Chave do cache: pergunta + hash do contexto compacto + plano de modelos.
+- Invalidacao: cache curto por tempo e limpeza ao atualizar os caches do app.
+- Fallback: tenta primeiro o `model` configurado em `/app_config/gemini`, depois `fallbackModels`, depois os padroes do beta.
+- Fallback padrao atual: `gemini-3.5-flash-lite` e `gemini-flash-latest`, sem duplicar o modelo primario.
+- Sem fallback para erro de credencial/autorizacao (`401`, `403`, `UNAUTHENTICATED`), porque nesses casos todos os modelos tenderiam a falhar com a mesma chave.
+- Retry/fallback ativo para erro transitorio, cota, modelo invalido/indisponivel e falhas 4xx/5xx selecionadas.
+
+Observacao: o cache e curto de proposito. Dados financeiros e operacionais mudam rapido; cache longo economizaria cota, mas aumentaria o risco de resposta velha.
 
 Exemplo de contexto inicial:
 

@@ -23,8 +23,12 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-13";
+const APP_BUILD_ID = "2026-07-28-ai-lab-15";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
+const AI_CHAT_HISTORY_KEY = "relatorio_beta_ai_chat_history_v1";
+const AI_REPLY_CACHE_KEY = "relatorio_beta_ai_reply_cache_v1";
+const AI_REPLY_CACHE_TTL_MS = 1000 * 60 * 3;
+const AI_REPLY_CACHE_MAX_ENTRIES = 20;
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
@@ -51,7 +55,51 @@ const AI_ANALYTICS_DATASETS = {
   activity: "student_activity_rollup.json",
   student_activity_rollup: "student_activity_rollup.json",
   student_finance: "student_finance_rollup.json",
-  student_finance_rollup: "student_finance_rollup.json"
+  student_finance_rollup: "student_finance_rollup.json",
+  lifecycle: "student_lifecycle_rollup.json",
+  student_lifecycle_rollup: "student_lifecycle_rollup.json",
+  attendance: "attendance_rollup.json",
+  attendance_rollup: "attendance_rollup.json",
+  plans: "plan_rollup.json",
+  plan_rollup: "plan_rollup.json",
+  periods: "finance_periods.json",
+  finance_periods: "finance_periods.json",
+  receivables: "receivables_rollup.json",
+  receivables_rollup: "receivables_rollup.json",
+  payment_methods: "payment_methods_rollup.json",
+  payment_methods_rollup: "payment_methods_rollup.json",
+  cashflow: "cashflow_rollup.json",
+  cashflow_rollup: "cashflow_rollup.json",
+  expenses: "expense_rollup.json",
+  expense_rollup: "expense_rollup.json",
+  renewals: "renewals_rollup.json",
+  renewals_rollup: "renewals_rollup.json",
+  conversion: "conversion_funnel.json",
+  conversion_funnel: "conversion_funnel.json",
+  leads: "lead_funnel_rollup.json",
+  lead_funnel_rollup: "lead_funnel_rollup.json",
+  marketing: "marketing_attribution_rollup.json",
+  marketing_attribution_rollup: "marketing_attribution_rollup.json",
+  campaigns: "campaign_opportunities.json",
+  campaign_opportunities: "campaign_opportunities.json",
+  live: "live_occupancy.json",
+  live_occupancy: "live_occupancy.json",
+  duration: "training_duration_rollup.json",
+  training_duration_rollup: "training_duration_rollup.json",
+  staff: "staff_performance_rollup.json",
+  staff_performance_rollup: "staff_performance_rollup.json",
+  classes: "classes_rollup.json",
+  classes_rollup: "classes_rollup.json",
+  feedback: "feedback_rollup.json",
+  feedback_rollup: "feedback_rollup.json",
+  equipment: "equipment_rollup.json",
+  equipment_rollup: "equipment_rollup.json",
+  operations: "operations_alerts.json",
+  operations_alerts: "operations_alerts.json",
+  goals: "goals_progress.json",
+  goals_progress: "goals_progress.json",
+  executive: "daily_executive_summary.json",
+  daily_executive_summary: "daily_executive_summary.json"
 };
 const AI_ANALYTICS_BASE_KEYS = ["manifest", "daily", "finance"];
 const AI_ANALYTICS_ALL_KEYS = [
@@ -62,9 +110,35 @@ const AI_ANALYTICS_ALL_KEYS = [
   "retention",
   "risk",
   "activity",
-  "student_finance"
+  "student_finance",
+  "lifecycle",
+  "attendance",
+  "plans",
+  "periods",
+  "receivables",
+  "payment_methods",
+  "cashflow",
+  "expenses",
+  "renewals",
+  "conversion",
+  "leads",
+  "marketing",
+  "campaigns",
+  "live",
+  "duration",
+  "staff",
+  "classes",
+  "feedback",
+  "equipment",
+  "operations",
+  "goals",
+  "executive"
 ];
 const GEMINI_MAX_OUTPUT_TOKENS = 4096;
+const GEMINI_DEFAULT_FALLBACK_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-flash-latest"
+];
 const AI_COMPACT_DEFAULT_ARRAY_LIMIT = 12;
 const AI_COMPACT_ARRAY_LIMITS = {
   monthly: 12,
@@ -761,10 +835,16 @@ function normalizeGeminiConfig(value) {
   const enabled = value.enabled !== false;
   const apiKey = String(value.apiKey || "").trim();
   const model = String(value.model || "gemini-flash-latest").trim();
+  const fallbackModels = Array.isArray(value.fallbackModels)
+    ? value.fallbackModels.map((item) => String(item || "").trim()).filter(Boolean)
+    : String(value.fallbackModel || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   if (!enabled || !apiKey || !model) return null;
 
-  return { enabled, apiKey, model };
+  return { enabled, apiKey, model, fallbackModels };
 }
 
 async function carregarGeminiConfig(force = false) {
@@ -4218,6 +4298,117 @@ function appendAiMessage(role, text, { loading = false } = {}) {
   return item;
 }
 
+function trimAiHistory() {
+  if (aiChatHistory.length > 12) aiChatHistory.splice(0, aiChatHistory.length - 12);
+}
+
+function loadAiChatHistory() {
+  try {
+    const raw = localStorage.getItem(AI_CHAT_HISTORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item) => (
+        (item?.role === "user" || item?.role === "assistant") &&
+        typeof item.text === "string" &&
+        item.text.trim()
+      ))
+      .slice(-12);
+  } catch (error) {
+    console.warn("Historico do chat IA invalido:", error);
+    return [];
+  }
+}
+
+function saveAiChatHistory() {
+  try {
+    trimAiHistory();
+    localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory));
+  } catch (error) {
+    console.warn("Falha ao salvar historico do chat IA:", error);
+  }
+}
+
+function restoreAiChatHistory() {
+  const messages = qs("aiChatMessages");
+  if (!messages) return;
+
+  const restored = loadAiChatHistory();
+  if (!restored.length) return;
+
+  aiChatHistory.splice(0, aiChatHistory.length, ...restored);
+  messages.innerHTML = "";
+  restored.forEach((item) => appendAiMessage(item.role, item.text));
+}
+
+function stableHash(input) {
+  const text = String(input || "");
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function loadAiReplyCache() {
+  try {
+    const raw = localStorage.getItem(AI_REPLY_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    console.warn("Cache de respostas IA invalido:", error);
+    return {};
+  }
+}
+
+function saveAiReplyCache(cache) {
+  try {
+    const entries = Object.entries(cache)
+      .filter(([, item]) => item?.text && Number(item.createdAt))
+      .sort((a, b) => Number(b[1].createdAt) - Number(a[1].createdAt))
+      .slice(0, AI_REPLY_CACHE_MAX_ENTRIES);
+
+    localStorage.setItem(AI_REPLY_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch (error) {
+    console.warn("Falha ao salvar cache de respostas IA:", error);
+  }
+}
+
+function aiReplyCacheKey({ message, context, modelPlan }) {
+  return stableHash(JSON.stringify({
+    message: String(message || "").trim(),
+    contextHash: stableHash(JSON.stringify(context || {})),
+    models: modelPlan
+  }));
+}
+
+function getCachedAiReply(cacheKey) {
+  const cache = loadAiReplyCache();
+  const item = cache[cacheKey];
+  if (!item?.text || !Number(item.createdAt)) return "";
+
+  if (Date.now() - Number(item.createdAt) > AI_REPLY_CACHE_TTL_MS) {
+    delete cache[cacheKey];
+    saveAiReplyCache(cache);
+    return "";
+  }
+
+  return item.text;
+}
+
+function setCachedAiReply(cacheKey, text, model) {
+  if (!text || !cacheKey) return;
+  const cache = loadAiReplyCache();
+  cache[cacheKey] = {
+    text,
+    model: model || "",
+    createdAt: Date.now()
+  };
+  saveAiReplyCache(cache);
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -4670,6 +4861,133 @@ function inferDesktopRequestNeeds(reason = "") {
     };
   }
 
+  if (/(pagamento|receita|fatur|lucro|saiu|despesa|receber|inadimpl|atras|pix|cart|dinheiro|desconto|ticket)/.test(normalized)) {
+    return {
+      priority: "high",
+      missingData: [
+        "finance_periods com entradas por hoje/semana/quinzena/mes/ano",
+        "receivables_rollup com valores a receber e vencidos",
+        "payment_methods_rollup com dinheiro, Pix, cartao e outros metodos por periodo",
+        "student_finance_rollup com inadimplentes e descontos por aluno",
+        "cashflow_rollup e expense_rollup para responder lucro, nao apenas receita"
+      ],
+      suggestedDatasets: [
+        "finance_periods",
+        "receivables_rollup",
+        "payment_methods_rollup",
+        "student_finance_rollup",
+        "cashflow_rollup",
+        "expense_rollup"
+      ],
+      expectedShape: {
+        datasets: {
+          finance_periods: {
+            path: "analytics/{unitId}/finance_periods.json",
+            fields: ["today", "thisWeek", "thisFortnight", "thisMonth", "thisYear"]
+          },
+          receivables_rollup: {
+            path: "analytics/{unitId}/receivables_rollup.json",
+            fields: ["openTotal", "overdueTotal", "dueToday", "dueThisWeek"]
+          },
+          payment_methods_rollup: {
+            path: "analytics/{unitId}/payment_methods_rollup.json",
+            fields: ["period", "method", "count", "total"]
+          }
+        }
+      }
+    };
+  }
+
+  if (/(frequent|movimento|horario|domingo|sabado|segunda|manha|tarde|noite|catraca|academia agora|treinando|tempo medio|lotado)/.test(normalized)) {
+    return {
+      priority: "high",
+      missingData: [
+        "attendance_rollup com acessos por dia, semana, horario, turno e weekday",
+        "student_activity_rollup com ultimo acesso, habitos e queda brusca de frequencia por aluno",
+        "live_occupancy para perguntas sobre quem esta na academia agora",
+        "training_duration_rollup para tempo medio e sessoes longas"
+      ],
+      suggestedDatasets: [
+        "attendance_rollup",
+        "student_activity_rollup",
+        "live_occupancy",
+        "training_duration_rollup"
+      ],
+      expectedShape: {
+        datasets: {
+          attendance_rollup: {
+            path: "analytics/{unitId}/attendance_rollup.json",
+            fields: ["periods", "byWeekday", "byHour", "byShift"]
+          },
+          student_activity_rollup: {
+            path: "analytics/{unitId}/student_activity_rollup.json",
+            fields: ["buckets", "topInactive", "habitSegments"]
+          }
+        },
+        tools: ["get_students_by_attendance_window", "get_current_occupancy"]
+      }
+    };
+  }
+
+  if (/(campanha|lead|matricula|indic|oferta|upgrade|renova|promoc|experimental|diaria)/.test(normalized)) {
+    return {
+      priority: "normal",
+      missingData: [
+        "student_lifecycle_rollup com matriculas, cancelamentos e reativacoes",
+        "renewals_rollup com vencimentos, renovacoes e nao renovados",
+        "conversion_funnel com diaria/aula experimental/leads que viraram matricula",
+        "marketing_attribution_rollup com origem/campanha das matriculas",
+        "campaign_opportunities com alunos elegiveis para renovacao, upgrade, retorno e indicacao"
+      ],
+      suggestedDatasets: [
+        "student_lifecycle_rollup",
+        "renewals_rollup",
+        "conversion_funnel",
+        "marketing_attribution_rollup",
+        "campaign_opportunities"
+      ],
+      expectedShape: {
+        datasets: {
+          campaign_opportunities: {
+            path: "analytics/{unitId}/campaign_opportunities.json",
+            fields: ["studentId", "opportunityType", "score", "reason", "recommendedOffer"]
+          }
+        }
+      }
+    };
+  }
+
+  if (/(funcionario|professor|turma|reclam|elog|satisf|equipamento|manutenc|operacional|meta|resumo completo|o que precisa ser feito)/.test(normalized)) {
+    return {
+      priority: "normal",
+      missingData: [
+        "staff_performance_rollup com matriculas e pagamentos por funcionario",
+        "classes_rollup com turmas, professores e lotacao por horario",
+        "feedback_rollup com reclamacoes, elogios e satisfacao",
+        "equipment_rollup com chamados e manutencao",
+        "goals_progress com metas e progresso",
+        "daily_executive_summary com alertas e acoes recomendadas"
+      ],
+      suggestedDatasets: [
+        "staff_performance_rollup",
+        "classes_rollup",
+        "feedback_rollup",
+        "equipment_rollup",
+        "operations_alerts",
+        "goals_progress",
+        "daily_executive_summary"
+      ],
+      expectedShape: {
+        datasets: {
+          daily_executive_summary: {
+            path: "analytics/{unitId}/daily_executive_summary.json",
+            fields: ["highlights", "alerts", "recommendedActions"]
+          }
+        }
+      }
+    };
+  }
+
   return {
     priority: "normal",
     missingData: ["dados nao disponiveis no snapshot atual"],
@@ -4924,14 +5242,36 @@ function createGeminiRequestBody(message, context = null) {
       parts: [{ text: contextText }]
     }],
     generationConfig: {
-      temperature: 0.7,
       maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS
     }
   };
 }
 
+function uniqueGeminiModels(models) {
+  const seen = new Set();
+  return models
+    .map((model) => String(model || "").trim())
+    .filter((model) => {
+      if (!model || seen.has(model)) return false;
+      seen.add(model);
+      return true;
+    });
+}
+
+function geminiModelPlan(config) {
+  return uniqueGeminiModels([
+    config?.model,
+    ...(config?.fallbackModels || []),
+    ...GEMINI_DEFAULT_FALLBACK_MODELS
+  ]);
+}
+
+function geminiGenerateEndpointForModel(model) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+}
+
 function geminiGenerateEndpoint(config) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`;
+  return geminiGenerateEndpointForModel(config.model);
 }
 
 function geminiStreamEndpoint(config) {
@@ -4948,20 +5288,22 @@ function geminiFinishNotice(finishReason) {
   return `\n\n> Resposta encerrada pela API. finishReason: ${finishReason}`;
 }
 
-async function requestGeminiChatReply(message) {
-  const config = await carregarGeminiConfig();
-  if (!config) {
-    const error = new Error(geminiConfigError || "gemini-config-missing");
-    error.reason = geminiConfigError || "gemini-config-missing";
-    throw error;
-  }
+function geminiShouldFallback(error) {
+  if (!error) return false;
+  if (error.status === 401 || error.status === 403 || error.apiStatus === "UNAUTHENTICATED") return false;
 
-  const context = compactAiContextForGemini(await buildAiContext());
-  const response = await fetch(geminiGenerateEndpoint(config), {
+  return (
+    [400, 404, 408, 409, 429, 500, 502, 503, 504].includes(Number(error.status)) ||
+    ["INVALID_ARGUMENT", "NOT_FOUND", "RESOURCE_EXHAUSTED", "ABORTED", "UNAVAILABLE", "DEADLINE_EXCEEDED", "INTERNAL"].includes(error.apiStatus)
+  );
+}
+
+async function callGeminiModel({ apiKey, model, message, context }) {
+  const response = await fetch(geminiGenerateEndpointForModel(model), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-goog-api-key": config.apiKey
+      "X-goog-api-key": apiKey
     },
     body: JSON.stringify(createGeminiRequestBody(message, context))
   });
@@ -4973,21 +5315,82 @@ async function requestGeminiChatReply(message) {
     error.status = response.status;
     error.reason = data?.error?.details?.find((detail) => detail?.reason)?.reason || "";
     error.apiStatus = data?.error?.status || "";
-    error.model = config.model;
+    error.model = model;
     throw error;
   }
 
-  const text = extractGeminiText(data) || "Recebi, mas a resposta veio vazia.";
-  return text + geminiFinishNotice(data?.candidates?.[0]?.finishReason);
+  return {
+    text: extractGeminiText(data) || "Recebi, mas a resposta veio vazia.",
+    finishReason: data?.candidates?.[0]?.finishReason || "",
+    model
+  };
+}
+
+async function requestGeminiChatReply(message, options = {}) {
+  const config = await carregarGeminiConfig();
+  if (!config) {
+    const error = new Error(geminiConfigError || "gemini-config-missing");
+    error.reason = geminiConfigError || "gemini-config-missing";
+    throw error;
+  }
+
+  const context = compactAiContextForGemini(await buildAiContext());
+  const modelPlan = geminiModelPlan(config);
+  const cacheKey = aiReplyCacheKey({ message, context, modelPlan });
+
+  if (options.useCache !== false) {
+    const cached = getCachedAiReply(cacheKey);
+    if (cached) return cached;
+  }
+
+  const errors = [];
+  for (const model of modelPlan) {
+    try {
+      const result = await callGeminiModel({
+        apiKey: config.apiKey,
+        model,
+        message,
+        context
+      });
+      const reply = result.text + geminiFinishNotice(result.finishReason);
+      if (!result.finishReason || result.finishReason === "STOP") {
+        setCachedAiReply(cacheKey, reply, result.model);
+      }
+      return reply;
+    } catch (error) {
+      errors.push(error);
+      if (!geminiShouldFallback(error)) throw error;
+    }
+  }
+
+  const lastError = errors[errors.length - 1] || new Error("gemini-failed");
+  lastError.fallbackAttempts = errors.map((error) => ({
+    model: error.model || "",
+    status: error.status || "",
+    apiStatus: error.apiStatus || "",
+    reason: error.reason || "",
+    message: error.message || ""
+  }));
+  throw lastError;
 }
 
 function geminiUserErrorMessage(error) {
+  const fallbackAttempts = Array.isArray(error?.fallbackAttempts)
+    ? error.fallbackAttempts.map((attempt) => [
+      attempt.model ? `model=${attempt.model}` : "",
+      attempt.status ? `status=${attempt.status}` : "",
+      attempt.apiStatus ? `apiStatus=${attempt.apiStatus}` : "",
+      attempt.reason ? `reason=${attempt.reason}` : "",
+      attempt.message ? `message=${attempt.message}` : ""
+    ].filter(Boolean).join(" | ")).filter(Boolean)
+    : [];
   const details = [
     error?.status ? `status: ${error.status}` : "",
     error?.apiStatus ? `apiStatus: ${error.apiStatus}` : "",
     error?.reason ? `reason: ${error.reason}` : "",
     error?.model ? `model: ${error.model}` : "",
-    error?.message ? `message: ${error.message}` : ""
+    error?.message ? `message: ${error.message}` : "",
+    ...fallbackAttempts.map((attempt) => `fallback: ${attempt}`)
   ].filter(Boolean);
 
   const technical = details.length
@@ -5176,7 +5579,7 @@ async function handleAiChatSubmit(event) {
       updateAiLoadingMessage(loading, partialReply, false);
     });
     aiChatHistory.push({ role: "user", text: message }, { role: "assistant", text: reply });
-    if (aiChatHistory.length > 12) aiChatHistory.splice(0, aiChatHistory.length - 12);
+    saveAiChatHistory();
     updateAiLoadingMessage(loading, reply);
   } catch (error) {
     console.error("Gemini chat error:", error);
@@ -5195,6 +5598,8 @@ function setupAiChat() {
   const form = qs("aiChatForm");
   const input = qs("aiChatInput");
   if (!form || !input) return;
+
+  restoreAiChatHistory();
 
   document.querySelectorAll(".ai-message-assistant:not(.is-loading)").forEach((message) => {
     const content = message.querySelector(".ai-message-content");
@@ -5268,6 +5673,7 @@ function setupPwaInstall() {
 async function clearAppStorageCaches() {
   stopFirebaseRealtimeSync();
   localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(AI_REPLY_CACHE_KEY);
   relatoriosPorUnidade = {};
   unitsMeta = {};
   alunosPorUnidade = {};
