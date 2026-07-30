@@ -5,14 +5,26 @@ Laboratorio de teste do app de relatorios. Esta pasta parte da versao atual de p
 - **Producao:** `/relatorioR1/`
 - **Beta/Lab:** `/relatorioR1-beta/`
 
+## Memoria e arquivo da IA
+
+O chat mantem uma janela curta visivel no navegador, envia o historico recente ao Gemini e mantem um caderno por usuario com resumo, fatos declarados, preferencias e lacunas de dados.
+
+Quando as regras estiverem publicadas, todas as mensagens sao arquivadas em `ai_assistant/conversations/{uid}`. A memoria fica em `ai_assistant/memory/{uid}` e as lacunas em `ai_assistant/gaps/{uid}`.
+
+As regras necessarias estao em `FIREBASE-AI-RULES.md`.
+
 ## IA
 
 O chat da aba IA usa o Gemini diretamente no client por enquanto, lendo a configuracao do Firebase:
 
 - Configuracao: `/app_config/gemini`
 - Contexto: snapshot operacional + JSONs analiticos do PhysikServer quando disponiveis
-- Historico: ultimas 12 mensagens salvas no `localStorage` do beta
-- Cache de resposta: cache curto de 3 minutos por pergunta + assinatura do contexto
+- Historico visivel: ultimas 12 mensagens salvas por UID no `localStorage` do beta
+- Continuidade: ate 10 mensagens recentes sao enviadas ao Gemini com limite de tamanho
+- Memoria: resumo, fatos declarados, preferencias e lacunas sincronizados por UID
+- Arquivo: todas as perguntas e respostas sao gravadas no Firebase quando as regras permitem
+- Fila de envio: mensagens entram primeiro em uma fila local por UID e saem dela somente apos confirmacao do Firebase
+- Cache de resposta: cache curto de 3 minutos por pergunta + contexto + historico + memoria
 - Fallback Gemini: tenta o modelo configurado e depois modelos leves de fallback
 - Plano tecnico: `AI-ARCHITECTURE.md`
 - Cobertura de perguntas e datasets faltantes: `AI-QUESTION-COVERAGE.md`
@@ -32,6 +44,7 @@ Comandos locais do chat, sem gastar cota Gemini:
 - `/context`: mostra o contexto analitico que seria enviado ao Gemini.
 - `/context compact`: mostra a versao compactada enviada ao Gemini.
 - `/context 58780-000`: mostra o contexto de uma unidade especifica.
+- `/memory`: abre o caderno da conversa.
 - `/desktop <pedido>`: gera um JSON `desktop_request` para dados/acoes que dependem do app desktop.
 
 Configuracao opcional no Firebase:

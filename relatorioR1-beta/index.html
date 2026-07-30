@@ -12,13 +12,13 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
   <link rel="apple-touch-icon" href="app-icon.png" />
-  <link rel="stylesheet" href="style.css?v=2026-07-30-ui-lab-16" />
+  <link rel="stylesheet" href="style.css?v=2026-07-30-ai-memory-lab-17" />
   <link rel="preload" as="image" href="r1-wallpaper.png" />
 
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-  <script src="script.js?v=2026-07-30-ui-lab-16" defer></script>
+  <script src="script.js?v=2026-07-30-ai-memory-lab-17" defer></script>
 </head>
 <body>
   <section class="login-screen" data-view="login">
@@ -137,8 +137,54 @@
       <!-- PAGINA: IA LAB -->
       <section class="app-page ai-page" data-page="ia">
         <div class="ai-lab-shell">
-          <div class="ai-chat-panel" aria-live="polite">
-            <div class="ai-chat-messages" id="aiChatMessages">
+          <div class="ai-chat-panel">
+            <button type="button" class="ai-memory-toggle" id="aiMemoryToggle" aria-label="Abrir memória da IA" aria-controls="aiMemoryPanel" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v18H7.5A2.5 2.5 0 0 0 5 22V4.5Z" /><path d="M5 4.5V22M9 7h6M9 11h6" /></svg>
+              <span id="aiMemoryCount">0</span>
+            </button>
+
+            <button type="button" class="ai-memory-backdrop is-hidden" id="aiMemoryBackdrop" aria-label="Fechar memória da IA"></button>
+            <aside class="ai-memory-panel is-hidden" id="aiMemoryPanel" aria-hidden="true" aria-labelledby="aiMemoryTitle">
+              <header class="ai-memory-header">
+                <div>
+                  <span class="ai-memory-kicker">Memória da IA</span>
+                  <h2 id="aiMemoryTitle">Caderno da conversa</h2>
+                </div>
+                <button type="button" class="ai-memory-close" id="aiMemoryClose" aria-label="Fechar memória da IA">×</button>
+              </header>
+
+              <div class="ai-memory-sync" id="aiMemorySync">
+                <span class="ai-memory-sync-dot" aria-hidden="true"></span>
+                <span id="aiMemorySyncText">Salvo neste dispositivo</span>
+              </div>
+
+              <div class="ai-memory-body">
+                <section class="ai-memory-section">
+                  <h3>Resumo</h3>
+                  <p id="aiMemorySummary" class="ai-memory-empty">Ainda não há anotações.</p>
+                </section>
+
+                <section class="ai-memory-section">
+                  <h3>O que lembro</h3>
+                  <div class="ai-memory-chips" id="aiMemoryFacts"></div>
+                </section>
+
+                <section class="ai-memory-section">
+                  <h3>Preferências</h3>
+                  <div class="ai-memory-chips" id="aiMemoryPreferences"></div>
+                </section>
+
+                <section class="ai-memory-section">
+                  <div class="ai-memory-section-title">
+                    <h3>Dados que faltaram</h3>
+                    <span id="aiMemoryGapCount">0</span>
+                  </div>
+                  <div class="ai-memory-gaps" id="aiMemoryGaps"></div>
+                </section>
+              </div>
+            </aside>
+
+            <div class="ai-chat-messages" id="aiChatMessages" aria-live="polite">
               <article class="ai-message ai-message-assistant">
                 <div class="ai-message-content">Oi. Estou rodando no beta com contexto analitico da unidade quando disponivel. Pode me mandar uma pergunta ou usar /help para ver os comandos locais.</div>
               </article>

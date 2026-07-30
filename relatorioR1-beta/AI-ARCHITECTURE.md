@@ -173,9 +173,15 @@ O comando `/context` mostra o pacote completo. O comando `/context compact` most
 
 Status: implementado no beta.
 
-- Historico visual: salva as ultimas 12 mensagens em `relatorio_beta_ai_chat_history_v1`.
+- Historico visual: salva as ultimas 12 mensagens por UID em `relatorio_beta_ai_chat_history_v1:{uid}`.
+- Continuidade do modelo: envia ate 10 mensagens recentes, limitadas a 12 mil caracteres, junto da pergunta atual.
+- Memoria persistente: resumo, fatos declarados e preferencias em `relatorio_beta_ai_memory_v1:{uid}` e `/ai_assistant/memory/{uid}`.
+- Lacunas de dados: registradas separadamente em `/ai_assistant/gaps/{uid}/{gapId}`.
+- Arquivo integral: perguntas, respostas, comandos locais e erros ficam em `/ai_assistant/conversations/{uid}/{sessionId}/messages`.
+- Fila confiavel: cada mensagem entra em `relatorio_beta_ai_cloud_outbox_v1:{uid}` antes do upload e so e removida apos confirmacao.
+- Retencao na nuvem: sem expiracao automatica; mensagens sao append-only pelas regras do cliente.
 - Cache de resposta: salva ate 20 respostas por 3 minutos em `relatorio_beta_ai_reply_cache_v1`.
-- Chave do cache: pergunta + hash do contexto compacto + plano de modelos.
+- Chave do cache: pergunta + contexto compacto + historico recente + memoria + plano de modelos.
 - Invalidacao: cache curto por tempo e limpeza ao atualizar os caches do app.
 - Fallback: tenta primeiro o `model` configurado em `/app_config/gemini`, depois `fallbackModels`, depois os padroes do beta.
 - Fallback padrao atual: `gemini-3.5-flash-lite` e `gemini-flash-latest`, sem duplicar o modelo primario.

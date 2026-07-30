@@ -2,6 +2,9 @@
   "authorized_users": {
     "FIREBASE_AUTH_UID": true
   },
+  "ai_reviewers": {
+    "FIREBASE_REVIEWER_UID": true
+  },
   "app_config": {
     "physik_server": {
       "baseUrl": "https://abc.trycloudflare.com",

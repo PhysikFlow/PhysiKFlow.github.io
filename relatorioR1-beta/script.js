@@ -23,12 +23,22 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-30-ui-lab-16";
+const APP_BUILD_ID = "2026-07-30-ai-memory-lab-17";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const AI_CHAT_HISTORY_KEY = "relatorio_beta_ai_chat_history_v1";
+const AI_MEMORY_KEY = "relatorio_beta_ai_memory_v1";
+const AI_CLOUD_SESSION_KEY = "relatorio_beta_ai_cloud_session_v1";
+const AI_CLOUD_OUTBOX_KEY = "relatorio_beta_ai_cloud_outbox_v1";
 const AI_REPLY_CACHE_KEY = "relatorio_beta_ai_reply_cache_v1";
 const AI_REPLY_CACHE_TTL_MS = 1000 * 60 * 3;
 const AI_REPLY_CACHE_MAX_ENTRIES = 20;
+const AI_CHAT_VISIBLE_MESSAGE_LIMIT = 12;
+const AI_MODEL_HISTORY_MESSAGE_LIMIT = 10;
+const AI_MODEL_HISTORY_CHAR_LIMIT = 12000;
+const AI_MEMORY_FACT_LIMIT = 20;
+const AI_MEMORY_PREFERENCE_LIMIT = 20;
+const AI_MEMORY_GAP_LIMIT = 30;
+const AI_CLOUD_ROOT = "ai_assistant";
 const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
@@ -193,6 +203,13 @@ let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
 let aiChatBusy = false;
 const aiChatHistory = [];
+let aiMemory = createEmptyAiMemory();
+let aiCloudSyncState = "local";
+let aiCloudSyncDetail = "Aguardando sincronização";
+let aiCloudSessionId = "";
+let aiCloudSessionReady = false;
+let aiCloudOutboxFlushing = false;
+let aiUserStateUid = "";
 const studentVirtualState = new Map();
 const firebaseRealtimeUnsubscribers = new Map();
 const STUDENT_CARD_WIDTH = 152;
@@ -4317,6 +4334,86 @@ function setupBottomNav() {
 // ==========================
 // AI LAB CHAT
 // ==========================
+function renderAiMemoryPanel() {
+  const count = qs("aiMemoryCount");
+  const sync = qs("aiMemorySync");
+  const syncText = qs("aiMemorySyncText");
+  const summary = qs("aiMemorySummary");
+  const facts = qs("aiMemoryFacts");
+  const preferences = qs("aiMemoryPreferences");
+  const gaps = qs("aiMemoryGaps");
+  const gapCount = qs("aiMemoryGapCount");
+
+  const rememberedCount = aiMemory.facts.length + aiMemory.preferences.length;
+  if (count) count.textContent = String(rememberedCount);
+  if (sync) sync.dataset.state = aiCloudSyncState;
+  if (syncText) syncText.textContent = aiCloudSyncDetail;
+
+  if (summary) {
+    summary.textContent = aiMemory.summary || "Ainda não há anotações.";
+    summary.classList.toggle("ai-memory-empty", !aiMemory.summary);
+  }
+
+  if (facts) {
+    facts.innerHTML = aiMemory.facts.length
+      ? aiMemory.facts.map((fact) => `
+        <span class="ai-memory-chip">
+          <strong>${escapeHTML(fact.key)}</strong>
+          ${escapeHTML(fact.value)}
+        </span>
+      `).join("")
+      : '<span class="ai-memory-chip-empty">Nenhum fato anotado.</span>';
+  }
+
+  if (preferences) {
+    preferences.innerHTML = aiMemory.preferences.length
+      ? aiMemory.preferences.map((preference) => `
+        <span class="ai-memory-chip">${escapeHTML(preference)}</span>
+      `).join("")
+      : '<span class="ai-memory-chip-empty">Nenhuma preferência anotada.</span>';
+  }
+
+  const visibleGaps = [...aiMemory.dataGaps]
+    .filter((gap) => gap.status !== "resolved")
+    .sort((a, b) => Number(b.updatedAt) - Number(a.updatedAt))
+    .slice(0, 10);
+  if (gapCount) gapCount.textContent = String(visibleGaps.length);
+  if (gaps) {
+    gaps.innerHTML = visibleGaps.length
+      ? visibleGaps.map((gap) => `
+        <article class="ai-memory-gap">
+          <strong>${escapeHTML(gap.summary)}</strong>
+          ${gap.reason ? `<p>${escapeHTML(gap.reason)}</p>` : ""}
+          ${gap.suggestedDatasets.length ? `
+            <div class="ai-memory-gap-tags">
+              ${gap.suggestedDatasets.map((dataset) => `<span>${escapeHTML(dataset)}</span>`).join("")}
+            </div>
+          ` : ""}
+        </article>
+      `).join("")
+      : '<span class="ai-memory-chip-empty">Nenhuma lacuna registrada.</span>';
+  }
+}
+
+function setAiMemoryPanelOpen(isOpen) {
+  const panel = qs("aiMemoryPanel");
+  const backdrop = qs("aiMemoryBackdrop");
+  const toggle = qs("aiMemoryToggle");
+  if (!panel || !backdrop || !toggle) return;
+
+  panel.classList.toggle("is-hidden", !isOpen);
+  backdrop.classList.toggle("is-hidden", !isOpen);
+  panel.setAttribute("aria-hidden", String(!isOpen));
+  toggle.setAttribute("aria-expanded", String(isOpen));
+
+  if (isOpen) {
+    renderAiMemoryPanel();
+    qs("aiMemoryClose")?.focus({ preventScroll: true });
+  } else {
+    toggle.focus({ preventScroll: true });
+  }
+}
+
 function setAiBusy(isBusy) {
   aiChatBusy = isBusy;
   const send = qs("aiChatSend");
@@ -4367,12 +4464,19 @@ function appendAiMessage(role, text, { loading = false } = {}) {
 }
 
 function trimAiHistory() {
-  if (aiChatHistory.length > 12) aiChatHistory.splice(0, aiChatHistory.length - 12);
+  if (aiChatHistory.length > AI_CHAT_VISIBLE_MESSAGE_LIMIT) {
+    aiChatHistory.splice(0, aiChatHistory.length - AI_CHAT_VISIBLE_MESSAGE_LIMIT);
+  }
+}
+
+function aiUserStorageKey(baseKey, user = auth.currentUser) {
+  const uid = String(user?.uid || "").trim();
+  return uid ? `${baseKey}:${uid}` : `${baseKey}:anonymous`;
 }
 
 function loadAiChatHistory() {
   try {
-    const raw = localStorage.getItem(AI_CHAT_HISTORY_KEY);
+    const raw = localStorage.getItem(aiUserStorageKey(AI_CHAT_HISTORY_KEY));
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
 
@@ -4382,7 +4486,7 @@ function loadAiChatHistory() {
         typeof item.text === "string" &&
         item.text.trim()
       ))
-      .slice(-12);
+      .slice(-AI_CHAT_VISIBLE_MESSAGE_LIMIT);
   } catch (error) {
     console.warn("Historico do chat IA invalido:", error);
     return [];
@@ -4392,22 +4496,533 @@ function loadAiChatHistory() {
 function saveAiChatHistory() {
   try {
     trimAiHistory();
-    localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory));
+    localStorage.setItem(aiUserStorageKey(AI_CHAT_HISTORY_KEY), JSON.stringify(aiChatHistory));
   } catch (error) {
     console.warn("Falha ao salvar historico do chat IA:", error);
   }
 }
 
-function restoreAiChatHistory() {
+function resetAiChatVisual(user = auth.currentUser) {
+  const messages = qs("aiChatMessages");
+  if (!messages) return;
+
+  const firstName = String(user?.displayName || "").trim().split(/\s+/)[0];
+  const greeting = firstName
+    ? `Oi, ${firstName}. Estou com o contexto analitico da unidade quando disponivel. Como posso ajudar?`
+    : "Oi. Estou com o contexto analitico da unidade quando disponivel. Como posso ajudar?";
+
+  messages.innerHTML = "";
+  appendAiMessage("assistant", greeting);
+}
+
+function restoreAiChatHistory(user = auth.currentUser) {
   const messages = qs("aiChatMessages");
   if (!messages) return;
 
   const restored = loadAiChatHistory();
-  if (!restored.length) return;
+  if (!restored.length) {
+    resetAiChatVisual(user);
+    return;
+  }
 
   aiChatHistory.splice(0, aiChatHistory.length, ...restored);
   messages.innerHTML = "";
   restored.forEach((item) => appendAiMessage(item.role, item.text));
+}
+
+function createEmptyAiMemory() {
+  return {
+    schemaVersion: "1.0.0",
+    summary: "",
+    facts: [],
+    preferences: [],
+    dataGaps: [],
+    updatedAt: 0
+  };
+}
+
+function normalizeAiMemory(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const facts = Array.isArray(source.facts)
+    ? source.facts
+      .filter((fact) => fact && typeof fact === "object" && String(fact.key || "").trim() && String(fact.value || "").trim())
+      .map((fact) => ({
+        key: String(fact.key).trim().slice(0, 80),
+        value: String(fact.value).trim().slice(0, 500),
+        source: String(fact.source || "user").trim().slice(0, 40),
+        updatedAt: Number(fact.updatedAt) || Date.now()
+      }))
+      .slice(-AI_MEMORY_FACT_LIMIT)
+    : [];
+
+  const preferences = Array.isArray(source.preferences)
+    ? source.preferences
+      .map((item) => String(item || "").trim().slice(0, 500))
+      .filter(Boolean)
+      .slice(-AI_MEMORY_PREFERENCE_LIMIT)
+    : [];
+
+  const normalizedGaps = Array.isArray(source.dataGaps)
+    ? source.dataGaps
+      .filter((gap) => gap && typeof gap === "object" && String(gap.summary || gap.reason || "").trim())
+      .map((gap) => ({
+        id: String(gap.id || stableHash(`${gap.summary || ""}|${gap.reason || ""}|${gap.unitId || ""}`)),
+        summary: String(gap.summary || "Dado necessário").trim().slice(0, 500),
+        reason: String(gap.reason || "").trim().slice(0, 1000),
+        suggestedDatasets: Array.isArray(gap.suggestedDatasets)
+          ? gap.suggestedDatasets.map((item) => String(item || "").trim().slice(0, 120)).filter(Boolean).slice(0, 12)
+          : [],
+        unitId: String(gap.unitId || "").trim().slice(0, 120),
+        status: String(gap.status || "open").trim().slice(0, 40),
+        createdAt: Number(gap.createdAt) || Date.now(),
+        updatedAt: Number(gap.updatedAt) || Date.now(),
+        occurrences: Math.max(1, Number(gap.occurrences) || 1)
+      }))
+    : [];
+  const dataGaps = Array.from(
+    new Map(normalizedGaps.map((gap) => [gap.id, gap])).values()
+  ).slice(-AI_MEMORY_GAP_LIMIT);
+
+  return {
+    schemaVersion: "1.0.0",
+    summary: String(source.summary || "").trim().slice(0, 2000),
+    facts,
+    preferences,
+    dataGaps,
+    updatedAt: Number(source.updatedAt) || 0
+  };
+}
+
+function loadAiMemoryLocal() {
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_MEMORY_KEY));
+    return normalizeAiMemory(raw ? JSON.parse(raw) : null);
+  } catch (error) {
+    console.warn("Memoria local da IA invalida:", error);
+    return createEmptyAiMemory();
+  }
+}
+
+function saveAiMemoryLocal() {
+  try {
+    localStorage.setItem(aiUserStorageKey(AI_MEMORY_KEY), JSON.stringify(aiMemory));
+  } catch (error) {
+    console.warn("Falha ao salvar memoria local da IA:", error);
+  }
+}
+
+function aiMemoryForPrompt() {
+  return {
+    summary: aiMemory.summary,
+    facts: aiMemory.facts.map(({ key, value }) => ({ key, value })),
+    preferences: aiMemory.preferences
+  };
+}
+
+function normalizedMemoryKey(value) {
+  return normalizeStudentSearch(value).replace(/\s+/g, "_").slice(0, 80);
+}
+
+function mergeAiMemoryPatch(patch, { persistCloud = true } = {}) {
+  if (!patch || typeof patch !== "object") return;
+
+  const next = normalizeAiMemory(aiMemory);
+  const summary = String(patch.summary || "").trim();
+  if (summary) next.summary = summary.slice(0, 2000);
+
+  const factsByKey = new Map(next.facts.map((fact) => [normalizedMemoryKey(fact.key), fact]));
+  (Array.isArray(patch.facts) ? patch.facts : []).forEach((fact) => {
+    const key = String(fact?.key || "").trim();
+    const value = String(fact?.value || "").trim();
+    const normalizedKey = normalizedMemoryKey(key);
+    if (!normalizedKey || !value) return;
+    factsByKey.set(normalizedKey, {
+      key: key.slice(0, 80),
+      value: value.slice(0, 500),
+      source: String(fact?.source || "user").slice(0, 40),
+      updatedAt: Date.now()
+    });
+  });
+  next.facts = Array.from(factsByKey.values()).slice(-AI_MEMORY_FACT_LIMIT);
+
+  const preferencesByKey = new Map(
+    next.preferences.map((preference) => [normalizeStudentSearch(preference), preference])
+  );
+  (Array.isArray(patch.preferences) ? patch.preferences : []).forEach((item) => {
+    const preference = String(item || "").trim().slice(0, 500);
+    if (preference) preferencesByKey.set(normalizeStudentSearch(preference), preference);
+  });
+  next.preferences = Array.from(preferencesByKey.values()).slice(-AI_MEMORY_PREFERENCE_LIMIT);
+
+  const gapsById = new Map(next.dataGaps.map((gap) => [gap.id, gap]));
+  const addedGaps = [];
+  (Array.isArray(patch.dataGaps) ? patch.dataGaps : []).forEach((item) => {
+    const summary = String(item?.summary || "").trim().slice(0, 500);
+    const reason = String(item?.reason || "").trim().slice(0, 1000);
+    if (!summary && !reason) return;
+    const unitId = String(item?.unitId || unidadeSelecionada || "").trim().slice(0, 120);
+    const id = stableHash(`${normalizeStudentSearch(summary)}|${normalizeStudentSearch(reason)}|${unitId}`);
+    const previous = gapsById.get(id);
+    const gap = {
+      id,
+      summary: summary || "Dado necessário",
+      reason,
+      suggestedDatasets: Array.isArray(item?.suggestedDatasets)
+        ? item.suggestedDatasets.map((dataset) => String(dataset || "").trim().slice(0, 120)).filter(Boolean).slice(0, 12)
+        : [],
+      unitId,
+      status: "open",
+      createdAt: previous?.createdAt || Date.now(),
+      updatedAt: Date.now(),
+      occurrences: (previous?.occurrences || 0) + 1
+    };
+    gapsById.set(id, gap);
+    addedGaps.push(gap);
+  });
+  next.dataGaps = Array.from(gapsById.values())
+    .sort((a, b) => Number(a.updatedAt) - Number(b.updatedAt))
+    .slice(-AI_MEMORY_GAP_LIMIT);
+  next.updatedAt = Date.now();
+
+  aiMemory = next;
+  saveAiMemoryLocal();
+  renderAiMemoryPanel();
+
+  if (persistCloud) {
+    void persistAiMemoryCloud();
+    if (addedGaps.length) void persistAiGapsCloud(addedGaps);
+  }
+}
+
+function seedAiMemoryFromUser(user) {
+  const displayName = String(user?.displayName || "").trim();
+  if (!displayName) return;
+  mergeAiMemoryPatch({
+    facts: [{ key: "nome", value: displayName, source: "auth" }]
+  });
+}
+
+function aiCloudUserPath(branch, user = auth.currentUser) {
+  const uid = String(user?.uid || "").trim();
+  return uid ? `${AI_CLOUD_ROOT}/${branch}/${uid}` : "";
+}
+
+function setAiCloudSyncState(state, detail = "") {
+  aiCloudSyncState = state;
+  aiCloudSyncDetail = detail || (state === "cloud" ? "Sincronizado na nuvem" : "Salvo neste dispositivo");
+  renderAiMemoryPanel();
+}
+
+function setAiCloudSuccessState(detail) {
+  const pending = loadAiCloudOutbox().length;
+  if (pending) {
+    setAiCloudSyncState("local", `${pending} mensagem(ns) aguardando sincronização`);
+    return;
+  }
+  setAiCloudSyncState("cloud", detail);
+}
+
+function aiSessionDayKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function getAiCloudSessionId(user = auth.currentUser) {
+  const uid = String(user?.uid || "").trim();
+  if (!uid) return "";
+
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_CLOUD_SESSION_KEY, user));
+    const saved = raw ? JSON.parse(raw) : null;
+    if (saved?.uid === uid && saved?.day === aiSessionDayKey() && saved?.id) {
+      return String(saved.id);
+    }
+  } catch (error) {
+    console.warn("Sessao local da IA invalida:", error);
+  }
+
+  const randomId = crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  const id = `${aiSessionDayKey()}-${randomId}`.replace(/[^a-zA-Z0-9_-]/g, "");
+  localStorage.setItem(aiUserStorageKey(AI_CLOUD_SESSION_KEY, user), JSON.stringify({
+    id,
+    uid,
+    day: aiSessionDayKey(),
+    createdAt: Date.now()
+  }));
+  return id;
+}
+
+async function ensureAiCloudSession(user = auth.currentUser, requestedSessionId = "") {
+  if (!appAuthorized || !user?.uid) return "";
+  const sessionId = requestedSessionId || getAiCloudSessionId(user);
+  if (!sessionId) return "";
+  if (aiCloudSessionReady && aiCloudSessionId === sessionId) return sessionId;
+
+  const metaPath = `${aiCloudUserPath("conversations", user)}/${sessionId}/meta`;
+  const metaRef = db.ref(metaPath);
+  const snapshot = await metaRef.once("value");
+  const commonMeta = {
+    schemaVersion: "1.0.0",
+    userUid: user.uid,
+    userName: user.displayName || "",
+    userEmail: user.email || "",
+    unitId: unidadeSelecionada || "",
+    appBuildId: APP_BUILD_ID,
+    updatedAt: firebase.database.ServerValue.TIMESTAMP
+  };
+
+  if (snapshot.exists()) {
+    await metaRef.update(commonMeta);
+  } else {
+    await metaRef.set({
+      ...commonMeta,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      clientCreatedAt: new Date().toISOString()
+    });
+  }
+
+  aiCloudSessionId = sessionId;
+  aiCloudSessionReady = true;
+  return sessionId;
+}
+
+function loadAiCloudOutbox(user = auth.currentUser) {
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_CLOUD_OUTBOX_KEY, user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item?.id && item?.sessionId && item?.text)
+      : [];
+  } catch (error) {
+    console.warn("Fila local da conversa IA invalida:", error);
+    return [];
+  }
+}
+
+function saveAiCloudOutbox(outbox, user = auth.currentUser) {
+  try {
+    localStorage.setItem(aiUserStorageKey(AI_CLOUD_OUTBOX_KEY, user), JSON.stringify(outbox));
+  } catch (error) {
+    console.warn("Falha ao salvar fila local da conversa IA:", error);
+  }
+}
+
+function removeAiCloudOutboxItem(messageId, user = auth.currentUser) {
+  saveAiCloudOutbox(
+    loadAiCloudOutbox(user).filter((item) => item.id !== messageId),
+    user
+  );
+}
+
+async function flushAiCloudOutbox(user = auth.currentUser) {
+  if (aiCloudOutboxFlushing || !appAuthorized || !user?.uid) return false;
+  const initialOutbox = loadAiCloudOutbox(user);
+  if (!initialOutbox.length) return true;
+  const initialIds = new Set(initialOutbox.map((item) => item.id));
+
+  aiCloudOutboxFlushing = true;
+  try {
+    for (const item of initialOutbox) {
+      if (auth.currentUser?.uid !== user.uid) break;
+      const sessionId = await ensureAiCloudSession(user, item.sessionId);
+      if (!sessionId) break;
+
+      const sessionPath = `${aiCloudUserPath("conversations", user)}/${sessionId}`;
+      await db.ref(`${sessionPath}/meta`).update({
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        lastRole: item.role,
+        lastMessagePreview: String(item.text).slice(0, 240),
+        unitId: item.unitId || ""
+      });
+
+      const messageRef = db.ref(`${sessionPath}/messages/${item.id}`);
+      try {
+        await messageRef.set({
+          schemaVersion: "1.0.0",
+          role: item.role,
+          text: item.text,
+          source: item.source,
+          status: item.status,
+          unitId: item.unitId,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          clientCreatedAt: item.clientCreatedAt
+        });
+      } catch (writeError) {
+        const existing = await messageRef.once("value").catch(() => null);
+        if (!existing?.exists()) throw writeError;
+      }
+
+      removeAiCloudOutboxItem(item.id, user);
+    }
+
+    const remaining = loadAiCloudOutbox(user);
+    if (remaining.length) {
+      setAiCloudSyncState("local", `${remaining.length} mensagem(ns) aguardando sincronização`);
+      if (!remaining.some((item) => initialIds.has(item.id))) {
+        setTimeout(() => void flushAiCloudOutbox(user), 0);
+      }
+      return false;
+    }
+
+    setAiCloudSyncState("cloud", "Conversa sincronizada na nuvem");
+    return true;
+  } catch (error) {
+    console.warn("Falha ao enviar fila da conversa IA:", error.code || error.message);
+    const pending = loadAiCloudOutbox(user).length;
+    setAiCloudSyncState("local", `${pending} mensagem(ns) aguardando regras ou conexão`);
+    return false;
+  } finally {
+    aiCloudOutboxFlushing = false;
+  }
+}
+
+function archiveAiCloudMessage(role, text, metadata = {}) {
+  const user = auth.currentUser;
+  if (!appAuthorized || !user?.uid || !String(text || "").trim()) return false;
+
+  const sessionId = getAiCloudSessionId(user);
+  const messageId = db.ref(`${AI_CLOUD_ROOT}/message_ids`).push().key
+    || `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const outbox = loadAiCloudOutbox(user);
+  outbox.push({
+    id: messageId,
+    sessionId,
+    role: role === "assistant" ? "assistant" : "user",
+    text: String(text),
+    source: String(metadata.source || "chat"),
+    status: String(metadata.status || "ok"),
+    unitId: unidadeSelecionada || "",
+    clientCreatedAt: new Date().toISOString()
+  });
+  saveAiCloudOutbox(outbox, user);
+  setAiCloudSyncState("local", `${outbox.length} mensagem(ns) aguardando sincronização`);
+  return flushAiCloudOutbox(user);
+}
+
+async function persistAiMemoryCloud() {
+  const user = auth.currentUser;
+  const path = aiCloudUserPath("memory", user);
+  if (!appAuthorized || !path) return false;
+
+  try {
+    await db.ref(path).set({
+      schemaVersion: "1.0.0",
+      summary: aiMemory.summary,
+      facts: aiMemory.facts,
+      preferences: aiMemory.preferences,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP,
+      clientUpdatedAt: new Date().toISOString()
+    });
+    setAiCloudSuccessState("Memória sincronizada na nuvem");
+    return true;
+  } catch (error) {
+    console.warn("Falha ao sincronizar memoria IA:", error.code || error.message);
+    setAiCloudSyncState("local", "Memória salva apenas neste dispositivo");
+    return false;
+  }
+}
+
+async function persistAiGapsCloud(gaps) {
+  const user = auth.currentUser;
+  const path = aiCloudUserPath("gaps", user);
+  if (!appAuthorized || !path || !Array.isArray(gaps) || !gaps.length) return false;
+
+  const updates = {};
+  gaps.forEach((gap) => {
+    updates[gap.id] = {
+      ...gap,
+      userUid: user.uid,
+      userName: user.displayName || "",
+      updatedAt: firebase.database.ServerValue.TIMESTAMP,
+      clientUpdatedAt: new Date().toISOString()
+    };
+  });
+
+  try {
+    await db.ref(path).update(updates);
+    setAiCloudSuccessState("Lacunas de dados sincronizadas");
+    return true;
+  } catch (error) {
+    console.warn("Falha ao sincronizar lacunas IA:", error.code || error.message);
+    setAiCloudSyncState("local", "Lacunas salvas apenas neste dispositivo");
+    return false;
+  }
+}
+
+async function loadAiMemoryCloud(user = auth.currentUser) {
+  const path = aiCloudUserPath("memory", user);
+  if (!appAuthorized || !path) return null;
+
+  try {
+    const snapshot = await db.ref(path).once("value");
+    return snapshot.exists() ? normalizeAiMemory(snapshot.val()) : null;
+  } catch (error) {
+    console.warn("Falha ao carregar memoria IA da nuvem:", error.code || error.message);
+    setAiCloudSyncState("local", "Usando memória deste dispositivo");
+    return null;
+  }
+}
+
+async function loadAiGapsCloud(user = auth.currentUser) {
+  const path = aiCloudUserPath("gaps", user);
+  if (!appAuthorized || !path) return [];
+
+  try {
+    const snapshot = await db.ref(path).once("value");
+    const value = snapshot.val();
+    return value && typeof value === "object"
+      ? normalizeAiMemory({ dataGaps: Object.values(value) }).dataGaps
+      : [];
+  } catch (error) {
+    console.warn("Falha ao carregar lacunas IA da nuvem:", error.code || error.message);
+    return [];
+  }
+}
+
+async function initializeAiUserState(user) {
+  if (!user?.uid || aiUserStateUid === user.uid) return;
+  aiUserStateUid = user.uid;
+  aiCloudSessionReady = false;
+  aiCloudSessionId = "";
+  aiChatHistory.splice(0);
+  aiMemory = loadAiMemoryLocal();
+  restoreAiChatHistory(user);
+  renderAiMemoryPanel();
+
+  const [cloudMemory, cloudGaps] = await Promise.all([
+    loadAiMemoryCloud(user),
+    loadAiGapsCloud(user)
+  ]);
+  if (cloudMemory && cloudMemory.updatedAt >= aiMemory.updatedAt) {
+    aiMemory = normalizeAiMemory({
+      ...cloudMemory,
+      dataGaps: [...aiMemory.dataGaps, ...cloudGaps]
+    });
+    saveAiMemoryLocal();
+  } else if (cloudGaps.length) {
+    aiMemory = normalizeAiMemory({
+      ...aiMemory,
+      dataGaps: [...aiMemory.dataGaps, ...cloudGaps]
+    });
+    saveAiMemoryLocal();
+  }
+
+  seedAiMemoryFromUser(user);
+  renderAiMemoryPanel();
+  void ensureAiCloudSession(user)
+    .then(async () => {
+      const synced = await flushAiCloudOutbox(user);
+      if (synced) setAiCloudSyncState("cloud", "Arquivo de conversa preparado");
+    })
+    .catch((error) => {
+      console.warn("Arquivo de conversa IA indisponivel:", error.code || error.message);
+      setAiCloudSyncState("local", "Publique as regras do Firebase para ativar a nuvem");
+    });
 }
 
 function stableHash(input) {
@@ -4444,10 +5059,12 @@ function saveAiReplyCache(cache) {
   }
 }
 
-function aiReplyCacheKey({ message, context, modelPlan }) {
+function aiReplyCacheKey({ message, context, modelPlan, history = [], memory = null }) {
   return stableHash(JSON.stringify({
     message: String(message || "").trim(),
     contextHash: stableHash(JSON.stringify(context || {})),
+    historyHash: stableHash(JSON.stringify(history || [])),
+    memoryHash: stableHash(JSON.stringify(memory || {})),
     models: modelPlan
   }));
 }
@@ -4540,6 +5157,7 @@ function aiCommandHelp() {
     "| `/json all` | Testa todos os datasets conhecidos, inclusive os ainda planejados. |",
     "| `/context` | Mostra o contexto analitico que seria enviado para a IA. |",
     "| `/context compact` | Mostra a versao compactada que a chamada Gemini recebe. |",
+    "| `/memory` | Abre o caderno com memória, preferências e dados faltantes. |",
     "| `/desktop <pedido>` | Gera um `desktop_request` para dados/acoes que dependem do app desktop. |",
     "",
     "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000`, `/context 58780-000` ou `/context compact 58780-000`."
@@ -5244,6 +5862,10 @@ async function handleAiLocalCommand(message) {
   if (command === "/mock") return aiMockReply();
   if (command === "/json") return handleAiJsonCommand(args);
   if (command === "/context" || command === "/contexto") return handleAiContextCommand(args);
+  if (command === "/memory" || command === "/memoria") {
+    setAiMemoryPanelOpen(true);
+    return "Abri o caderno da conversa. Ele mostra o que foi lembrado e quais dados ainda fizeram falta.";
+  }
   if (command === "/desktop") return handleAiDesktopCommand(args);
 
   return [
@@ -5278,18 +5900,72 @@ function extractGeminiText(data) {
     .trim();
 }
 
-function createGeminiRequestBody(message, context = null) {
-  const contextText = context
-    ? [
+function aiModelConversationHistory(history = aiChatHistory) {
+  const selected = [];
+  let usedCharacters = 0;
+
+  [...history]
+    .slice(-AI_MODEL_HISTORY_MESSAGE_LIMIT)
+    .reverse()
+    .forEach((item) => {
+      const text = String(item?.text || "").trim().slice(0, 4000);
+      if (!text || (item?.role !== "user" && item?.role !== "assistant")) return;
+      if (usedCharacters + text.length > AI_MODEL_HISTORY_CHAR_LIMIT) return;
+      selected.unshift({
+        role: item.role === "assistant" ? "model" : "user",
+        parts: [{ text }]
+      });
+      usedCharacters += text.length;
+    });
+
+  return selected;
+}
+
+function parseAiResponseEnvelope(text) {
+  const raw = String(text || "");
+  const metadataPattern = /<physikflow_meta>\s*(?:```json\s*)?([\s\S]*?)(?:```\s*)?<\/physikflow_meta>/i;
+  const match = raw.match(metadataPattern);
+  if (!match) {
+    const metadataStart = raw.toLowerCase().indexOf("<physikflow_meta>");
+    return {
+      text: (metadataStart >= 0 ? raw.slice(0, metadataStart) : raw).trim(),
+      memoryPatch: null
+    };
+  }
+
+  let memoryPatch = null;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    memoryPatch = parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("Bloco interno de memoria IA invalido:", error.message);
+  }
+
+  return {
+    text: raw.replace(metadataPattern, "").trim(),
+    memoryPatch
+  };
+}
+
+function createGeminiRequestBody(message, context = null, history = aiChatHistory, memory = aiMemoryForPrompt()) {
+  const contextText = [
+    "Memoria persistente sobre o usuario e suas preferencias:",
+    "```json",
+    JSON.stringify(memory || {}),
+    "```",
+    "",
+    ...(context
+      ? [
       "Contexto analitico disponivel no PWA:",
       "```json",
       JSON.stringify(context),
       "```",
-      "",
-      "Pergunta do usuario:",
-      message
-    ].join("\n")
-    : message;
+        ""
+      ]
+      : []),
+    "Pergunta atual do usuario:",
+    message
+  ].join("\n");
 
   return {
     systemInstruction: {
@@ -5301,14 +5977,25 @@ function createGeminiRequestBody(message, context = null) {
           "Use apenas o contexto fornecido pelo PWA e deixe claro quando uma conclusao for limitada pelos dados disponiveis.",
           "Nao invente dados de alunos, pagamentos, auditoria ou historico se eles nao estiverem no contexto.",
           "Se a pergunta exigir dados que dependem do app desktop ou de datasets ainda ausentes, responda de forma util e inclua um bloco JSON `desktop_request` sugerindo o que o desktop deve gerar.",
+          "Use a memoria e o historico recente para manter continuidade natural, sem repetir perguntas ja respondidas.",
+          "Ao final de toda resposta, acrescente um bloco interno `<physikflow_meta>` com JSON compacto e depois feche com `</physikflow_meta>`.",
+          "O JSON interno deve ter apenas `summary`, `facts`, `preferences` e `dataGaps`.",
+          "`summary` deve ser um resumo curto e atualizado do que e util lembrar sobre o usuario.",
+          "`facts` deve conter somente fatos que o proprio usuario declarou claramente, como nome, funcao ou unidade; nunca deduza dados sensiveis.",
+          "`preferences` deve conter preferencias de comunicacao ou trabalho expressas pelo usuario.",
+          "`dataGaps` deve ser preenchido apenas quando a resposta ficou limitada por dados ausentes, usando objetos com `summary`, `reason`, `suggestedDatasets` e `unitId`.",
+          "Use arrays vazios quando nao houver novidade e nao explique nem mencione o bloco interno na resposta.",
           "Nao mencione tokens, chaves ou detalhes internos de seguranca."
         ].join(" ")
       }]
     },
-    contents: [{
-      role: "user",
-      parts: [{ text: contextText }]
-    }],
+    contents: [
+      ...aiModelConversationHistory(history),
+      {
+        role: "user",
+        parts: [{ text: contextText }]
+      }
+    ],
     generationConfig: {
       maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS
     }
@@ -5366,14 +6053,14 @@ function geminiShouldFallback(error) {
   );
 }
 
-async function callGeminiModel({ apiKey, model, message, context }) {
+async function callGeminiModel({ apiKey, model, message, context, history, memory }) {
   const response = await fetch(geminiGenerateEndpointForModel(model), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-goog-api-key": apiKey
     },
-    body: JSON.stringify(createGeminiRequestBody(message, context))
+    body: JSON.stringify(createGeminiRequestBody(message, context, history, memory))
   });
 
   const data = await response.json().catch(() => ({}));
@@ -5404,7 +6091,9 @@ async function requestGeminiChatReply(message, options = {}) {
 
   const context = compactAiContextForGemini(await buildAiContext());
   const modelPlan = geminiModelPlan(config);
-  const cacheKey = aiReplyCacheKey({ message, context, modelPlan });
+  const history = aiChatHistory.slice();
+  const memory = aiMemoryForPrompt();
+  const cacheKey = aiReplyCacheKey({ message, context, modelPlan, history, memory });
 
   if (options.useCache !== false) {
     const cached = getCachedAiReply(cacheKey);
@@ -5418,7 +6107,9 @@ async function requestGeminiChatReply(message, options = {}) {
         apiKey: config.apiKey,
         model,
         message,
-        context
+        context,
+        history,
+        memory
       });
       const reply = result.text + geminiFinishNotice(result.finishReason);
       if (!result.finishReason || result.finishReason === "STOP") {
@@ -5551,13 +6242,15 @@ async function requestGeminiChatReplyStream(message, onUpdate) {
   let response;
   try {
     const context = compactAiContextForGemini(await buildAiContext());
+    const history = aiChatHistory.slice();
+    const memory = aiMemoryForPrompt();
     response = await fetch(geminiStreamEndpoint(config), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-goog-api-key": config.apiKey
       },
-      body: JSON.stringify(createGeminiRequestBody(message, context))
+      body: JSON.stringify(createGeminiRequestBody(message, context, history, memory))
     });
   } catch (error) {
     console.warn("Gemini stream unavailable, falling back:", error);
@@ -5640,22 +6333,40 @@ async function handleAiChatSubmit(event) {
   appendAiMessage("user", message);
   const loading = appendAiMessage("assistant", "Pensando...", { loading: true });
   setAiBusy(true);
+  void archiveAiCloudMessage("user", message, { source: "chat" });
 
   try {
     const localReply = await handleAiLocalCommand(message);
-    const reply = localReply ?? await requestGeminiChatReplyStream(message, (partialReply) => {
-      updateAiLoadingMessage(loading, partialReply, false);
+    const rawReply = localReply ?? await requestGeminiChatReplyStream(message, (partialReply) => {
+      updateAiLoadingMessage(loading, parseAiResponseEnvelope(partialReply).text, false);
     });
+    const parsedReply = localReply
+      ? { text: rawReply, memoryPatch: null }
+      : parseAiResponseEnvelope(rawReply);
+    const reply = parsedReply.text || "Recebi sua mensagem, mas a resposta veio vazia.";
+
+    if (parsedReply.memoryPatch) {
+      mergeAiMemoryPatch(parsedReply.memoryPatch);
+    }
+
     aiChatHistory.push({ role: "user", text: message }, { role: "assistant", text: reply });
     saveAiChatHistory();
     updateAiLoadingMessage(loading, reply);
+    void archiveAiCloudMessage("assistant", reply, {
+      source: localReply ? "local-command" : "gemini"
+    });
   } catch (error) {
     console.error("Gemini chat error:", error);
+    const errorReply = geminiUserErrorMessage(error);
     updateAiLoadingMessage(
       loading,
-      geminiUserErrorMessage(error),
+      errorReply,
       true
     );
+    void archiveAiCloudMessage("assistant", errorReply, {
+      source: "gemini",
+      status: "error"
+    });
   } finally {
     setAiBusy(false);
     input?.focus();
@@ -5667,8 +6378,6 @@ function setupAiChat() {
   const input = qs("aiChatInput");
   if (!form || !input) return;
 
-  restoreAiChatHistory();
-
   document.querySelectorAll(".ai-message-assistant:not(.is-loading)").forEach((message) => {
     const content = message.querySelector(".ai-message-content");
     const text = message.dataset.rawText || content?.textContent || "";
@@ -5676,7 +6385,21 @@ function setupAiChat() {
     attachAiCopyButton(message, text);
   });
 
+  renderAiMemoryPanel();
   form.addEventListener("submit", handleAiChatSubmit);
+  qs("aiMemoryToggle")?.addEventListener("click", () => setAiMemoryPanelOpen(true));
+  qs("aiMemoryClose")?.addEventListener("click", () => setAiMemoryPanelOpen(false));
+  qs("aiMemoryBackdrop")?.addEventListener("click", () => setAiMemoryPanelOpen(false));
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && qs("aiMemoryPanel")?.getAttribute("aria-hidden") === "false") {
+      setAiMemoryPanelOpen(false);
+    }
+  });
+
+  window.addEventListener("online", () => {
+    if (appAuthorized) void flushAiCloudOutbox();
+  });
 
   input.addEventListener("input", () => {
     input.style.height = "auto";
@@ -5931,6 +6654,13 @@ function updateUIForSignedInUser(user) {
 
 function updateUIForSignedOutUser() {
   stopFirebaseRealtimeSync();
+  aiUserStateUid = "";
+  aiCloudSessionId = "";
+  aiCloudSessionReady = false;
+  aiChatHistory.splice(0);
+  aiMemory = createEmptyAiMemory();
+  setAiCloudSyncState("local", "Entre para sincronizar a memória");
+  resetAiChatVisual(null);
   const error = pendingLoginError;
   pendingLoginError = "";
   physikServerConfig = null;
@@ -5977,6 +6707,7 @@ async function handleAuthState(user) {
   }
 
   showApp();
+  await initializeAiUserState(user);
   setText("statusCache", "carregando");
   updateSyncDot("carregando");
 

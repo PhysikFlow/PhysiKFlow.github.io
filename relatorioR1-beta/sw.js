@@ -1,4 +1,4 @@
-const VERSION = "relatorio-r1-beta-ui-lab-2026-07-30";
+const VERSION = "relatorio-r1-beta-ai-memory-lab-2026-07-30";
 const CACHE_PREFIXES_TO_DELETE = [
   "relatorio-r1-beta-"
 ];
