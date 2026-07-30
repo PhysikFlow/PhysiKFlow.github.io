@@ -1935,7 +1935,6 @@ button:focus-visible {
   flex-direction: column;
   gap: 0.45rem;
   padding: 0.35rem 1rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .finance-nav-btn {
@@ -2790,6 +2789,40 @@ button:focus-visible {
   text-align: right;
 }
 
+.student-expiry-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.16rem 0.42rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.student-meta .student-expiry-badge--valid,
+.student-detail-row .student-expiry-badge--valid {
+  border-color: rgba(83, 209, 139, 0.2);
+  background: rgba(83, 209, 139, 0.1);
+  color: #91ddb3;
+}
+
+.student-meta .student-expiry-badge--expired,
+.student-detail-row .student-expiry-badge--expired {
+  border-color: rgba(238, 111, 122, 0.2);
+  background: rgba(238, 111, 122, 0.1);
+  color: #eba0a7;
+}
+
+.student-meta .student-expiry-badge--unknown,
+.student-detail-row .student-expiry-badge--unknown {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+}
+
 .student-profile--aluno {
   color: var(--good);
 }
@@ -2896,8 +2929,7 @@ button:focus-visible {
   gap: 0.55rem;
 }
 
-.student-detail-row,
-.student-payment-item {
+.student-detail-row {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -2906,19 +2938,17 @@ button:focus-visible {
 }
 
 .student-detail-row span,
-.student-payment-item span,
 .student-payment-item small {
   color: var(--muted);
 }
 
-.student-detail-row strong,
-.student-payment-item b {
+.student-detail-row strong {
   text-align: right;
 }
 
 .student-detail-payments {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.65rem;
 }
 
 .student-detail-payments h3 {
@@ -2927,10 +2957,77 @@ button:focus-visible {
   color: var(--muted);
 }
 
-.student-payment-item > div {
+.student-payment-item {
   display: grid;
-  gap: 0.18rem;
+  gap: 0.65rem;
   min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 12, 20, 0.42);
+}
+
+.student-payment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.student-payment-title {
+  min-width: 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.student-payment-amount {
+  flex-shrink: 0;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(83, 209, 139, 0.18);
+  border-radius: 999px;
+  background: rgba(83, 209, 139, 0.09);
+  color: #91ddb3;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.student-payment-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.student-payment-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.28rem 0.48rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  font-size: 0.69rem;
+  line-height: 1.2;
+}
+
+.student-payment-badge small {
+  font-size: 0.59rem;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.student-payment-note {
+  margin: 0;
+  padding: 0.55rem 0.62rem;
+  border-left: 2px solid rgba(159, 215, 255, 0.3);
+  border-radius: 0 8px 8px 0;
+  background: rgba(159, 215, 255, 0.05);
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
 @media (min-width: 720px) {

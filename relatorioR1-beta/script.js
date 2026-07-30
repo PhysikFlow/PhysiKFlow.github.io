@@ -23,7 +23,7 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_beta_cache_v2";
-const APP_BUILD_ID = "2026-07-28-ai-lab-15";
+const APP_BUILD_ID = "2026-07-30-ui-lab-16";
 const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
 const AI_CHAT_HISTORY_KEY = "relatorio_beta_ai_chat_history_v1";
 const AI_REPLY_CACHE_KEY = "relatorio_beta_ai_reply_cache_v1";
@@ -2121,6 +2121,53 @@ function formatDateBR(value) {
   return raw;
 }
 
+function parseStudentExpiryDate(value) {
+  const raw = String(value || "").trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const parts = isoMatch
+    ? [Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])]
+    : brMatch
+      ? [Number(brMatch[3]), Number(brMatch[2]), Number(brMatch[1])]
+      : null;
+
+  if (!parts) return null;
+  const [year, month, day] = parts;
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function studentExpiryPresentation(student) {
+  if (student?.perfil === "colaborador") {
+    return { label: "-", state: "valid" };
+  }
+
+  const expiryDate = parseStudentExpiryDate(student?.vencimento);
+  if (!expiryDate) {
+    return { label: formatDateBR(student?.vencimento), state: "unknown" };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return {
+    label: formatDateBR(student.vencimento),
+    state: expiryDate >= today ? "valid" : "expired"
+  };
+}
+
+function renderStudentExpiryBadge(student) {
+  const expiry = studentExpiryPresentation(student);
+  return `<b class="student-expiry-badge student-expiry-badge--${expiry.state}">${escapeHTML(expiry.label)}</b>`;
+}
+
 function perfilLabel(perfil) {
   return perfil === "colaborador" ? "Colaborador" : "Aluno";
 }
@@ -2166,7 +2213,7 @@ function renderStudentCard(student) {
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
         <span class="student-meta"><span>Cartão</span><b>${escapeHTML(student.cartao)}</b></span>
         <span class="student-meta"><span>Perfil</span><b class="student-profile student-profile--${perfil}">${perfilLabel(perfil)}</b></span>
-        <span class="student-meta"><span>Vencimento</span><b>${formatDateBR(student.vencimento)}</b></span>
+        <span class="student-meta"><span>Vencimento</span>${renderStudentExpiryBadge(student)}</span>
       </div>
     </article>
   `;
@@ -2373,21 +2420,22 @@ function studentExtraDetailRows(student) {
 }
 
 function studentDetailRows(student) {
+  const expiry = studentExpiryPresentation(student);
   const rows = [
     ["Unidade", nomeUnidade(student.unidadeId)],
     ["Cartão", student.cartao],
     ["Perfil", perfilLabel(student.perfil)],
-    ["Vencimento", formatDateBR(student.vencimento)],
+    ["Vencimento", expiry.label, `student-expiry-badge student-expiry-badge--${expiry.state}`],
     ["Telefone", student.telefone],
     ["Código", student.codigo]
   ].concat(studentExtraDetailRows(student));
 
   return rows
     .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
-    .map(([label, value]) => `
+    .map(([label, value, valueClass = ""]) => `
       <div class="student-detail-row">
         <span>${escapeHTML(label)}</span>
-        <strong>${escapeHTML(value)}</strong>
+        <strong${valueClass ? ` class="${escapeHTML(valueClass)}"` : ""}>${escapeHTML(value)}</strong>
       </div>
     `).join("");
 }
@@ -2396,19 +2444,39 @@ function formatStudentPaymentDate(payment) {
   return payment?.data || payment?.pagoEm || payment?.timestampCreatedAt || payment?.createdAt || "---";
 }
 
+function studentPaymentBadges(payment) {
+  const badges = [
+    { label: "Data", value: formatDateBR(formatStudentPaymentDate(payment)) },
+    {
+      label: "Forma",
+      value: payment?.formaPagamento || payment?.meioPagamento || payment?.metodoPagamento || payment?.forma
+    },
+    { label: "Status", value: payment?.status || payment?.situacao }
+  ];
+
+  return badges
+    .filter(({ value }) => value !== undefined && value !== null && String(value).trim() !== "")
+    .map(({ label, value }) => `
+      <span class="student-payment-badge">
+        <small>${escapeHTML(label)}</small>
+        ${escapeHTML(value)}
+      </span>
+    `).join("");
+}
+
 function renderStudentPayments(student) {
   const payments = toArray(student?.pagamentos);
   if (!payments.length) return '<div class="mini-note">Nenhum pagamento disponível.</div>';
 
   return payments.map((payment) => `
-    <div class="student-payment-item">
-      <div>
-        <strong>${escapeHTML(payment?.descricao || payment?.plano || payment?.tipo || "Pagamento")}</strong>
-        <span>${escapeHTML(formatDateBR(formatStudentPaymentDate(payment)))}</span>
-        ${payment?.observacao ? `<small>${escapeHTML(payment.observacao)}</small>` : ""}
+    <article class="student-payment-item">
+      <div class="student-payment-header">
+        <strong class="student-payment-title">${escapeHTML(payment?.descricao || payment?.plano || payment?.tipo || "Pagamento")}</strong>
+        <b class="student-payment-amount">${formatBRL(payment?.valor ?? payment?.valorPago ?? payment?.total ?? 0)}</b>
       </div>
-      <b>${formatBRL(payment?.valor ?? payment?.valorPago ?? payment?.total ?? 0)}</b>
-    </div>
+      <div class="student-payment-badges">${studentPaymentBadges(payment)}</div>
+      ${payment?.observacao ? `<p class="student-payment-note">${escapeHTML(payment.observacao)}</p>` : ""}
+    </article>
   `).join("");
 }
 
