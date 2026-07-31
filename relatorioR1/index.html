@@ -12,13 +12,13 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="favicon.png" type="image/png" sizes="128x128" />
   <link rel="apple-touch-icon" href="app-icon.png" />
-  <link rel="stylesheet" href="style.css?v=2026-07-22-physik-server-2" />
+  <link rel="stylesheet" href="style.css?v=2026-07-30-ai-preview-1" />
   <link rel="preload" as="image" href="r1-wallpaper.png" />
 
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-  <script src="script.js?v=2026-07-22-physik-server-2" defer></script>
+  <script src="script.js?v=2026-07-30-ai-preview-1" defer></script>
 </head>
 <body>
   <section class="login-screen" data-view="login">
@@ -134,6 +134,73 @@
         </div>
       </section>
 
+      <!-- PAGINA: IA LAB -->
+      <section class="app-page ai-page" data-page="ia">
+        <div class="ai-lab-shell">
+          <div class="ai-chat-panel">
+            <button type="button" class="ai-memory-toggle" id="aiMemoryToggle" aria-label="Abrir memória da IA" aria-controls="aiMemoryPanel" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v18H7.5A2.5 2.5 0 0 0 5 22V4.5Z" /><path d="M5 4.5V22M9 7h6M9 11h6" /></svg>
+              <span id="aiMemoryCount">0</span>
+            </button>
+
+            <button type="button" class="ai-memory-backdrop is-hidden" id="aiMemoryBackdrop" aria-label="Fechar memória da IA"></button>
+            <aside class="ai-memory-panel is-hidden" id="aiMemoryPanel" aria-hidden="true" aria-labelledby="aiMemoryTitle">
+              <header class="ai-memory-header">
+                <div>
+                  <span class="ai-memory-kicker">Memória da IA</span>
+                  <h2 id="aiMemoryTitle">Caderno da conversa</h2>
+                </div>
+                <button type="button" class="ai-memory-close" id="aiMemoryClose" aria-label="Fechar memória da IA">×</button>
+              </header>
+
+              <div class="ai-memory-sync" id="aiMemorySync">
+                <span class="ai-memory-sync-dot" aria-hidden="true"></span>
+                <span id="aiMemorySyncText">Salvo neste dispositivo</span>
+              </div>
+
+              <div class="ai-memory-body">
+                <section class="ai-memory-section">
+                  <h3>Resumo</h3>
+                  <p id="aiMemorySummary" class="ai-memory-empty">Ainda não há anotações.</p>
+                </section>
+
+                <section class="ai-memory-section">
+                  <h3>O que lembro</h3>
+                  <div class="ai-memory-chips" id="aiMemoryFacts"></div>
+                </section>
+
+                <section class="ai-memory-section">
+                  <h3>Preferências</h3>
+                  <div class="ai-memory-chips" id="aiMemoryPreferences"></div>
+                </section>
+
+                <section class="ai-memory-section">
+                  <div class="ai-memory-section-title">
+                    <h3>Dados que faltaram</h3>
+                    <span id="aiMemoryGapCount">0</span>
+                  </div>
+                  <div class="ai-memory-gaps" id="aiMemoryGaps"></div>
+                </section>
+              </div>
+            </aside>
+
+            <div class="ai-chat-messages" id="aiChatMessages" aria-live="polite">
+              <article class="ai-message ai-message-assistant">
+                <div class="ai-message-content">Olá. A IA do PhysikFlow está em fase de testes. Ela pode interpretar dados incorretamente, omitir informações ou apresentar conclusões imprecisas. Use as respostas como apoio e confirme decisões financeiras, operacionais e cadastrais nos dados oficiais do sistema. Como posso ajudar?</div>
+              </article>
+            </div>
+
+            <form class="ai-chat-composer" id="aiChatForm">
+              <label class="sr-only" for="aiChatInput">Mensagem para a IA</label>
+              <textarea id="aiChatInput" rows="1" placeholder="Pergunte alguma coisa..." autocomplete="off"></textarea>
+              <button type="submit" id="aiChatSend" aria-label="Enviar mensagem">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13" /><path d="m22 2-7 20-4-9-9-4 20-7z" /></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
       <!-- PÁGINA: CONTA -->
       <section class="app-page" data-page="conta">
         <h2 class="page-title">Configuração</h2>
@@ -182,6 +249,10 @@
     <button type="button" data-tab="alunos" data-title="Alunos">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
       Alunos
+    </button>
+    <button type="button" data-tab="ia" data-title="IA">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z" /><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" /><path d="M5 15l.7 1.6L7 17l-1.3.4L5 19l-.7-1.6L3 17l1.3-.4L5 15z" /></svg>
+      IA
     </button>
     <button type="button" data-tab="conta" data-title="Conta">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>

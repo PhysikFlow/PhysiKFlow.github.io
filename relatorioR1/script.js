@@ -23,8 +23,22 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // CONFIG
 // ==========================
 const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-26-firebase-realtime-1";
+const APP_BUILD_ID = "2026-07-30-ai-preview-1";
 const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
+const AI_CHAT_HISTORY_KEY = "relatorio_ai_chat_history_v1";
+const AI_MEMORY_KEY = "relatorio_ai_memory_v1";
+const AI_CLOUD_SESSION_KEY = "relatorio_ai_cloud_session_v1";
+const AI_CLOUD_OUTBOX_KEY = "relatorio_ai_cloud_outbox_v1";
+const AI_REPLY_CACHE_KEY = "relatorio_ai_reply_cache_v1";
+const AI_REPLY_CACHE_TTL_MS = 1000 * 60 * 3;
+const AI_REPLY_CACHE_MAX_ENTRIES = 20;
+const AI_CHAT_VISIBLE_MESSAGE_LIMIT = 12;
+const AI_MODEL_HISTORY_MESSAGE_LIMIT = 10;
+const AI_MODEL_HISTORY_CHAR_LIMIT = 12000;
+const AI_MEMORY_FACT_LIMIT = 20;
+const AI_MEMORY_PREFERENCE_LIMIT = 20;
+const AI_MEMORY_GAP_LIMIT = 30;
+const AI_CLOUD_ROOT = "ai_assistant";
 const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
 const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
@@ -32,8 +46,119 @@ const REPORT_ROOT = "relatorios";
 const UNITS_ROOT = "units";
 const PAGAMENTOS_BY_DATE_ROOT = "pagamentosByDate";
 const PHYSIK_SERVER_CONFIG_ROOT = "app_config/physik_server";
+const GEMINI_CONFIG_ROOT = "app_config/gemini";
 const PHOTO_LINK_CACHE_KEY = "relatorio_photo_links_v1";
 const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
+const AI_ANALYTICS_AREA = "financeiro";
+const AI_ANALYTICS_DATASETS = {
+  manifest: "manifest.json",
+  daily: "daily_summary.json",
+  finance: "finance_rollup.json",
+  daily_summary: "daily_summary.json",
+  finance_rollup: "finance_rollup.json",
+  students: "students_index.json",
+  students_index: "students_index.json",
+  retention: "retention_summary.json",
+  retention_summary: "retention_summary.json",
+  risk: "risk_alerts.json",
+  risk_alerts: "risk_alerts.json",
+  activity: "student_activity_rollup.json",
+  student_activity_rollup: "student_activity_rollup.json",
+  student_finance: "student_finance_rollup.json",
+  student_finance_rollup: "student_finance_rollup.json",
+  lifecycle: "student_lifecycle_rollup.json",
+  student_lifecycle_rollup: "student_lifecycle_rollup.json",
+  attendance: "attendance_rollup.json",
+  attendance_rollup: "attendance_rollup.json",
+  plans: "plan_rollup.json",
+  plan_rollup: "plan_rollup.json",
+  periods: "finance_periods.json",
+  finance_periods: "finance_periods.json",
+  receivables: "receivables_rollup.json",
+  receivables_rollup: "receivables_rollup.json",
+  payment_methods: "payment_methods_rollup.json",
+  payment_methods_rollup: "payment_methods_rollup.json",
+  cashflow: "cashflow_rollup.json",
+  cashflow_rollup: "cashflow_rollup.json",
+  expenses: "expense_rollup.json",
+  expense_rollup: "expense_rollup.json",
+  renewals: "renewals_rollup.json",
+  renewals_rollup: "renewals_rollup.json",
+  conversion: "conversion_funnel.json",
+  conversion_funnel: "conversion_funnel.json",
+  leads: "lead_funnel_rollup.json",
+  lead_funnel_rollup: "lead_funnel_rollup.json",
+  marketing: "marketing_attribution_rollup.json",
+  marketing_attribution_rollup: "marketing_attribution_rollup.json",
+  campaigns: "campaign_opportunities.json",
+  campaign_opportunities: "campaign_opportunities.json",
+  live: "live_occupancy.json",
+  live_occupancy: "live_occupancy.json",
+  duration: "training_duration_rollup.json",
+  training_duration_rollup: "training_duration_rollup.json",
+  staff: "staff_performance_rollup.json",
+  staff_performance_rollup: "staff_performance_rollup.json",
+  classes: "classes_rollup.json",
+  classes_rollup: "classes_rollup.json",
+  feedback: "feedback_rollup.json",
+  feedback_rollup: "feedback_rollup.json",
+  equipment: "equipment_rollup.json",
+  equipment_rollup: "equipment_rollup.json",
+  operations: "operations_alerts.json",
+  operations_alerts: "operations_alerts.json",
+  goals: "goals_progress.json",
+  goals_progress: "goals_progress.json",
+  executive: "daily_executive_summary.json",
+  daily_executive_summary: "daily_executive_summary.json"
+};
+const AI_ANALYTICS_BASE_KEYS = ["manifest", "daily", "finance"];
+const AI_ANALYTICS_ALL_KEYS = [
+  "manifest",
+  "daily",
+  "finance",
+  "students",
+  "retention",
+  "risk",
+  "activity",
+  "student_finance",
+  "lifecycle",
+  "attendance",
+  "plans",
+  "periods",
+  "receivables",
+  "payment_methods",
+  "cashflow",
+  "expenses",
+  "renewals",
+  "conversion",
+  "leads",
+  "marketing",
+  "campaigns",
+  "live",
+  "duration",
+  "staff",
+  "classes",
+  "feedback",
+  "equipment",
+  "operations",
+  "goals",
+  "executive"
+];
+const GEMINI_MAX_OUTPUT_TOKENS = 4096;
+const GEMINI_DEFAULT_FALLBACK_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-flash-latest"
+];
+const AI_COMPACT_DEFAULT_ARRAY_LIMIT = 12;
+const AI_COMPACT_ARRAY_LIMITS = {
+  monthly: 12,
+  avulsosMonthly: 12,
+  paymentValueDistribution: 8,
+  topStudents: 8,
+  peakHours: 12
+};
+const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_gemini_stream_unavailable";
+const GEMINI_STREAM_ENABLED = false;
 const REPORT_LIGHT_FIELDS = [
   "meta",
   "resumo",
@@ -61,6 +186,9 @@ let unidadeSelecionada = localStorage.getItem(SELECTED_UNIT_KEY) || "";
 let physikServerConfig = null;
 let physikServerConfigPromise = null;
 let physikServerConfigError = "";
+let geminiConfig = null;
+let geminiConfigPromise = null;
+let geminiConfigError = "";
 let firebaseRealtimeStarted = false;
 let firebaseRealtimeApplyTimer = null;
 let firebaseRealtimeFallbackTimer = null;
@@ -73,6 +201,15 @@ let authStateReady = false;
 let pendingLoginError = "";
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
+let aiChatBusy = false;
+const aiChatHistory = [];
+let aiMemory = createEmptyAiMemory();
+let aiCloudSyncState = "local";
+let aiCloudSyncDetail = "Aguardando sincronização";
+let aiCloudSessionId = "";
+let aiCloudSessionReady = false;
+let aiCloudOutboxFlushing = false;
+let aiUserStateUid = "";
 const studentVirtualState = new Map();
 const firebaseRealtimeUnsubscribers = new Map();
 const STUDENT_CARD_WIDTH = 152;
@@ -236,6 +373,215 @@ const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
   '"': "&quot;",
   "'": "&#039;"
 }[char]));
+
+function renderInlineMarkdown(value) {
+  const codeTokens = [];
+  const mathTokens = [];
+  let html = String(value ?? "").replace(/\$([^$\n]+)\$/g, (_, math) => {
+    const token = `@@MATH_${mathTokens.length}@@`;
+    mathTokens.push(`<span class="ai-md-math">${escapeHTML(formatInlineMath(math))}</span>`);
+    return token;
+  });
+
+  html = escapeHTML(html).replace(/`([^`]+)`/g, (_, code) => {
+    const token = `@@CODE_${codeTokens.length}@@`;
+    codeTokens.push(`<code>${code}</code>`);
+    return token;
+  });
+
+  html = html
+    .replace(/~~([^~]+)~~/g, "<s>$1</s>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+    .replace(/_([^_\n]+)_/g, "<em>$1</em>");
+
+  codeTokens.forEach((code, index) => {
+    html = html.replace(`@@CODE_${index}@@`, code);
+  });
+
+  mathTokens.forEach((math, index) => {
+    html = html.replace(`@@MATH_${index}@@`, math);
+  });
+
+  return html;
+}
+
+function formatInlineMath(value) {
+  return String(value || "")
+    .replace(/\\text\{([^}]+)\}/g, "$1")
+    .replace(/\\mathrm\{([^}]+)\}/g, "$1")
+    .replace(/\\operatorname\{([^}]+)\}/g, "$1")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\times/g, "x")
+    .replace(/\\,/g, " ")
+    .replace(/\\/g, "")
+    .trim();
+}
+
+const isMarkdownHr = (line) => /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line);
+const isMarkdownTableSeparator = (line) => /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+const isMarkdownTableRow = (line) => line.includes("|") && !isMarkdownHr(line);
+
+function splitMarkdownTableRow(line) {
+  let clean = line.trim();
+  if (clean.startsWith("|")) clean = clean.slice(1);
+  if (clean.endsWith("|")) clean = clean.slice(0, -1);
+  return clean.split("|").map((cell) => cell.trim());
+}
+
+function renderMarkdownTable(lines) {
+  const header = splitMarkdownTableRow(lines[0] || "");
+  const bodyRows = lines.slice(2).filter((line) => isMarkdownTableRow(line));
+
+  const headHtml = header
+    .map((cell) => `<th>${renderInlineMarkdown(cell)}</th>`)
+    .join("");
+
+  const bodyHtml = bodyRows
+    .map((line) => {
+      const cells = splitMarkdownTableRow(line);
+      return `<tr>${cells.map((cell) => `<td>${renderInlineMarkdown(cell)}</td>`).join("")}</tr>`;
+    })
+    .join("");
+
+  return `<div class="ai-md-table-wrap"><table><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+}
+
+function renderMarkdownList(lines, ordered = false) {
+  const tag = ordered ? "ol" : "ul";
+  const marker = ordered ? /^\s*\d+\.\s+/ : /^\s*[-*+]\s+/;
+  const items = lines
+    .filter((line) => marker.test(line))
+    .map((line) => {
+      const depth = Math.min(Math.floor((line.match(/^\s*/)?.[0].length || 0) / 2), 3);
+      return `<li class="ai-md-indent-${depth}">${renderInlineMarkdown(line.replace(marker, ""))}</li>`;
+    })
+    .join("");
+
+  return `<${tag}>${items}</${tag}>`;
+}
+
+function renderParagraph(lines) {
+  return `<p>${renderInlineMarkdown(lines.join("\n")).replace(/\n/g, "<br>")}</p>`;
+}
+
+function collectParagraph(lines, startIndex) {
+  const block = [];
+  let index = startIndex;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) break;
+    if (/^```/.test(line.trim())) break;
+    if (/^#{1,4}\s+/.test(line)) break;
+    if (isMarkdownHr(line)) break;
+    if (/^\s*>\s?/.test(line)) break;
+    if (/^\s*[-*+]\s+/.test(line)) break;
+    if (/^\s*\d+\.\s+/.test(line)) break;
+    if (isMarkdownTableRow(line) && isMarkdownTableSeparator(lines[index + 1] || "")) break;
+
+    block.push(line);
+    index += 1;
+  }
+
+  return { block, index };
+}
+
+function renderBasicMarkdown(value) {
+  const text = String(value ?? "").replace(/\r\n/g, "\n").trim();
+  if (!text) return "";
+
+  const html = [];
+  const lines = text.split("\n");
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    if (/^```/.test(line.trim())) {
+      const code = [];
+      index += 1;
+      while (index < lines.length && !/^```/.test(lines[index].trim())) {
+        code.push(lines[index]);
+        index += 1;
+      }
+      if (index < lines.length) index += 1;
+      html.push(`<pre><code>${escapeHTML(code.join("\n"))}</code></pre>`);
+      continue;
+    }
+
+    if (/^#{1,4}\s+/.test(line)) {
+      html.push(`<strong class="ai-md-heading">${renderInlineMarkdown(line.replace(/^#{1,4}\s+/, ""))}</strong>`);
+      index += 1;
+      continue;
+    }
+
+    if (isMarkdownHr(line)) {
+      html.push('<hr class="ai-md-hr">');
+      index += 1;
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const block = [];
+      while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+        block.push(lines[index].replace(/^\s*>\s?/, ""));
+        index += 1;
+      }
+      html.push(`<blockquote>${renderBasicMarkdown(block.join("\n"))}</blockquote>`);
+      continue;
+    }
+
+    if (isMarkdownTableRow(line) && isMarkdownTableSeparator(lines[index + 1] || "")) {
+      const tableLines = [line, lines[index + 1]];
+      index += 2;
+      while (index < lines.length && isMarkdownTableRow(lines[index]) && lines[index].trim()) {
+        tableLines.push(lines[index]);
+        index += 1;
+      }
+      html.push(renderMarkdownTable(tableLines));
+      continue;
+    }
+
+    if (/^\s*[-*+]\s+/.test(line)) {
+      const block = [];
+      while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
+        block.push(lines[index]);
+        index += 1;
+      }
+      html.push(renderMarkdownList(block, false));
+      continue;
+    }
+
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const block = [];
+      while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
+        block.push(lines[index]);
+        index += 1;
+      }
+      html.push(renderMarkdownList(block, true));
+      continue;
+    }
+
+    const paragraph = collectParagraph(lines, index);
+    if (paragraph.block.length) {
+      html.push(renderParagraph(paragraph.block));
+      index = paragraph.index;
+      continue;
+    }
+
+    html.push(renderParagraph([line]));
+    index += 1;
+  }
+
+  return html.join("");
+}
 
 function toArray(value) {
   if (Array.isArray(value)) return value;
@@ -464,6 +810,12 @@ function startFirebaseRealtimeSync() {
     }
   });
 
+  watchFirebaseValue(GEMINI_CONFIG_ROOT, "geminiConfig", (value) => {
+    geminiConfig = normalizeGeminiConfig(value);
+    geminiConfigPromise = null;
+    geminiConfigError = geminiConfig ? "" : (value ? "config-invalida" : "config-null");
+  });
+
   firebaseRealtimeFallbackTimer = setTimeout(() => {
     firebaseRealtimeFallbackTimer = null;
     if (!firebaseRealtimeUnitsReady || !Object.keys(relatoriosPorUnidade).length) {
@@ -492,6 +844,48 @@ function normalizePhysikServerConfig(value) {
     linkTtlSeconds,
     status: status || "online"
   };
+}
+
+function normalizeGeminiConfig(value) {
+  if (!value || typeof value !== "object") return null;
+
+  const enabled = value.enabled !== false;
+  const apiKey = String(value.apiKey || "").trim();
+  const model = String(value.model || "gemini-flash-latest").trim();
+  const fallbackModels = Array.isArray(value.fallbackModels)
+    ? value.fallbackModels.map((item) => String(item || "").trim()).filter(Boolean)
+    : String(value.fallbackModel || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  if (!enabled || !apiKey || !model) return null;
+
+  return { enabled, apiKey, model, fallbackModels };
+}
+
+async function carregarGeminiConfig(force = false) {
+  if (!force && geminiConfig) return geminiConfig;
+  if (!force && geminiConfigPromise) return geminiConfigPromise;
+
+  geminiConfigError = "";
+  geminiConfigPromise = readFirebaseValue(GEMINI_CONFIG_ROOT, "gemini-config")
+    .then((value) => {
+      geminiConfig = normalizeGeminiConfig(value);
+      if (!geminiConfig) geminiConfigError = value ? "config-invalida" : "config-null";
+      return geminiConfig;
+    })
+    .catch((error) => {
+      console.warn("Config Gemini indisponivel:", error.code || error.status || error.message, error.message);
+      geminiConfigError = error.code || error.status || error.message || "erro-config";
+      geminiConfig = null;
+      return null;
+    })
+    .finally(() => {
+      geminiConfigPromise = null;
+    });
+
+  return geminiConfigPromise;
 }
 
 async function carregarPhysikServerConfig(force = false) {
@@ -1744,6 +2138,53 @@ function formatDateBR(value) {
   return raw;
 }
 
+function parseStudentExpiryDate(value) {
+  const raw = String(value || "").trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const brMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const parts = isoMatch
+    ? [Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])]
+    : brMatch
+      ? [Number(brMatch[3]), Number(brMatch[2]), Number(brMatch[1])]
+      : null;
+
+  if (!parts) return null;
+  const [year, month, day] = parts;
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function studentExpiryPresentation(student) {
+  if (student?.perfil === "colaborador") {
+    return { label: "-", state: "valid" };
+  }
+
+  const expiryDate = parseStudentExpiryDate(student?.vencimento);
+  if (!expiryDate) {
+    return { label: formatDateBR(student?.vencimento), state: "unknown" };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return {
+    label: formatDateBR(student.vencimento),
+    state: expiryDate >= today ? "valid" : "expired"
+  };
+}
+
+function renderStudentExpiryBadge(student) {
+  const expiry = studentExpiryPresentation(student);
+  return `<b class="student-expiry-badge student-expiry-badge--${expiry.state}">${escapeHTML(expiry.label)}</b>`;
+}
+
 function perfilLabel(perfil) {
   return perfil === "colaborador" ? "Colaborador" : "Aluno";
 }
@@ -1789,7 +2230,7 @@ function renderStudentCard(student) {
         <strong class="student-name">${escapeHTML(student.nome)}</strong>
         <span class="student-meta"><span>Cartão</span><b>${escapeHTML(student.cartao)}</b></span>
         <span class="student-meta"><span>Perfil</span><b class="student-profile student-profile--${perfil}">${perfilLabel(perfil)}</b></span>
-        <span class="student-meta"><span>Vencimento</span><b>${formatDateBR(student.vencimento)}</b></span>
+        <span class="student-meta"><span>Vencimento</span>${renderStudentExpiryBadge(student)}</span>
       </div>
     </article>
   `;
@@ -1996,21 +2437,22 @@ function studentExtraDetailRows(student) {
 }
 
 function studentDetailRows(student) {
+  const expiry = studentExpiryPresentation(student);
   const rows = [
     ["Unidade", nomeUnidade(student.unidadeId)],
     ["Cartão", student.cartao],
     ["Perfil", perfilLabel(student.perfil)],
-    ["Vencimento", formatDateBR(student.vencimento)],
+    ["Vencimento", expiry.label, `student-expiry-badge student-expiry-badge--${expiry.state}`],
     ["Telefone", student.telefone],
     ["Código", student.codigo]
   ].concat(studentExtraDetailRows(student));
 
   return rows
     .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
-    .map(([label, value]) => `
+    .map(([label, value, valueClass = ""]) => `
       <div class="student-detail-row">
         <span>${escapeHTML(label)}</span>
-        <strong>${escapeHTML(value)}</strong>
+        <strong${valueClass ? ` class="${escapeHTML(valueClass)}"` : ""}>${escapeHTML(value)}</strong>
       </div>
     `).join("");
 }
@@ -2019,19 +2461,39 @@ function formatStudentPaymentDate(payment) {
   return payment?.data || payment?.pagoEm || payment?.timestampCreatedAt || payment?.createdAt || "---";
 }
 
+function studentPaymentBadges(payment) {
+  const badges = [
+    { label: "Data", value: formatDateBR(formatStudentPaymentDate(payment)) },
+    {
+      label: "Forma",
+      value: payment?.formaPagamento || payment?.meioPagamento || payment?.metodoPagamento || payment?.forma
+    },
+    { label: "Status", value: payment?.status || payment?.situacao }
+  ];
+
+  return badges
+    .filter(({ value }) => value !== undefined && value !== null && String(value).trim() !== "")
+    .map(({ label, value }) => `
+      <span class="student-payment-badge">
+        <small>${escapeHTML(label)}</small>
+        ${escapeHTML(value)}
+      </span>
+    `).join("");
+}
+
 function renderStudentPayments(student) {
   const payments = toArray(student?.pagamentos);
   if (!payments.length) return '<div class="mini-note">Nenhum pagamento disponível.</div>';
 
   return payments.map((payment) => `
-    <div class="student-payment-item">
-      <div>
-        <strong>${escapeHTML(payment?.descricao || payment?.plano || payment?.tipo || "Pagamento")}</strong>
-        <span>${escapeHTML(formatDateBR(formatStudentPaymentDate(payment)))}</span>
-        ${payment?.observacao ? `<small>${escapeHTML(payment.observacao)}</small>` : ""}
+    <article class="student-payment-item">
+      <div class="student-payment-header">
+        <strong class="student-payment-title">${escapeHTML(payment?.descricao || payment?.plano || payment?.tipo || "Pagamento")}</strong>
+        <b class="student-payment-amount">${formatBRL(payment?.valor ?? payment?.valorPago ?? payment?.total ?? 0)}</b>
       </div>
-      <b>${formatBRL(payment?.valor ?? payment?.valorPago ?? payment?.total ?? 0)}</b>
-    </div>
+      <div class="student-payment-badges">${studentPaymentBadges(payment)}</div>
+      ${payment?.observacao ? `<p class="student-payment-note">${escapeHTML(payment.observacao)}</p>` : ""}
+    </article>
   `).join("");
 }
 
@@ -3341,7 +3803,7 @@ function updateTopbarTitle() {
   title.textContent = inicioSegmento === "financeiro" ? "Financeiro" : "Início";
 }
 
-const TAB_ORDER = ["inicio", "financeiro", "alunos", "conta"];
+const TAB_ORDER = ["inicio", "financeiro", "alunos", "ia", "conta"];
 const PAGE_SLIDE_MS = 380;
 const PAGE_SLIDE_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const SWIPE_COMMIT_PX = 96;
@@ -3870,6 +4332,2089 @@ function setupBottomNav() {
 }
 
 // ==========================
+// AI LAB CHAT
+// ==========================
+function renderAiMemoryPanel() {
+  const count = qs("aiMemoryCount");
+  const sync = qs("aiMemorySync");
+  const syncText = qs("aiMemorySyncText");
+  const summary = qs("aiMemorySummary");
+  const facts = qs("aiMemoryFacts");
+  const preferences = qs("aiMemoryPreferences");
+  const gaps = qs("aiMemoryGaps");
+  const gapCount = qs("aiMemoryGapCount");
+
+  const rememberedCount = aiMemory.facts.length + aiMemory.preferences.length;
+  if (count) count.textContent = String(rememberedCount);
+  if (sync) sync.dataset.state = aiCloudSyncState;
+  if (syncText) syncText.textContent = aiCloudSyncDetail;
+
+  if (summary) {
+    summary.textContent = aiMemory.summary || "Ainda não há anotações.";
+    summary.classList.toggle("ai-memory-empty", !aiMemory.summary);
+  }
+
+  if (facts) {
+    facts.innerHTML = aiMemory.facts.length
+      ? aiMemory.facts.map((fact) => `
+        <span class="ai-memory-chip">
+          <strong>${escapeHTML(fact.key)}</strong>
+          ${escapeHTML(fact.value)}
+        </span>
+      `).join("")
+      : '<span class="ai-memory-chip-empty">Nenhum fato anotado.</span>';
+  }
+
+  if (preferences) {
+    preferences.innerHTML = aiMemory.preferences.length
+      ? aiMemory.preferences.map((preference) => `
+        <span class="ai-memory-chip">${escapeHTML(preference)}</span>
+      `).join("")
+      : '<span class="ai-memory-chip-empty">Nenhuma preferência anotada.</span>';
+  }
+
+  const visibleGaps = [...aiMemory.dataGaps]
+    .filter((gap) => gap.status !== "resolved")
+    .sort((a, b) => Number(b.updatedAt) - Number(a.updatedAt))
+    .slice(0, 10);
+  if (gapCount) gapCount.textContent = String(visibleGaps.length);
+  if (gaps) {
+    gaps.innerHTML = visibleGaps.length
+      ? visibleGaps.map((gap) => `
+        <article class="ai-memory-gap">
+          <strong>${escapeHTML(gap.summary)}</strong>
+          ${gap.reason ? `<p>${escapeHTML(gap.reason)}</p>` : ""}
+          ${gap.suggestedDatasets.length ? `
+            <div class="ai-memory-gap-tags">
+              ${gap.suggestedDatasets.map((dataset) => `<span>${escapeHTML(dataset)}</span>`).join("")}
+            </div>
+          ` : ""}
+        </article>
+      `).join("")
+      : '<span class="ai-memory-chip-empty">Nenhuma lacuna registrada.</span>';
+  }
+}
+
+function setAiMemoryPanelOpen(isOpen) {
+  const panel = qs("aiMemoryPanel");
+  const backdrop = qs("aiMemoryBackdrop");
+  const toggle = qs("aiMemoryToggle");
+  if (!panel || !backdrop || !toggle) return;
+
+  panel.classList.toggle("is-hidden", !isOpen);
+  backdrop.classList.toggle("is-hidden", !isOpen);
+  panel.setAttribute("aria-hidden", String(!isOpen));
+  toggle.setAttribute("aria-expanded", String(isOpen));
+
+  if (isOpen) {
+    renderAiMemoryPanel();
+    qs("aiMemoryClose")?.focus({ preventScroll: true });
+  } else {
+    toggle.focus({ preventScroll: true });
+  }
+}
+
+function setAiBusy(isBusy) {
+  aiChatBusy = isBusy;
+  const send = qs("aiChatSend");
+  const input = qs("aiChatInput");
+  if (send) send.disabled = isBusy;
+  if (input) input.disabled = isBusy;
+}
+
+function isAiChatNearBottom() {
+  const messages = qs("aiChatMessages");
+  if (!messages) return true;
+  return messages.scrollHeight - messages.scrollTop - messages.clientHeight < 96;
+}
+
+function scrollAiChatToBottom({ force = false } = {}) {
+  const messages = qs("aiChatMessages");
+  if (!messages) return;
+  if (!force && !isAiChatNearBottom()) return;
+
+  requestAnimationFrame(() => {
+    messages.scrollTop = messages.scrollHeight;
+  });
+}
+
+function appendAiMessage(role, text, { loading = false } = {}) {
+  const messages = qs("aiChatMessages");
+  if (!messages) return null;
+
+  const item = document.createElement("article");
+  item.className = `ai-message ai-message-${role}${loading ? " is-loading" : ""}`;
+  item.dataset.rawText = text;
+
+  const content = document.createElement("div");
+  content.className = "ai-message-content";
+  if (role === "assistant" && !loading) {
+    content.innerHTML = renderBasicMarkdown(text);
+  } else {
+    content.textContent = text;
+  }
+  item.appendChild(content);
+  if (role === "assistant" && !loading) {
+    attachAiCopyButton(item, text);
+  }
+  messages.appendChild(item);
+  scrollAiChatToBottom({ force: true });
+
+  return item;
+}
+
+function trimAiHistory() {
+  if (aiChatHistory.length > AI_CHAT_VISIBLE_MESSAGE_LIMIT) {
+    aiChatHistory.splice(0, aiChatHistory.length - AI_CHAT_VISIBLE_MESSAGE_LIMIT);
+  }
+}
+
+function aiUserStorageKey(baseKey, user = auth.currentUser) {
+  const uid = String(user?.uid || "").trim();
+  return uid ? `${baseKey}:${uid}` : `${baseKey}:anonymous`;
+}
+
+function loadAiChatHistory() {
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_CHAT_HISTORY_KEY));
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item) => (
+        (item?.role === "user" || item?.role === "assistant") &&
+        typeof item.text === "string" &&
+        item.text.trim()
+      ))
+      .slice(-AI_CHAT_VISIBLE_MESSAGE_LIMIT);
+  } catch (error) {
+    console.warn("Historico do chat IA invalido:", error);
+    return [];
+  }
+}
+
+function saveAiChatHistory() {
+  try {
+    trimAiHistory();
+    localStorage.setItem(aiUserStorageKey(AI_CHAT_HISTORY_KEY), JSON.stringify(aiChatHistory));
+  } catch (error) {
+    console.warn("Falha ao salvar historico do chat IA:", error);
+  }
+}
+
+function resetAiChatVisual(user = auth.currentUser) {
+  const messages = qs("aiChatMessages");
+  if (!messages) return;
+
+  const firstName = String(user?.displayName || "").trim().split(/\s+/)[0];
+  const greeting = firstName
+    ? `Olá, ${firstName}. A IA do PhysikFlow está em fase de testes. Ela pode interpretar dados incorretamente, omitir informações ou apresentar conclusões imprecisas. Use as respostas como apoio e confirme decisões financeiras, operacionais e cadastrais nos dados oficiais do sistema. Como posso ajudar?`
+    : "Olá. A IA do PhysikFlow está em fase de testes. Ela pode interpretar dados incorretamente, omitir informações ou apresentar conclusões imprecisas. Use as respostas como apoio e confirme decisões financeiras, operacionais e cadastrais nos dados oficiais do sistema. Como posso ajudar?";
+
+  messages.innerHTML = "";
+  appendAiMessage("assistant", greeting);
+}
+
+function restoreAiChatHistory(user = auth.currentUser) {
+  const messages = qs("aiChatMessages");
+  if (!messages) return;
+
+  const restored = loadAiChatHistory();
+  if (!restored.length) {
+    resetAiChatVisual(user);
+    return;
+  }
+
+  aiChatHistory.splice(0, aiChatHistory.length, ...restored);
+  messages.innerHTML = "";
+  restored.forEach((item) => appendAiMessage(item.role, item.text));
+}
+
+function createEmptyAiMemory() {
+  return {
+    schemaVersion: "1.0.0",
+    summary: "",
+    facts: [],
+    preferences: [],
+    dataGaps: [],
+    updatedAt: 0
+  };
+}
+
+function normalizeAiMemory(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const facts = Array.isArray(source.facts)
+    ? source.facts
+      .filter((fact) => fact && typeof fact === "object" && String(fact.key || "").trim() && String(fact.value || "").trim())
+      .map((fact) => ({
+        key: String(fact.key).trim().slice(0, 80),
+        value: String(fact.value).trim().slice(0, 500),
+        source: String(fact.source || "user").trim().slice(0, 40),
+        updatedAt: Number(fact.updatedAt) || Date.now()
+      }))
+      .slice(-AI_MEMORY_FACT_LIMIT)
+    : [];
+
+  const preferences = Array.isArray(source.preferences)
+    ? source.preferences
+      .map((item) => String(item || "").trim().slice(0, 500))
+      .filter(Boolean)
+      .slice(-AI_MEMORY_PREFERENCE_LIMIT)
+    : [];
+
+  const normalizedGaps = Array.isArray(source.dataGaps)
+    ? source.dataGaps
+      .filter((gap) => gap && typeof gap === "object" && String(gap.summary || gap.reason || "").trim())
+      .map((gap) => ({
+        id: String(gap.id || stableHash(`${gap.summary || ""}|${gap.reason || ""}|${gap.unitId || ""}`)),
+        summary: String(gap.summary || "Dado necessário").trim().slice(0, 500),
+        reason: String(gap.reason || "").trim().slice(0, 1000),
+        suggestedDatasets: Array.isArray(gap.suggestedDatasets)
+          ? gap.suggestedDatasets.map((item) => String(item || "").trim().slice(0, 120)).filter(Boolean).slice(0, 12)
+          : [],
+        unitId: String(gap.unitId || "").trim().slice(0, 120),
+        status: String(gap.status || "open").trim().slice(0, 40),
+        createdAt: Number(gap.createdAt) || Date.now(),
+        updatedAt: Number(gap.updatedAt) || Date.now(),
+        occurrences: Math.max(1, Number(gap.occurrences) || 1)
+      }))
+    : [];
+  const dataGaps = Array.from(
+    new Map(normalizedGaps.map((gap) => [gap.id, gap])).values()
+  ).slice(-AI_MEMORY_GAP_LIMIT);
+
+  return {
+    schemaVersion: "1.0.0",
+    summary: String(source.summary || "").trim().slice(0, 2000),
+    facts,
+    preferences,
+    dataGaps,
+    updatedAt: Number(source.updatedAt) || 0
+  };
+}
+
+function loadAiMemoryLocal() {
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_MEMORY_KEY));
+    return normalizeAiMemory(raw ? JSON.parse(raw) : null);
+  } catch (error) {
+    console.warn("Memoria local da IA invalida:", error);
+    return createEmptyAiMemory();
+  }
+}
+
+function saveAiMemoryLocal() {
+  try {
+    localStorage.setItem(aiUserStorageKey(AI_MEMORY_KEY), JSON.stringify(aiMemory));
+  } catch (error) {
+    console.warn("Falha ao salvar memoria local da IA:", error);
+  }
+}
+
+function aiMemoryForPrompt() {
+  return {
+    summary: aiMemory.summary,
+    facts: aiMemory.facts.map(({ key, value }) => ({ key, value })),
+    preferences: aiMemory.preferences
+  };
+}
+
+function normalizedMemoryKey(value) {
+  return normalizeStudentSearch(value).replace(/\s+/g, "_").slice(0, 80);
+}
+
+function mergeAiMemoryPatch(patch, { persistCloud = true } = {}) {
+  if (!patch || typeof patch !== "object") return;
+
+  const next = normalizeAiMemory(aiMemory);
+  const summary = String(patch.summary || "").trim();
+  if (summary) next.summary = summary.slice(0, 2000);
+
+  const factsByKey = new Map(next.facts.map((fact) => [normalizedMemoryKey(fact.key), fact]));
+  (Array.isArray(patch.facts) ? patch.facts : []).forEach((fact) => {
+    const key = String(fact?.key || "").trim();
+    const value = String(fact?.value || "").trim();
+    const normalizedKey = normalizedMemoryKey(key);
+    if (!normalizedKey || !value) return;
+    factsByKey.set(normalizedKey, {
+      key: key.slice(0, 80),
+      value: value.slice(0, 500),
+      source: String(fact?.source || "user").slice(0, 40),
+      updatedAt: Date.now()
+    });
+  });
+  next.facts = Array.from(factsByKey.values()).slice(-AI_MEMORY_FACT_LIMIT);
+
+  const preferencesByKey = new Map(
+    next.preferences.map((preference) => [normalizeStudentSearch(preference), preference])
+  );
+  (Array.isArray(patch.preferences) ? patch.preferences : []).forEach((item) => {
+    const preference = String(item || "").trim().slice(0, 500);
+    if (preference) preferencesByKey.set(normalizeStudentSearch(preference), preference);
+  });
+  next.preferences = Array.from(preferencesByKey.values()).slice(-AI_MEMORY_PREFERENCE_LIMIT);
+
+  const gapsById = new Map(next.dataGaps.map((gap) => [gap.id, gap]));
+  const addedGaps = [];
+  (Array.isArray(patch.dataGaps) ? patch.dataGaps : []).forEach((item) => {
+    const summary = String(item?.summary || "").trim().slice(0, 500);
+    const reason = String(item?.reason || "").trim().slice(0, 1000);
+    if (!summary && !reason) return;
+    const unitId = String(item?.unitId || unidadeSelecionada || "").trim().slice(0, 120);
+    const id = stableHash(`${normalizeStudentSearch(summary)}|${normalizeStudentSearch(reason)}|${unitId}`);
+    const previous = gapsById.get(id);
+    const gap = {
+      id,
+      summary: summary || "Dado necessário",
+      reason,
+      suggestedDatasets: Array.isArray(item?.suggestedDatasets)
+        ? item.suggestedDatasets.map((dataset) => String(dataset || "").trim().slice(0, 120)).filter(Boolean).slice(0, 12)
+        : [],
+      unitId,
+      status: "open",
+      createdAt: previous?.createdAt || Date.now(),
+      updatedAt: Date.now(),
+      occurrences: (previous?.occurrences || 0) + 1
+    };
+    gapsById.set(id, gap);
+    addedGaps.push(gap);
+  });
+  next.dataGaps = Array.from(gapsById.values())
+    .sort((a, b) => Number(a.updatedAt) - Number(b.updatedAt))
+    .slice(-AI_MEMORY_GAP_LIMIT);
+  next.updatedAt = Date.now();
+
+  aiMemory = next;
+  saveAiMemoryLocal();
+  renderAiMemoryPanel();
+
+  if (persistCloud) {
+    void persistAiMemoryCloud();
+    if (addedGaps.length) void persistAiGapsCloud(addedGaps);
+  }
+}
+
+function seedAiMemoryFromUser(user) {
+  const displayName = String(user?.displayName || "").trim();
+  if (!displayName) return;
+  mergeAiMemoryPatch({
+    facts: [{ key: "nome", value: displayName, source: "auth" }]
+  });
+}
+
+function aiCloudUserPath(branch, user = auth.currentUser) {
+  const uid = String(user?.uid || "").trim();
+  return uid ? `${AI_CLOUD_ROOT}/${branch}/${uid}` : "";
+}
+
+function setAiCloudSyncState(state, detail = "") {
+  aiCloudSyncState = state;
+  aiCloudSyncDetail = detail || (state === "cloud" ? "Sincronizado na nuvem" : "Salvo neste dispositivo");
+  renderAiMemoryPanel();
+}
+
+function setAiCloudSuccessState(detail) {
+  const pending = loadAiCloudOutbox().length;
+  if (pending) {
+    setAiCloudSyncState("local", `${pending} mensagem(ns) aguardando sincronização`);
+    return;
+  }
+  setAiCloudSyncState("cloud", detail);
+}
+
+function aiSessionDayKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function getAiCloudSessionId(user = auth.currentUser) {
+  const uid = String(user?.uid || "").trim();
+  if (!uid) return "";
+
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_CLOUD_SESSION_KEY, user));
+    const saved = raw ? JSON.parse(raw) : null;
+    if (saved?.uid === uid && saved?.day === aiSessionDayKey() && saved?.id) {
+      return String(saved.id);
+    }
+  } catch (error) {
+    console.warn("Sessao local da IA invalida:", error);
+  }
+
+  const randomId = crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  const id = `${aiSessionDayKey()}-${randomId}`.replace(/[^a-zA-Z0-9_-]/g, "");
+  localStorage.setItem(aiUserStorageKey(AI_CLOUD_SESSION_KEY, user), JSON.stringify({
+    id,
+    uid,
+    day: aiSessionDayKey(),
+    createdAt: Date.now()
+  }));
+  return id;
+}
+
+async function ensureAiCloudSession(user = auth.currentUser, requestedSessionId = "") {
+  if (!appAuthorized || !user?.uid) return "";
+  const sessionId = requestedSessionId || getAiCloudSessionId(user);
+  if (!sessionId) return "";
+  if (aiCloudSessionReady && aiCloudSessionId === sessionId) return sessionId;
+
+  const metaPath = `${aiCloudUserPath("conversations", user)}/${sessionId}/meta`;
+  const metaRef = db.ref(metaPath);
+  const snapshot = await metaRef.once("value");
+  const commonMeta = {
+    schemaVersion: "1.0.0",
+    userUid: user.uid,
+    userName: user.displayName || "",
+    userEmail: user.email || "",
+    unitId: unidadeSelecionada || "",
+    appBuildId: APP_BUILD_ID,
+    updatedAt: firebase.database.ServerValue.TIMESTAMP
+  };
+
+  if (snapshot.exists()) {
+    await metaRef.update(commonMeta);
+  } else {
+    await metaRef.set({
+      ...commonMeta,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      clientCreatedAt: new Date().toISOString()
+    });
+  }
+
+  aiCloudSessionId = sessionId;
+  aiCloudSessionReady = true;
+  return sessionId;
+}
+
+function loadAiCloudOutbox(user = auth.currentUser) {
+  try {
+    const raw = localStorage.getItem(aiUserStorageKey(AI_CLOUD_OUTBOX_KEY, user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item?.id && item?.sessionId && item?.text)
+      : [];
+  } catch (error) {
+    console.warn("Fila local da conversa IA invalida:", error);
+    return [];
+  }
+}
+
+function saveAiCloudOutbox(outbox, user = auth.currentUser) {
+  try {
+    localStorage.setItem(aiUserStorageKey(AI_CLOUD_OUTBOX_KEY, user), JSON.stringify(outbox));
+  } catch (error) {
+    console.warn("Falha ao salvar fila local da conversa IA:", error);
+  }
+}
+
+function removeAiCloudOutboxItem(messageId, user = auth.currentUser) {
+  saveAiCloudOutbox(
+    loadAiCloudOutbox(user).filter((item) => item.id !== messageId),
+    user
+  );
+}
+
+async function flushAiCloudOutbox(user = auth.currentUser) {
+  if (aiCloudOutboxFlushing || !appAuthorized || !user?.uid) return false;
+  const initialOutbox = loadAiCloudOutbox(user);
+  if (!initialOutbox.length) return true;
+  const initialIds = new Set(initialOutbox.map((item) => item.id));
+
+  aiCloudOutboxFlushing = true;
+  try {
+    for (const item of initialOutbox) {
+      if (auth.currentUser?.uid !== user.uid) break;
+      const sessionId = await ensureAiCloudSession(user, item.sessionId);
+      if (!sessionId) break;
+
+      const sessionPath = `${aiCloudUserPath("conversations", user)}/${sessionId}`;
+      await db.ref(`${sessionPath}/meta`).update({
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        lastRole: item.role,
+        lastMessagePreview: String(item.text).slice(0, 240),
+        unitId: item.unitId || ""
+      });
+
+      const messageRef = db.ref(`${sessionPath}/messages/${item.id}`);
+      try {
+        await messageRef.set({
+          schemaVersion: "1.0.0",
+          role: item.role,
+          text: item.text,
+          source: item.source,
+          status: item.status,
+          unitId: item.unitId,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          clientCreatedAt: item.clientCreatedAt
+        });
+      } catch (writeError) {
+        const existing = await messageRef.once("value").catch(() => null);
+        if (!existing?.exists()) throw writeError;
+      }
+
+      removeAiCloudOutboxItem(item.id, user);
+    }
+
+    const remaining = loadAiCloudOutbox(user);
+    if (remaining.length) {
+      setAiCloudSyncState("local", `${remaining.length} mensagem(ns) aguardando sincronização`);
+      if (!remaining.some((item) => initialIds.has(item.id))) {
+        setTimeout(() => void flushAiCloudOutbox(user), 0);
+      }
+      return false;
+    }
+
+    setAiCloudSyncState("cloud", "Conversa sincronizada na nuvem");
+    return true;
+  } catch (error) {
+    console.warn("Falha ao enviar fila da conversa IA:", error.code || error.message);
+    const pending = loadAiCloudOutbox(user).length;
+    setAiCloudSyncState("local", `${pending} mensagem(ns) aguardando regras ou conexão`);
+    return false;
+  } finally {
+    aiCloudOutboxFlushing = false;
+  }
+}
+
+function archiveAiCloudMessage(role, text, metadata = {}) {
+  const user = auth.currentUser;
+  if (!appAuthorized || !user?.uid || !String(text || "").trim()) return false;
+
+  const sessionId = getAiCloudSessionId(user);
+  const messageId = db.ref(`${AI_CLOUD_ROOT}/message_ids`).push().key
+    || `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const outbox = loadAiCloudOutbox(user);
+  outbox.push({
+    id: messageId,
+    sessionId,
+    role: role === "assistant" ? "assistant" : "user",
+    text: String(text),
+    source: String(metadata.source || "chat"),
+    status: String(metadata.status || "ok"),
+    unitId: unidadeSelecionada || "",
+    clientCreatedAt: new Date().toISOString()
+  });
+  saveAiCloudOutbox(outbox, user);
+  setAiCloudSyncState("local", `${outbox.length} mensagem(ns) aguardando sincronização`);
+  return flushAiCloudOutbox(user);
+}
+
+async function persistAiMemoryCloud() {
+  const user = auth.currentUser;
+  const path = aiCloudUserPath("memory", user);
+  if (!appAuthorized || !path) return false;
+
+  try {
+    await db.ref(path).set({
+      schemaVersion: "1.0.0",
+      summary: aiMemory.summary,
+      facts: aiMemory.facts,
+      preferences: aiMemory.preferences,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP,
+      clientUpdatedAt: new Date().toISOString()
+    });
+    setAiCloudSuccessState("Memória sincronizada na nuvem");
+    return true;
+  } catch (error) {
+    console.warn("Falha ao sincronizar memoria IA:", error.code || error.message);
+    setAiCloudSyncState("local", "Memória salva apenas neste dispositivo");
+    return false;
+  }
+}
+
+async function persistAiGapsCloud(gaps) {
+  const user = auth.currentUser;
+  const path = aiCloudUserPath("gaps", user);
+  if (!appAuthorized || !path || !Array.isArray(gaps) || !gaps.length) return false;
+
+  const updates = {};
+  gaps.forEach((gap) => {
+    updates[gap.id] = {
+      ...gap,
+      userUid: user.uid,
+      userName: user.displayName || "",
+      updatedAt: firebase.database.ServerValue.TIMESTAMP,
+      clientUpdatedAt: new Date().toISOString()
+    };
+  });
+
+  try {
+    await db.ref(path).update(updates);
+    setAiCloudSuccessState("Lacunas de dados sincronizadas");
+    return true;
+  } catch (error) {
+    console.warn("Falha ao sincronizar lacunas IA:", error.code || error.message);
+    setAiCloudSyncState("local", "Lacunas salvas apenas neste dispositivo");
+    return false;
+  }
+}
+
+async function loadAiMemoryCloud(user = auth.currentUser) {
+  const path = aiCloudUserPath("memory", user);
+  if (!appAuthorized || !path) return null;
+
+  try {
+    const snapshot = await db.ref(path).once("value");
+    return snapshot.exists() ? normalizeAiMemory(snapshot.val()) : null;
+  } catch (error) {
+    console.warn("Falha ao carregar memoria IA da nuvem:", error.code || error.message);
+    setAiCloudSyncState("local", "Usando memória deste dispositivo");
+    return null;
+  }
+}
+
+async function loadAiGapsCloud(user = auth.currentUser) {
+  const path = aiCloudUserPath("gaps", user);
+  if (!appAuthorized || !path) return [];
+
+  try {
+    const snapshot = await db.ref(path).once("value");
+    const value = snapshot.val();
+    return value && typeof value === "object"
+      ? normalizeAiMemory({ dataGaps: Object.values(value) }).dataGaps
+      : [];
+  } catch (error) {
+    console.warn("Falha ao carregar lacunas IA da nuvem:", error.code || error.message);
+    return [];
+  }
+}
+
+async function initializeAiUserState(user) {
+  if (!user?.uid || aiUserStateUid === user.uid) return;
+  aiUserStateUid = user.uid;
+  aiCloudSessionReady = false;
+  aiCloudSessionId = "";
+  aiChatHistory.splice(0);
+  aiMemory = loadAiMemoryLocal();
+  restoreAiChatHistory(user);
+  renderAiMemoryPanel();
+
+  const [cloudMemory, cloudGaps] = await Promise.all([
+    loadAiMemoryCloud(user),
+    loadAiGapsCloud(user)
+  ]);
+  if (cloudMemory && cloudMemory.updatedAt >= aiMemory.updatedAt) {
+    aiMemory = normalizeAiMemory({
+      ...cloudMemory,
+      dataGaps: [...aiMemory.dataGaps, ...cloudGaps]
+    });
+    saveAiMemoryLocal();
+  } else if (cloudGaps.length) {
+    aiMemory = normalizeAiMemory({
+      ...aiMemory,
+      dataGaps: [...aiMemory.dataGaps, ...cloudGaps]
+    });
+    saveAiMemoryLocal();
+  }
+
+  seedAiMemoryFromUser(user);
+  renderAiMemoryPanel();
+  void ensureAiCloudSession(user)
+    .then(async () => {
+      const synced = await flushAiCloudOutbox(user);
+      if (synced) setAiCloudSyncState("cloud", "Arquivo de conversa preparado");
+    })
+    .catch((error) => {
+      console.warn("Arquivo de conversa IA indisponivel:", error.code || error.message);
+      setAiCloudSyncState("local", "Publique as regras do Firebase para ativar a nuvem");
+    });
+}
+
+function stableHash(input) {
+  const text = String(input || "");
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function loadAiReplyCache() {
+  try {
+    const raw = localStorage.getItem(AI_REPLY_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    console.warn("Cache de respostas IA invalido:", error);
+    return {};
+  }
+}
+
+function saveAiReplyCache(cache) {
+  try {
+    const entries = Object.entries(cache)
+      .filter(([, item]) => item?.text && Number(item.createdAt))
+      .sort((a, b) => Number(b[1].createdAt) - Number(a[1].createdAt))
+      .slice(0, AI_REPLY_CACHE_MAX_ENTRIES);
+
+    localStorage.setItem(AI_REPLY_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch (error) {
+    console.warn("Falha ao salvar cache de respostas IA:", error);
+  }
+}
+
+function aiReplyCacheKey({ message, context, modelPlan, history = [], memory = null }) {
+  return stableHash(JSON.stringify({
+    message: String(message || "").trim(),
+    contextHash: stableHash(JSON.stringify(context || {})),
+    historyHash: stableHash(JSON.stringify(history || [])),
+    memoryHash: stableHash(JSON.stringify(memory || {})),
+    models: modelPlan
+  }));
+}
+
+function getCachedAiReply(cacheKey) {
+  const cache = loadAiReplyCache();
+  const item = cache[cacheKey];
+  if (!item?.text || !Number(item.createdAt)) return "";
+
+  if (Date.now() - Number(item.createdAt) > AI_REPLY_CACHE_TTL_MS) {
+    delete cache[cacheKey];
+    saveAiReplyCache(cache);
+    return "";
+  }
+
+  return item.text;
+}
+
+function setCachedAiReply(cacheKey, text, model) {
+  if (!text || !cacheKey) return;
+  const cache = loadAiReplyCache();
+  cache[cacheKey] = {
+    text,
+    model: model || "",
+    createdAt: Date.now()
+  };
+  saveAiReplyCache(cache);
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+function attachAiCopyButton(message, text) {
+  if (!message || message.querySelector(".ai-copy-btn")) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ai-copy-btn";
+  button.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+    <span>Copiar</span>
+  `;
+
+  button.addEventListener("click", async () => {
+    try {
+      await copyTextToClipboard(message.dataset.rawText || text || "");
+      button.classList.add("copied");
+      button.querySelector("span").textContent = "Copiado";
+      window.setTimeout(() => {
+        button.classList.remove("copied");
+        button.querySelector("span").textContent = "Copiar";
+      }, 1400);
+    } catch (error) {
+      console.warn("Falha ao copiar mensagem:", error);
+      button.querySelector("span").textContent = "Erro";
+    }
+  });
+
+  message.appendChild(button);
+}
+
+function aiCommandHelp() {
+  return [
+    "**Comandos locais de teste**",
+    "",
+    "| Comando | O que faz |",
+    "|---|---|",
+    "| `/help` | Mostra esta lista. |",
+    "| `/mock` | Gera uma resposta fake com Markdown completo, sem gastar Gemini. |",
+    "| `/json` | Busca `manifest`, `daily_summary` e `finance_rollup` da unidade atual. |",
+    "| `/json manifest` | Busca apenas `manifest.json`. |",
+    "| `/json daily` | Busca apenas `daily_summary.json`. |",
+    "| `/json finance` | Busca apenas `finance_rollup.json`. |",
+    "| `/json students` | Testa o futuro `students_index.json`. |",
+    "| `/json risk` | Testa o futuro `risk_alerts.json`. |",
+    "| `/json all` | Testa todos os datasets conhecidos, inclusive os ainda planejados. |",
+    "| `/context` | Mostra o contexto analitico que seria enviado para a IA. |",
+    "| `/context compact` | Mostra a versao compactada que a chamada Gemini recebe. |",
+    "| `/memory` | Abre o caderno com memória, preferências e dados faltantes. |",
+    "| `/desktop <pedido>` | Gera um `desktop_request` para dados/acoes que dependem do app desktop. |",
+    "",
+    "Opcional: passe a unidade no final, por exemplo `/json finance 58780-000`, `/context 58780-000` ou `/context compact 58780-000`."
+  ].join("\n");
+}
+
+function aiMockReply() {
+  return [
+    "## Mock local do chat",
+    "",
+    "Esta resposta **nao chamou o Gemini** e serve para testar visual.",
+    "",
+    "---",
+    "",
+    "### Lista",
+    "",
+    "- **Negrito** funcionando",
+    "- _Italico_ funcionando",
+    "- ~~Tachado~~ funcionando",
+    "- `codigo inline` funcionando",
+    "",
+    "### Tabela",
+    "",
+    "| Grandeza | Simbolo | Unidade |",
+    "|---|---|---|",
+    "| Massa | $m$ | $\\text{kg}$ |",
+    "| Forca | $F$ | $\\text{N}$ |",
+    "| Energia | $E$ | $\\text{J}$ |",
+    "",
+    "### Bloco de codigo",
+    "",
+    "```json",
+    JSON.stringify({
+      type: "tool_call",
+      tool: "get_dashboard_summary",
+      args: { unitId: "demo" }
+    }, null, 2),
+    "```",
+    "",
+    "> Se isto apareceu formatado, o renderizador esta ok."
+  ].join("\n");
+}
+
+function aiUnitIds() {
+  return [...new Set([
+    ...Object.keys(unitsMeta || {}),
+    ...Object.keys(relatoriosPorUnidade || {})
+  ])].filter(Boolean).sort((a, b) => nomeUnidade(a).localeCompare(nomeUnidade(b), "pt-BR"));
+}
+
+function resolveAiUnitId(input = "") {
+  const requested = String(input || "").trim().toLowerCase();
+  const unitIds = aiUnitIds();
+
+  if (requested) {
+    const direct = unitIds.find((unitId) => unitId.toLowerCase() === requested);
+    if (direct) return direct;
+
+    const byName = unitIds.find((unitId) => nomeUnidade(unitId).toLowerCase() === requested);
+    if (byName) return byName;
+  }
+
+  if (unidadeSelecionada && unitIds.includes(unidadeSelecionada)) return unidadeSelecionada;
+  return unitIds[0] || "";
+}
+
+function aiDatasetKeys(input = "") {
+  const key = String(input || "").trim().toLowerCase();
+  if (!key) return uniqueAnalyticsDatasetKeys(AI_ANALYTICS_BASE_KEYS);
+  if (key === "all") return uniqueAnalyticsDatasetKeys(AI_ANALYTICS_ALL_KEYS);
+  return AI_ANALYTICS_DATASETS[key] ? uniqueAnalyticsDatasetKeys([key]) : [];
+}
+
+function uniqueAnalyticsDatasetKeys(keys) {
+  const seenFiles = new Set();
+  return keys.filter((key) => {
+    const fileName = AI_ANALYTICS_DATASETS[key];
+    if (!fileName || seenFiles.has(fileName)) return false;
+    seenFiles.add(fileName);
+    return true;
+  });
+}
+
+function datasetKeyFromAnalyticsPath(path = "") {
+  const fileName = String(path || "").split("/").pop();
+  return Object.keys(AI_ANALYTICS_DATASETS).find((key) => AI_ANALYTICS_DATASETS[key] === fileName) || "";
+}
+
+async function fetchAnalyticsDataset(unitId, datasetKey, config, bearerToken) {
+  const fileName = AI_ANALYTICS_DATASETS[datasetKey];
+  const ttl = Math.max(60, Math.min(Number(config.linkTtlSeconds) || 86400, 86400));
+  const attempts = [];
+
+  for (const physikUnitId of physikUnitIdCandidates(unitId)) {
+    const objectId = `analytics/${physikUnitId}/${fileName}`;
+    const linkUrl = physikServerObjectUrl(config, AI_ANALYTICS_AREA, objectId, ttl);
+    attempts.push(objectId);
+
+    try {
+      const link = await fetchJsonWithTimeout(linkUrl, {
+        headers: {
+          Authorization: `Bearer ${bearerToken}`
+        }
+      }, FIREBASE_REST_TIMEOUT_MS);
+
+      const signedUrl = resolvePhysikServerUrl(config, link?.urlPath);
+      if (!signedUrl) {
+        return { ok: false, datasetKey, fileName, attempts, error: "signed-url-ausente" };
+      }
+
+      const data = await fetchJsonWithTimeout(signedUrl, {}, FIREBASE_REST_TIMEOUT_MS);
+      return { ok: true, datasetKey, fileName, objectId, data };
+    } catch (error) {
+      if (error?.status && error.status !== 404) {
+        return {
+          ok: false,
+          datasetKey,
+          fileName,
+          attempts,
+          error: error.status || error.code || error.message || "erro"
+        };
+      }
+    }
+  }
+
+  return { ok: false, datasetKey, fileName, attempts, error: "nao-encontrado" };
+}
+
+async function fetchAnalyticsBundle(unitId, datasetKeys = AI_ANALYTICS_BASE_KEYS) {
+  const config = await carregarPhysikServerConfig();
+  const bearerToken = physikServerReadToken(config);
+
+  if (!config || config.status !== "online" || !bearerToken) {
+    return {
+      ok: false,
+      unitId,
+      error: "physik-server-indisponivel",
+      diagnostics: {
+        config: config ? "ok" : "ausente",
+        status: config?.status || "ausente",
+        token: tokenDebug(bearerToken),
+        erroConfig: physikServerConfigError || "nenhum"
+      },
+      results: []
+    };
+  }
+
+  const results = await Promise.all(
+    datasetKeys.map((key) => fetchAnalyticsDataset(unitId, key, config, bearerToken))
+  );
+
+  return {
+    ok: results.some((result) => result.ok),
+    unitId,
+    error: "",
+    diagnostics: null,
+    results
+  };
+}
+
+function datasetKeysFromAnalyticsManifest(manifest) {
+  const keys = [...AI_ANALYTICS_BASE_KEYS];
+  const datasets = manifest?.datasets;
+  if (!datasets || typeof datasets !== "object") return uniqueAnalyticsDatasetKeys(keys);
+
+  Object.entries(datasets).forEach(([name, meta]) => {
+    const directKey = String(name || "").toLowerCase();
+    if (AI_ANALYTICS_DATASETS[directKey]) keys.push(directKey);
+
+    const pathKey = datasetKeyFromAnalyticsPath(meta?.path);
+    if (pathKey) keys.push(pathKey);
+  });
+
+  return uniqueAnalyticsDatasetKeys(keys);
+}
+
+async function fetchAnalyticsContextBundle(unitId) {
+  const baseBundle = await fetchAnalyticsBundle(unitId, AI_ANALYTICS_BASE_KEYS);
+  if (!baseBundle.ok) return baseBundle;
+
+  const manifest = analyticsDataByKind(baseBundle.results).analytics_manifest;
+  const contextKeys = datasetKeysFromAnalyticsManifest(manifest);
+  const baseFiles = new Set(baseBundle.results.map((result) => result.fileName));
+  const extraKeys = contextKeys.filter((key) => !baseFiles.has(AI_ANALYTICS_DATASETS[key]));
+
+  if (!extraKeys.length) return baseBundle;
+
+  const extraBundle = await fetchAnalyticsBundle(unitId, extraKeys);
+  return {
+    ...baseBundle,
+    ok: baseBundle.ok || extraBundle.ok,
+    results: [...baseBundle.results, ...extraBundle.results]
+  };
+}
+
+function summarizeAnalyticsPayload(data) {
+  if (!data || typeof data !== "object") return String(data ?? "null");
+
+  const keys = Object.keys(data);
+  const summary = {};
+  keys.slice(0, 10).forEach((key) => {
+    const value = data[key];
+    if (Array.isArray(value)) summary[key] = `array(${value.length})`;
+    else if (value && typeof value === "object") summary[key] = `object(${Object.keys(value).length})`;
+    else summary[key] = value;
+  });
+
+  return JSON.stringify(summary, null, 2);
+}
+
+function renderAnalyticsCommandResult(unitId, results) {
+  const rows = results.map((result) => {
+    const status = result.ok ? "OK" : "Falhou";
+    const detail = result.ok ? result.objectId : `${result.error} (${(result.attempts || []).join(", ") || "sem tentativa"})`;
+    return `| ${result.fileName} | ${status} | ${detail} |`;
+  });
+
+  const previews = results
+    .filter((result) => result.ok)
+    .map((result) => [
+      `### ${result.fileName}`,
+      "",
+      "```json",
+      summarizeAnalyticsPayload(result.data),
+      "```"
+    ].join("\n"));
+
+  return [
+    `## JSON analitico: ${nomeUnidade(unitId) || unitId}`,
+    "",
+    "| Dataset | Status | Detalhe |",
+    "|---|---|---|",
+    ...rows,
+    "",
+    previews.length ? previews.join("\n\n") : "> Nenhum dataset foi baixado com sucesso."
+  ].join("\n");
+}
+
+async function handleAiJsonCommand(args) {
+  const firstArg = String(args[0] || "").toLowerCase();
+  const datasetKey = firstArg && AI_ANALYTICS_DATASETS[firstArg]
+    ? String(args.shift()).toLowerCase()
+    : (firstArg === "all" ? String(args.shift()).toLowerCase() : "");
+  const datasetKeys = aiDatasetKeys(datasetKey);
+  if (!datasetKeys.length) return `Comando desconhecido. Use:\n\n${aiCommandHelp()}`;
+
+  const unitId = resolveAiUnitId(args.join(" "));
+  if (!unitId) {
+    return [
+      "Nao encontrei nenhuma unidade carregada no PWA.",
+      "",
+      "Abra o app autenticado e aguarde os relatorios carregarem antes de usar `/json`."
+    ].join("\n");
+  }
+
+  const bundle = await fetchAnalyticsBundle(unitId, datasetKeys);
+  if (!bundle.ok && bundle.error === "physik-server-indisponivel") {
+    return [
+      "Nao consegui acessar o PhysikServer para buscar os JSONs analiticos.",
+      "",
+      "Detalhes tecnicos:",
+      `- config: ${bundle.diagnostics.config}`,
+      `- status: ${bundle.diagnostics.status}`,
+      `- token: ${bundle.diagnostics.token}`,
+      `- erroConfig: ${bundle.diagnostics.erroConfig}`
+    ].join("\n");
+  }
+
+  return renderAnalyticsCommandResult(unitId, bundle.results);
+}
+
+function reportSnapshotForAi(unitId) {
+  const report = relatoriosPorUnidade[unitId] || {};
+  const resumo = report.resumo || {};
+  const frequencia = report.frequencia || {};
+
+  return {
+    hasReport: Boolean(Object.keys(report).length),
+    resumo: {
+      alunos: Number(resumo.alunos) || 0,
+      ativos: Number(resumo.ativos) || 0,
+      atrasados: Number(resumo.atrasados) || 0,
+      total30d: Number(resumo.total30d || resumo.total) || 0,
+      ticketMedio30d: Number(resumo.ticketMedio30d) || 0,
+      ticketMedioGeral: Number(resumo.ticketMedioGeral) || 0
+    },
+    frequencia: {
+      mediaPorAluno30d: Number(frequencia.mediaPorAluno30d) || 0
+    }
+  };
+}
+
+function analyticsDataByKind(results) {
+  const data = {};
+
+  results.forEach((result) => {
+    if (!result.ok) return;
+    const kind = result.data?.kind || result.datasetKey;
+    data[kind] = result.data;
+  });
+
+  return data;
+}
+
+function buildDesktopRequestTemplate({
+  unitId,
+  reason,
+  missingData = [],
+  suggestedDatasets = [],
+  priority = "normal",
+  expectedShape = null
+} = {}) {
+  const request = {
+    type: "desktop_request",
+    schemaVersion: "1.0.0",
+    requestedAt: new Date().toISOString(),
+    unitId: unitId || "",
+    unitName: unitId ? nomeUnidade(unitId) : "",
+    reason: reason || "O PWA nao tem dados suficientes para responder com seguranca.",
+    missingData,
+    suggestedDatasets,
+    suggestedOwner: "PhysikFlow Desktop / report worker",
+    priority,
+    status: "draft"
+  };
+
+  if (expectedShape) request.expectedShape = expectedShape;
+  return request;
+}
+
+function inferDesktopRequestNeeds(reason = "") {
+  const normalized = String(reason || "").toLowerCase();
+
+  if (/(evas|reten|retenc|risco|churn|abandono)/.test(normalized)) {
+    return {
+      priority: "high",
+      missingData: [
+        "students_index com id, nome, status, plano atual, vencimento e ultimo_acesso",
+        "student_activity_rollup com frequencia por aluno em 7/30/60/90 dias",
+        "student_finance_rollup com atraso, valor em aberto e historico resumido de pagamentos",
+        "retention_summary com funil de risco por unidade",
+        "risk_alerts com score, motivos e data de calculo por aluno"
+      ],
+      suggestedDatasets: [
+        "students_index",
+        "student_activity_rollup",
+        "student_finance_rollup",
+        "retention_summary",
+        "risk_alerts"
+      ],
+      expectedShape: {
+        datasets: {
+          students_index: {
+            path: "analytics/{unitId}/students_index.json",
+            fields: ["studentId", "name", "status", "currentPlan", "dueDate", "lastAccessAt", "tags"]
+          },
+          risk_alerts: {
+            path: "analytics/{unitId}/risk_alerts.json",
+            fields: ["studentId", "riskScore", "riskLevel", "reasons", "recommendedAction", "calculatedAt"]
+          },
+          retention_summary: {
+            path: "analytics/{unitId}/retention_summary.json",
+            fields: ["period", "riskBuckets", "inactiveTrend", "recoveredStudents", "lostStudents"]
+          }
+        }
+      }
+    };
+  }
+
+  if (/(aluno|cliente|pessoa|buscar|encontrar|perfil)/.test(normalized)) {
+    return {
+      priority: "normal",
+      missingData: [
+        "students_index com campos seguros para busca e filtro no PWA",
+        "get_student_snapshot sob demanda para detalhes de um aluno especifico"
+      ],
+      suggestedDatasets: ["students_index"],
+      expectedShape: {
+        datasets: {
+          students_index: {
+            path: "analytics/{unitId}/students_index.json",
+            fields: ["studentId", "name", "status", "currentPlan", "dueDate", "lastAccessAt"]
+          }
+        },
+        tools: ["get_student_snapshot"]
+      }
+    };
+  }
+
+  if (/(pagamento|receita|fatur|lucro|saiu|despesa|receber|inadimpl|atras|pix|cart|dinheiro|desconto|ticket)/.test(normalized)) {
+    return {
+      priority: "high",
+      missingData: [
+        "finance_periods com entradas por hoje/semana/quinzena/mes/ano",
+        "receivables_rollup com valores a receber e vencidos",
+        "payment_methods_rollup com dinheiro, Pix, cartao e outros metodos por periodo",
+        "student_finance_rollup com inadimplentes e descontos por aluno",
+        "cashflow_rollup e expense_rollup para responder lucro, nao apenas receita"
+      ],
+      suggestedDatasets: [
+        "finance_periods",
+        "receivables_rollup",
+        "payment_methods_rollup",
+        "student_finance_rollup",
+        "cashflow_rollup",
+        "expense_rollup"
+      ],
+      expectedShape: {
+        datasets: {
+          finance_periods: {
+            path: "analytics/{unitId}/finance_periods.json",
+            fields: ["today", "thisWeek", "thisFortnight", "thisMonth", "thisYear"]
+          },
+          receivables_rollup: {
+            path: "analytics/{unitId}/receivables_rollup.json",
+            fields: ["openTotal", "overdueTotal", "dueToday", "dueThisWeek"]
+          },
+          payment_methods_rollup: {
+            path: "analytics/{unitId}/payment_methods_rollup.json",
+            fields: ["period", "method", "count", "total"]
+          }
+        }
+      }
+    };
+  }
+
+  if (/(frequent|movimento|horario|domingo|sabado|segunda|manha|tarde|noite|catraca|academia agora|treinando|tempo medio|lotado)/.test(normalized)) {
+    return {
+      priority: "high",
+      missingData: [
+        "attendance_rollup com acessos por dia, semana, horario, turno e weekday",
+        "student_activity_rollup com ultimo acesso, habitos e queda brusca de frequencia por aluno",
+        "live_occupancy para perguntas sobre quem esta na academia agora",
+        "training_duration_rollup para tempo medio e sessoes longas"
+      ],
+      suggestedDatasets: [
+        "attendance_rollup",
+        "student_activity_rollup",
+        "live_occupancy",
+        "training_duration_rollup"
+      ],
+      expectedShape: {
+        datasets: {
+          attendance_rollup: {
+            path: "analytics/{unitId}/attendance_rollup.json",
+            fields: ["periods", "byWeekday", "byHour", "byShift"]
+          },
+          student_activity_rollup: {
+            path: "analytics/{unitId}/student_activity_rollup.json",
+            fields: ["buckets", "topInactive", "habitSegments"]
+          }
+        },
+        tools: ["get_students_by_attendance_window", "get_current_occupancy"]
+      }
+    };
+  }
+
+  if (/(campanha|lead|matricula|indic|oferta|upgrade|renova|promoc|experimental|diaria)/.test(normalized)) {
+    return {
+      priority: "normal",
+      missingData: [
+        "student_lifecycle_rollup com matriculas, cancelamentos e reativacoes",
+        "renewals_rollup com vencimentos, renovacoes e nao renovados",
+        "conversion_funnel com diaria/aula experimental/leads que viraram matricula",
+        "marketing_attribution_rollup com origem/campanha das matriculas",
+        "campaign_opportunities com alunos elegiveis para renovacao, upgrade, retorno e indicacao"
+      ],
+      suggestedDatasets: [
+        "student_lifecycle_rollup",
+        "renewals_rollup",
+        "conversion_funnel",
+        "marketing_attribution_rollup",
+        "campaign_opportunities"
+      ],
+      expectedShape: {
+        datasets: {
+          campaign_opportunities: {
+            path: "analytics/{unitId}/campaign_opportunities.json",
+            fields: ["studentId", "opportunityType", "score", "reason", "recommendedOffer"]
+          }
+        }
+      }
+    };
+  }
+
+  if (/(funcionario|professor|turma|reclam|elog|satisf|equipamento|manutenc|operacional|meta|resumo completo|o que precisa ser feito)/.test(normalized)) {
+    return {
+      priority: "normal",
+      missingData: [
+        "staff_performance_rollup com matriculas e pagamentos por funcionario",
+        "classes_rollup com turmas, professores e lotacao por horario",
+        "feedback_rollup com reclamacoes, elogios e satisfacao",
+        "equipment_rollup com chamados e manutencao",
+        "goals_progress com metas e progresso",
+        "daily_executive_summary com alertas e acoes recomendadas"
+      ],
+      suggestedDatasets: [
+        "staff_performance_rollup",
+        "classes_rollup",
+        "feedback_rollup",
+        "equipment_rollup",
+        "operations_alerts",
+        "goals_progress",
+        "daily_executive_summary"
+      ],
+      expectedShape: {
+        datasets: {
+          daily_executive_summary: {
+            path: "analytics/{unitId}/daily_executive_summary.json",
+            fields: ["highlights", "alerts", "recommendedActions"]
+          }
+        }
+      }
+    };
+  }
+
+  return {
+    priority: "normal",
+    missingData: ["dados nao disponiveis no snapshot atual"],
+    suggestedDatasets: ["students_index", "retention_summary", "risk_alerts"],
+    expectedShape: null
+  };
+}
+
+async function buildAiContext(unitInput = "") {
+  const unitId = resolveAiUnitId(unitInput);
+  const context = {
+    schemaVersion: "1.0.0",
+    kind: "physikflow_ai_context",
+    generatedAt: new Date().toISOString(),
+    activePage: getActivePageTab(),
+    unit: unitId ? {
+      id: unitId,
+      name: nomeUnidade(unitId)
+    } : null,
+    availableUnits: aiUnitIds().map((id) => ({
+      id,
+      name: nomeUnidade(id)
+    })),
+    operationalSnapshot: unitId ? reportSnapshotForAi(unitId) : null,
+    analyticsStatus: [],
+    analytics: {},
+    gaps: []
+  };
+
+  if (!unitId) {
+    context.gaps.push("Nenhuma unidade carregada no PWA.");
+    context.desktopRequestTemplate = buildDesktopRequestTemplate({
+      reason: "PWA sem unidade carregada para montar contexto.",
+      missingData: ["units", "reports"]
+    });
+    return context;
+  }
+
+  const bundle = await fetchAnalyticsContextBundle(unitId);
+  context.analyticsStatus = bundle.results.map((result) => ({
+    dataset: result.fileName,
+    ok: result.ok,
+    objectId: result.objectId || "",
+    error: result.ok ? "" : result.error
+  }));
+  context.analytics = analyticsDataByKind(bundle.results);
+
+  if (!context.analytics.daily_summary) context.gaps.push("daily_summary ausente.");
+  if (!context.analytics.finance_rollup) context.gaps.push("finance_rollup ausente.");
+  if (!context.analytics.analytics_manifest && !context.analytics.manifest) context.gaps.push("manifest analitico ausente.");
+  if (!context.analytics.students_index) context.gaps.push("students_index ainda nao publicado; busca de alunos profunda continua limitada.");
+
+  if (context.gaps.length) {
+    context.desktopRequestTemplate = buildDesktopRequestTemplate({
+      unitId,
+      reason: "Complementar datasets analiticos para respostas mais profundas no PWA.",
+      missingData: context.gaps,
+      suggestedDatasets: [
+        "students_index",
+        "student_activity_rollup",
+        "student_finance_rollup",
+        "retention_summary",
+        "risk_alerts"
+      ]
+    });
+  }
+
+  return context;
+}
+
+function compactArrayForAi(value, key, notes, path, depth) {
+  const limit = AI_COMPACT_ARRAY_LIMITS[key] || AI_COMPACT_DEFAULT_ARRAY_LIMIT;
+  const shouldKeepTail = key === "monthly" || key === "avulsosMonthly";
+  const sliced = value.length > limit
+    ? (shouldKeepTail ? value.slice(-limit) : value.slice(0, limit))
+    : value;
+
+  if (value.length > limit) {
+    const kept = shouldKeepTail ? `ultimos ${limit}` : `primeiros ${limit}`;
+    notes.push(`${path}: array(${value.length}) reduzido para ${kept}`);
+  }
+
+  return sliced.map((item, index) => compactValueForAi(item, String(index), notes, `${path}[${index}]`, depth + 1));
+}
+
+function compactValueForAi(value, key, notes, path, depth = 0) {
+  if (Array.isArray(value)) {
+    return compactArrayForAi(value, key, notes, path, depth);
+  }
+
+  if (!value || typeof value !== "object") return value;
+
+  const keys = Object.keys(value);
+  if (depth >= 7) {
+    notes.push(`${path}: objeto profundo resumido`);
+    return {
+      __summary: "object",
+      keys: keys.slice(0, 20)
+    };
+  }
+
+  return keys.reduce((acc, childKey) => {
+    const childPath = path ? `${path}.${childKey}` : childKey;
+    acc[childKey] = compactValueForAi(value[childKey], childKey, notes, childPath, depth + 1);
+    return acc;
+  }, {});
+}
+
+function compactAiContextForGemini(context) {
+  const notes = [];
+  const compacted = compactValueForAi(context, "context", notes, "context");
+
+  if (compacted && typeof compacted === "object" && !Array.isArray(compacted)) {
+    compacted.contextDelivery = {
+      compactedForGemini: true,
+      outputTokenBudget: GEMINI_MAX_OUTPUT_TOKENS,
+      note: "O comando /context mostra o contexto completo; a chamada Gemini recebe uma versao compactada para evitar cortes.",
+      reductions: notes
+    };
+  }
+
+  return compacted;
+}
+
+function contextSizeNote(context) {
+  const bytes = new Blob([JSON.stringify(context)]).size;
+  return `${bytes.toLocaleString("pt-BR")} bytes`;
+}
+
+async function handleAiContextCommand(args) {
+  const normalizedArgs = [...args];
+  const compactMode = normalizedArgs.some((arg) => String(arg || "").toLowerCase() === "compact");
+  const unitInput = normalizedArgs
+    .filter((arg) => String(arg || "").toLowerCase() !== "compact")
+    .join(" ");
+  const fullContext = await buildAiContext(unitInput);
+  const context = compactMode ? compactAiContextForGemini(fullContext) : fullContext;
+
+  return [
+    `## Contexto IA: ${context.unit?.name || "sem unidade"}${compactMode ? " (compacto Gemini)" : ""}`,
+    "",
+    `Tamanho aproximado: ${contextSizeNote(context)}`,
+    "",
+    context.gaps.length
+      ? `> Lacunas detectadas: ${context.gaps.join(" | ")}`
+      : "> Contexto analitico basico disponivel.",
+    "",
+    "```json",
+    JSON.stringify(context, null, 2),
+    "```"
+  ].join("\n");
+}
+
+function handleAiDesktopCommand(args) {
+  const text = args.join(" ").trim();
+  const unitId = resolveAiUnitId("");
+  const inferred = inferDesktopRequestNeeds(text);
+  const request = buildDesktopRequestTemplate({
+    unitId,
+    reason: text || "Gerar dados complementares para a IA do PWA.",
+    missingData: inferred.missingData,
+    suggestedDatasets: inferred.suggestedDatasets,
+    priority: inferred.priority,
+    expectedShape: inferred.expectedShape
+  });
+
+  return [
+    "## Pedido para o app desktop",
+    "",
+    "Este JSON ainda nao executa nada. Ele serve como contrato para a proxima fase.",
+    "",
+    "```json",
+    JSON.stringify(request, null, 2),
+    "```"
+  ].join("\n");
+}
+
+async function handleAiLocalCommand(message) {
+  const text = String(message || "").trim();
+  if (!text.startsWith("/")) return null;
+
+  const [commandRaw, ...args] = text.split(/\s+/);
+  const command = commandRaw.toLowerCase();
+
+  if (command === "/help" || command === "/comandos") return aiCommandHelp();
+  if (command === "/mock") return aiMockReply();
+  if (command === "/json") return handleAiJsonCommand(args);
+  if (command === "/context" || command === "/contexto") return handleAiContextCommand(args);
+  if (command === "/memory" || command === "/memoria") {
+    setAiMemoryPanelOpen(true);
+    return "Abri o caderno da conversa. Ele mostra o que foi lembrado e quais dados ainda fizeram falta.";
+  }
+  if (command === "/desktop") return handleAiDesktopCommand(args);
+
+  return [
+    `Comando local desconhecido: \`${commandRaw}\``,
+    "",
+    aiCommandHelp()
+  ].join("\n");
+}
+
+function updateAiLoadingMessage(element, text, isError = false, { forceScroll = false } = {}) {
+  if (!element) return;
+  const shouldStick = forceScroll || isAiChatNearBottom();
+  element.classList.remove("is-loading");
+  if (isError) element.classList.add("ai-message-error");
+  element.dataset.rawText = text;
+  const content = element.querySelector(".ai-message-content");
+  if (content) {
+    content.innerHTML = isError ? escapeHTML(text) : renderBasicMarkdown(text);
+  }
+  if (!isError) {
+    attachAiCopyButton(element, text);
+  }
+  if (shouldStick) scrollAiChatToBottom({ force: true });
+}
+
+function extractGeminiText(data) {
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  return parts
+    .map((part) => part?.text || "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function aiModelConversationHistory(history = aiChatHistory) {
+  const selected = [];
+  let usedCharacters = 0;
+
+  [...history]
+    .slice(-AI_MODEL_HISTORY_MESSAGE_LIMIT)
+    .reverse()
+    .forEach((item) => {
+      const text = String(item?.text || "").trim().slice(0, 4000);
+      if (!text || (item?.role !== "user" && item?.role !== "assistant")) return;
+      if (usedCharacters + text.length > AI_MODEL_HISTORY_CHAR_LIMIT) return;
+      selected.unshift({
+        role: item.role === "assistant" ? "model" : "user",
+        parts: [{ text }]
+      });
+      usedCharacters += text.length;
+    });
+
+  return selected;
+}
+
+function parseAiResponseEnvelope(text) {
+  const raw = String(text || "");
+  const metadataPattern = /<physikflow_meta>\s*(?:```json\s*)?([\s\S]*?)(?:```\s*)?<\/physikflow_meta>/i;
+  const match = raw.match(metadataPattern);
+  if (!match) {
+    const metadataStart = raw.toLowerCase().indexOf("<physikflow_meta>");
+    return {
+      text: (metadataStart >= 0 ? raw.slice(0, metadataStart) : raw).trim(),
+      memoryPatch: null
+    };
+  }
+
+  let memoryPatch = null;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    memoryPatch = parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("Bloco interno de memoria IA invalido:", error.message);
+  }
+
+  return {
+    text: raw.replace(metadataPattern, "").trim(),
+    memoryPatch
+  };
+}
+
+function createGeminiRequestBody(message, context = null, history = aiChatHistory, memory = aiMemoryForPrompt()) {
+  const contextText = [
+    "Memoria persistente sobre o usuario e suas preferencias:",
+    "```json",
+    JSON.stringify(memory || {}),
+    "```",
+    "",
+    ...(context
+      ? [
+      "Contexto analitico disponivel no PWA:",
+      "```json",
+      JSON.stringify(context),
+      "```",
+        ""
+      ]
+      : []),
+    "Pergunta atual do usuario:",
+    message
+  ].join("\n");
+
+  return {
+    systemInstruction: {
+      parts: [{
+        text: [
+          "Voce e a IA em testes do portal PhysikFlow.",
+          "Responda em portugues do Brasil, de forma clara e objetiva.",
+          "Por padrao, limite respostas comuns a ate 500 palavras ou 8 bullets; aprofunde apenas quando o usuario pedir.",
+          "Use apenas o contexto fornecido pelo PWA e deixe claro quando uma conclusao for limitada pelos dados disponiveis.",
+          "Nao invente dados de alunos, pagamentos, auditoria ou historico se eles nao estiverem no contexto.",
+          "Se a pergunta exigir dados que dependem do app desktop ou de datasets ainda ausentes, responda de forma util e inclua um bloco JSON `desktop_request` sugerindo o que o desktop deve gerar.",
+          "Use a memoria e o historico recente para manter continuidade natural, sem repetir perguntas ja respondidas.",
+          "Ao final de toda resposta, acrescente um bloco interno `<physikflow_meta>` com JSON compacto e depois feche com `</physikflow_meta>`.",
+          "O JSON interno deve ter apenas `summary`, `facts`, `preferences` e `dataGaps`.",
+          "`summary` deve ser um resumo curto e atualizado do que e util lembrar sobre o usuario.",
+          "`facts` deve conter somente fatos que o proprio usuario declarou claramente, como nome, funcao ou unidade; nunca deduza dados sensiveis.",
+          "`preferences` deve conter preferencias de comunicacao ou trabalho expressas pelo usuario.",
+          "`dataGaps` deve ser preenchido apenas quando a resposta ficou limitada por dados ausentes, usando objetos com `summary`, `reason`, `suggestedDatasets` e `unitId`.",
+          "Use arrays vazios quando nao houver novidade e nao explique nem mencione o bloco interno na resposta.",
+          "Nao mencione tokens, chaves ou detalhes internos de seguranca."
+        ].join(" ")
+      }]
+    },
+    contents: [
+      ...aiModelConversationHistory(history),
+      {
+        role: "user",
+        parts: [{ text: contextText }]
+      }
+    ],
+    generationConfig: {
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS
+    }
+  };
+}
+
+function uniqueGeminiModels(models) {
+  const seen = new Set();
+  return models
+    .map((model) => String(model || "").trim())
+    .filter((model) => {
+      if (!model || seen.has(model)) return false;
+      seen.add(model);
+      return true;
+    });
+}
+
+function geminiModelPlan(config) {
+  return uniqueGeminiModels([
+    config?.model,
+    ...(config?.fallbackModels || []),
+    ...GEMINI_DEFAULT_FALLBACK_MODELS
+  ]);
+}
+
+function geminiGenerateEndpointForModel(model) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+}
+
+function geminiGenerateEndpoint(config) {
+  return geminiGenerateEndpointForModel(config.model);
+}
+
+function geminiStreamEndpoint(config) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:streamGenerateContent?alt=sse`;
+}
+
+function geminiFinishNotice(finishReason) {
+  if (!finishReason || finishReason === "STOP") return "";
+
+  if (finishReason === "MAX_TOKENS") {
+    return `\n\n> Resposta interrompida pelo limite de tokens da API (${GEMINI_MAX_OUTPUT_TOKENS}). O contexto ja foi compactado para reduzir esse risco; se repetir, peca uma resposta mais curta ou use /desktop para solicitar um dataset mais especifico.`;
+  }
+
+  return `\n\n> Resposta encerrada pela API. finishReason: ${finishReason}`;
+}
+
+function geminiShouldFallback(error) {
+  if (!error) return false;
+  if (error.status === 401 || error.status === 403 || error.apiStatus === "UNAUTHENTICATED") return false;
+
+  return (
+    [400, 404, 408, 409, 429, 500, 502, 503, 504].includes(Number(error.status)) ||
+    ["INVALID_ARGUMENT", "NOT_FOUND", "RESOURCE_EXHAUSTED", "ABORTED", "UNAVAILABLE", "DEADLINE_EXCEEDED", "INTERNAL"].includes(error.apiStatus)
+  );
+}
+
+async function callGeminiModel({ apiKey, model, message, context, history, memory }) {
+  const response = await fetch(geminiGenerateEndpointForModel(model), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-goog-api-key": apiKey
+    },
+    body: JSON.stringify(createGeminiRequestBody(message, context, history, memory))
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(data?.error?.message || `HTTP ${response.status}`);
+    error.status = response.status;
+    error.reason = data?.error?.details?.find((detail) => detail?.reason)?.reason || "";
+    error.apiStatus = data?.error?.status || "";
+    error.model = model;
+    throw error;
+  }
+
+  return {
+    text: extractGeminiText(data) || "Recebi, mas a resposta veio vazia.",
+    finishReason: data?.candidates?.[0]?.finishReason || "",
+    model
+  };
+}
+
+async function requestGeminiChatReply(message, options = {}) {
+  const config = await carregarGeminiConfig();
+  if (!config) {
+    const error = new Error(geminiConfigError || "gemini-config-missing");
+    error.reason = geminiConfigError || "gemini-config-missing";
+    throw error;
+  }
+
+  const context = compactAiContextForGemini(await buildAiContext());
+  const modelPlan = geminiModelPlan(config);
+  const history = aiChatHistory.slice();
+  const memory = aiMemoryForPrompt();
+  const cacheKey = aiReplyCacheKey({ message, context, modelPlan, history, memory });
+
+  if (options.useCache !== false) {
+    const cached = getCachedAiReply(cacheKey);
+    if (cached) return cached;
+  }
+
+  const errors = [];
+  for (const model of modelPlan) {
+    try {
+      const result = await callGeminiModel({
+        apiKey: config.apiKey,
+        model,
+        message,
+        context,
+        history,
+        memory
+      });
+      const reply = result.text + geminiFinishNotice(result.finishReason);
+      if (!result.finishReason || result.finishReason === "STOP") {
+        setCachedAiReply(cacheKey, reply, result.model);
+      }
+      return reply;
+    } catch (error) {
+      errors.push(error);
+      if (!geminiShouldFallback(error)) throw error;
+    }
+  }
+
+  const lastError = errors[errors.length - 1] || new Error("gemini-failed");
+  lastError.fallbackAttempts = errors.map((error) => ({
+    model: error.model || "",
+    status: error.status || "",
+    apiStatus: error.apiStatus || "",
+    reason: error.reason || "",
+    message: error.message || ""
+  }));
+  throw lastError;
+}
+
+function geminiUserErrorMessage(error) {
+  const fallbackAttempts = Array.isArray(error?.fallbackAttempts)
+    ? error.fallbackAttempts.map((attempt) => [
+      attempt.model ? `model=${attempt.model}` : "",
+      attempt.status ? `status=${attempt.status}` : "",
+      attempt.apiStatus ? `apiStatus=${attempt.apiStatus}` : "",
+      attempt.reason ? `reason=${attempt.reason}` : "",
+      attempt.message ? `message=${attempt.message}` : ""
+    ].filter(Boolean).join(" | ")).filter(Boolean)
+    : [];
+  const details = [
+    error?.status ? `status: ${error.status}` : "",
+    error?.apiStatus ? `apiStatus: ${error.apiStatus}` : "",
+    error?.reason ? `reason: ${error.reason}` : "",
+    error?.model ? `model: ${error.model}` : "",
+    error?.message ? `message: ${error.message}` : "",
+    ...fallbackAttempts.map((attempt) => `fallback: ${attempt}`)
+  ].filter(Boolean);
+
+  const technical = details.length
+    ? ["", "Detalhes tecnicos:", ...details.map((detail) => `- ${detail}`)].join("\n")
+    : "";
+
+  if (error?.reason === "config-null" || error?.reason === "config-invalida" || error?.reason === "gemini-config-missing") {
+    return [
+      "A IA ainda nao encontrou uma configuracao valida no Firebase.",
+      "",
+      "Confira `/app_config/gemini` com `enabled`, `apiKey` e `model`.",
+      technical
+    ].join("\n");
+  }
+
+  if (error?.status === 401 || error?.apiStatus === "UNAUTHENTICATED") {
+    return [
+      "A chave Gemini configurada no portal foi recusada pela API.",
+      "",
+      "Confira se a chave publicada em `/app_config/gemini/apiKey` esta ativa no Google AI Studio.",
+      technical
+    ].join("\n");
+  }
+
+  if (error?.status === 403 || error?.reason === "API_KEY_SERVICE_BLOCKED") {
+    return [
+      "A chave foi reconhecida, mas o acesso ao Gemini esta bloqueado neste projeto.",
+      "",
+      "Verifique se a Generative Language API esta ativa para essa chave.",
+      technical
+    ].join("\n");
+  }
+
+  return [
+    "Nao consegui responder agora. Tente novamente em instantes.",
+    technical
+  ].join("\n");
+}
+
+function parseGeminiSseChunk(buffer, onText, onFinish) {
+  const events = buffer.split(/\n\n/);
+  const rest = events.pop() || "";
+
+  events.forEach((eventBlock) => {
+    const dataLines = eventBlock
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.replace(/^data:\s?/, ""));
+
+    if (!dataLines.length) return;
+
+    const payload = dataLines.join("\n");
+    if (payload === "[DONE]") return;
+
+    try {
+      const data = JSON.parse(payload);
+      const text = extractGeminiText(data);
+      if (text) onText(text);
+      const finishReason = data?.candidates?.[0]?.finishReason;
+      if (finishReason) onFinish(finishReason);
+    } catch (error) {
+      console.warn("Gemini stream parse error:", error);
+    }
+  });
+
+  return rest;
+}
+
+async function requestGeminiChatReplyStream(message, onUpdate) {
+  if (!GEMINI_STREAM_ENABLED) {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  if (sessionStorage.getItem(GEMINI_STREAM_UNAVAILABLE_KEY) === "1") {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  const config = await carregarGeminiConfig();
+  if (!config) {
+    const error = new Error(geminiConfigError || "gemini-config-missing");
+    error.reason = geminiConfigError || "gemini-config-missing";
+    throw error;
+  }
+
+  let response;
+  try {
+    const context = compactAiContextForGemini(await buildAiContext());
+    const history = aiChatHistory.slice();
+    const memory = aiMemoryForPrompt();
+    response = await fetch(geminiStreamEndpoint(config), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-goog-api-key": config.apiKey
+      },
+      body: JSON.stringify(createGeminiRequestBody(message, context, history, memory))
+    });
+  } catch (error) {
+    console.warn("Gemini stream unavailable, falling back:", error);
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) {
+      sessionStorage.setItem(GEMINI_STREAM_UNAVAILABLE_KEY, "1");
+    }
+    console.warn("Gemini stream unavailable, falling back:", data?.error?.message || response.status);
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  if (!response.body) {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+  let finishReason = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    buffer = parseGeminiSseChunk(
+      buffer,
+      (text) => {
+        fullText += text;
+        onUpdate(fullText);
+      },
+      (reason) => {
+        finishReason = reason;
+      }
+    );
+  }
+
+  buffer += decoder.decode();
+  parseGeminiSseChunk(
+    `${buffer}\n\n`,
+    (text) => {
+      fullText += text;
+      onUpdate(fullText);
+    },
+    (reason) => {
+      finishReason = reason;
+    }
+  );
+
+  if (!fullText.trim()) {
+    const fallback = await requestGeminiChatReply(message);
+    onUpdate(fallback);
+    return fallback;
+  }
+
+  return fullText + geminiFinishNotice(finishReason);
+}
+
+async function handleAiChatSubmit(event) {
+  event.preventDefault();
+  if (aiChatBusy) return;
+
+  const input = qs("aiChatInput");
+  const message = input?.value.trim();
+  if (!message) return;
+
+  input.value = "";
+  input.style.height = "";
+  appendAiMessage("user", message);
+  const loading = appendAiMessage("assistant", "Pensando...", { loading: true });
+  setAiBusy(true);
+  void archiveAiCloudMessage("user", message, { source: "chat" });
+
+  try {
+    const localReply = await handleAiLocalCommand(message);
+    const rawReply = localReply ?? await requestGeminiChatReplyStream(message, (partialReply) => {
+      updateAiLoadingMessage(loading, parseAiResponseEnvelope(partialReply).text, false);
+    });
+    const parsedReply = localReply
+      ? { text: rawReply, memoryPatch: null }
+      : parseAiResponseEnvelope(rawReply);
+    const reply = parsedReply.text || "Recebi sua mensagem, mas a resposta veio vazia.";
+
+    if (parsedReply.memoryPatch) {
+      mergeAiMemoryPatch(parsedReply.memoryPatch);
+    }
+
+    aiChatHistory.push({ role: "user", text: message }, { role: "assistant", text: reply });
+    saveAiChatHistory();
+    updateAiLoadingMessage(loading, reply);
+    void archiveAiCloudMessage("assistant", reply, {
+      source: localReply ? "local-command" : "gemini"
+    });
+  } catch (error) {
+    console.error("Gemini chat error:", error);
+    const errorReply = geminiUserErrorMessage(error);
+    updateAiLoadingMessage(
+      loading,
+      errorReply,
+      true
+    );
+    void archiveAiCloudMessage("assistant", errorReply, {
+      source: "gemini",
+      status: "error"
+    });
+  } finally {
+    setAiBusy(false);
+    input?.focus();
+  }
+}
+
+function setupAiChat() {
+  const form = qs("aiChatForm");
+  const input = qs("aiChatInput");
+  if (!form || !input) return;
+
+  document.querySelectorAll(".ai-message-assistant:not(.is-loading)").forEach((message) => {
+    const content = message.querySelector(".ai-message-content");
+    const text = message.dataset.rawText || content?.textContent || "";
+    message.dataset.rawText = text;
+    attachAiCopyButton(message, text);
+  });
+
+  renderAiMemoryPanel();
+  form.addEventListener("submit", handleAiChatSubmit);
+  qs("aiMemoryToggle")?.addEventListener("click", () => setAiMemoryPanelOpen(true));
+  qs("aiMemoryClose")?.addEventListener("click", () => setAiMemoryPanelOpen(false));
+  qs("aiMemoryBackdrop")?.addEventListener("click", () => setAiMemoryPanelOpen(false));
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && qs("aiMemoryPanel")?.getAttribute("aria-hidden") === "false") {
+      setAiMemoryPanelOpen(false);
+    }
+  });
+
+  window.addEventListener("online", () => {
+    if (appAuthorized) void flushAiCloudOutbox();
+  });
+
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+}
+
+// ==========================
 // PWA INSTALL
 // ==========================
 async function updateInstallButtons() {
@@ -3919,6 +6464,7 @@ function setupPwaInstall() {
 async function clearAppStorageCaches() {
   stopFirebaseRealtimeSync();
   localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(AI_REPLY_CACHE_KEY);
   relatoriosPorUnidade = {};
   unitsMeta = {};
   alunosPorUnidade = {};
@@ -3932,9 +6478,8 @@ async function clearAppStorageCaches() {
     await Promise.all(
       keys
         .filter((key) => (
-          key.startsWith("relatorio-r1-") ||
+          key.startsWith("relatorio-r1-prod-") ||
           key.startsWith("relatorio-r1-v") ||
-          key.startsWith("relatorio-r1-beta-") ||
           key.startsWith("relatorio-r1-bank-")
         ))
         .map((key) => caches.delete(key))
@@ -4111,6 +6656,13 @@ function updateUIForSignedInUser(user) {
 
 function updateUIForSignedOutUser() {
   stopFirebaseRealtimeSync();
+  aiUserStateUid = "";
+  aiCloudSessionId = "";
+  aiCloudSessionReady = false;
+  aiChatHistory.splice(0);
+  aiMemory = createEmptyAiMemory();
+  setAiCloudSyncState("local", "Entre para sincronizar a memória");
+  resetAiChatVisual(null);
   const error = pendingLoginError;
   pendingLoginError = "";
   physikServerConfig = null;
@@ -4157,6 +6709,7 @@ async function handleAuthState(user) {
   }
 
   showApp();
+  await initializeAiUserState(user);
   setText("statusCache", "carregando");
   updateSyncDot("carregando");
 
@@ -4187,6 +6740,7 @@ async function init() {
   setupStudentsSearch();
   setupScrollChaining();
   setupFinanceSubView();
+  setupAiChat();
   setupPwaInstall();
   registerServiceWorker();
   handleRedirectResult();

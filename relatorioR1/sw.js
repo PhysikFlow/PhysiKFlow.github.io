@@ -1,8 +1,7 @@
-const VERSION = "relatorio-r1-v23-firebase-realtime-2026-07-26";
+const VERSION = "relatorio-r1-prod-ai-preview-2026-07-30";
 const CACHE_PREFIXES_TO_DELETE = [
-  "relatorio-r1-",
+  "relatorio-r1-prod-",
   "relatorio-r1-v",
-  "relatorio-r1-beta-",
   "relatorio-r1-bank-"
 ];
 const RUNTIME = `${VERSION}-runtime`;
