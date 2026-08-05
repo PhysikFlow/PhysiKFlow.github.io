@@ -22,14 +22,14 @@ const FIREBASE_REST_TIMEOUT_MS = 12000;
 // ==========================
 // CONFIG
 // ==========================
-const CACHE_KEY = "relatorio_cache_v2";
-const APP_BUILD_ID = "2026-07-30-ai-preview-1";
-const APP_BUILD_CACHE_KEY = "relatorio_app_build_seen";
-const AI_CHAT_HISTORY_KEY = "relatorio_ai_chat_history_v1";
-const AI_MEMORY_KEY = "relatorio_ai_memory_v1";
-const AI_CLOUD_SESSION_KEY = "relatorio_ai_cloud_session_v1";
-const AI_CLOUD_OUTBOX_KEY = "relatorio_ai_cloud_outbox_v1";
-const AI_REPLY_CACHE_KEY = "relatorio_ai_reply_cache_v1";
+const CACHE_KEY = "relatorio_beta_cache_v2";
+const APP_BUILD_ID = "2026-07-30-ai-memory-lab-17";
+const APP_BUILD_CACHE_KEY = "relatorio_beta_app_build_seen";
+const AI_CHAT_HISTORY_KEY = "relatorio_beta_ai_chat_history_v1";
+const AI_MEMORY_KEY = "relatorio_beta_ai_memory_v1";
+const AI_CLOUD_SESSION_KEY = "relatorio_beta_ai_cloud_session_v1";
+const AI_CLOUD_OUTBOX_KEY = "relatorio_beta_ai_cloud_outbox_v1";
+const AI_REPLY_CACHE_KEY = "relatorio_beta_ai_reply_cache_v1";
 const AI_REPLY_CACHE_TTL_MS = 1000 * 60 * 3;
 const AI_REPLY_CACHE_MAX_ENTRIES = 20;
 const AI_CHAT_VISIBLE_MESSAGE_LIMIT = 12;
@@ -39,15 +39,15 @@ const AI_MEMORY_FACT_LIMIT = 20;
 const AI_MEMORY_PREFERENCE_LIMIT = 20;
 const AI_MEMORY_GAP_LIMIT = 30;
 const AI_CLOUD_ROOT = "ai_assistant";
-const SELECTED_UNIT_KEY = "relatorio_unidade_ativa";
-const INICIO_SEGMENT_KEY = "relatorio_inicio_segmento";
+const SELECTED_UNIT_KEY = "relatorio_beta_unidade_ativa";
+const INICIO_SEGMENT_KEY = "relatorio_beta_inicio_segmento";
 const CACHE_TTL = 1000 * 60 * 60 * 6;
 const REPORT_ROOT = "relatorios";
 const UNITS_ROOT = "units";
 const PAGAMENTOS_BY_DATE_ROOT = "pagamentosByDate";
 const PHYSIK_SERVER_CONFIG_ROOT = "app_config/physik_server";
 const GEMINI_CONFIG_ROOT = "app_config/gemini";
-const PHOTO_LINK_CACHE_KEY = "relatorio_photo_links_v1";
+const PHOTO_LINK_CACHE_KEY = "relatorio_beta_photo_links_v1";
 const PHOTO_LINK_REFRESH_GRACE_SECONDS = 300;
 const AI_ANALYTICS_AREA = "financeiro";
 const AI_ANALYTICS_DATASETS = {
@@ -157,7 +157,7 @@ const AI_COMPACT_ARRAY_LIMITS = {
   topStudents: 8,
   peakHours: 12
 };
-const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_gemini_stream_unavailable";
+const GEMINI_STREAM_UNAVAILABLE_KEY = "relatorio_beta_gemini_stream_unavailable";
 const GEMINI_STREAM_ENABLED = false;
 const REPORT_LIGHT_FIELDS = [
   "meta",
@@ -4508,8 +4508,8 @@ function resetAiChatVisual(user = auth.currentUser) {
 
   const firstName = String(user?.displayName || "").trim().split(/\s+/)[0];
   const greeting = firstName
-    ? `Olá, ${firstName}. A IA do PhysikFlow está em fase de testes. Ela pode interpretar dados incorretamente, omitir informações ou apresentar conclusões imprecisas. Use as respostas como apoio e confirme decisões financeiras, operacionais e cadastrais nos dados oficiais do sistema. Como posso ajudar?`
-    : "Olá. A IA do PhysikFlow está em fase de testes. Ela pode interpretar dados incorretamente, omitir informações ou apresentar conclusões imprecisas. Use as respostas como apoio e confirme decisões financeiras, operacionais e cadastrais nos dados oficiais do sistema. Como posso ajudar?";
+    ? `Oi, ${firstName}. Estou com o contexto analitico da unidade quando disponivel. Como posso ajudar?`
+    : "Oi. Estou com o contexto analitico da unidade quando disponivel. Como posso ajudar?";
 
   messages.innerHTML = "";
   appendAiMessage("assistant", greeting);
@@ -5971,7 +5971,7 @@ function createGeminiRequestBody(message, context = null, history = aiChatHistor
     systemInstruction: {
       parts: [{
         text: [
-          "Voce e a IA em testes do portal PhysikFlow.",
+          "Voce e a IA beta do portal PhysikFlow.",
           "Responda em portugues do Brasil, de forma clara e objetiva.",
           "Por padrao, limite respostas comuns a ate 500 palavras ou 8 bullets; aprofunde apenas quando o usuario pedir.",
           "Use apenas o contexto fornecido pelo PWA e deixe claro quando uma conclusao for limitada pelos dados disponiveis.",
@@ -6167,7 +6167,7 @@ function geminiUserErrorMessage(error) {
 
   if (error?.status === 401 || error?.apiStatus === "UNAUTHENTICATED") {
     return [
-      "A chave Gemini configurada no portal foi recusada pela API.",
+      "A chave Gemini configurada no beta foi recusada pela API.",
       "",
       "Confira se a chave publicada em `/app_config/gemini/apiKey` esta ativa no Google AI Studio.",
       technical
@@ -6478,9 +6478,7 @@ async function clearAppStorageCaches() {
     await Promise.all(
       keys
         .filter((key) => (
-          key.startsWith("relatorio-r1-prod-") ||
-          key.startsWith("relatorio-r1-v") ||
-          key.startsWith("relatorio-r1-bank-")
+          key.startsWith("relatorio-r1-beta-")
         ))
         .map((key) => caches.delete(key))
     );
