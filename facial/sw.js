@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flowface-v1';
+const CACHE_NAME = 'flowface-v2';
 const STATIC_ASSETS = [
   '/facial/',
   '/facial/index.html',

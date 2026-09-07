@@ -310,7 +310,7 @@ self.onmessage = async function(event) {
       case 'init':
         const providers = await initONNX();
         isInitialized = true;
-        self.postMessage({ type: 'initialized', providers });
+        self.postMessage({ type: 'initialized', data: { providers } });
         break;
 
       case 'load_detector':
@@ -347,7 +347,7 @@ self.onmessage = async function(event) {
         console.warn('Unknown message type:', type);
     }
   } catch (error) {
-    self.postMessage({ type: 'error', error: error.message });
+    self.postMessage({ type: 'error', data: { error: error.message } });
   }
 };
 

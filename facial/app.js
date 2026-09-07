@@ -106,7 +106,7 @@ async function initWorker() {
     state.worker = new Worker('/facial/detector.worker.js');
     
     state.worker.onmessage = (event) => {
-      const { type, data } = event.data;
+      const { type, data = {} } = event.data || {};
       
       switch (type) {
         case 'worker_ready':
