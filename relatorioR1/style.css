@@ -2032,6 +2032,70 @@ button:focus-visible {
   line-height: 1.15;
 }
 
+.finance-date-picker-wrap {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.finance-date-btn,
+.finance-date-today-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 20, 0.72);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.finance-date-today-btn {
+  color: var(--accent, #2d86ff);
+  border-color: rgba(45, 134, 255, 0.3);
+  background: rgba(45, 134, 255, 0.1);
+}
+
+.finance-date-btn:hover,
+.finance-date-btn:focus-visible {
+  background: rgba(45, 134, 255, 0.18);
+  border-color: rgba(45, 134, 255, 0.4);
+}
+
+.finance-date-today-btn:hover,
+.finance-date-today-btn:focus-visible {
+  background: rgba(45, 134, 255, 0.2);
+  border-color: rgba(45, 134, 255, 0.5);
+}
+
+.finance-date-btn svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.finance-date-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .finance-subview-list {
   display: flex;
   flex-direction: column;

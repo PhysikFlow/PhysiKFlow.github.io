@@ -201,6 +201,8 @@ let authStateReady = false;
 let pendingLoginError = "";
 let inicioSegmento = localStorage.getItem(INICIO_SEGMENT_KEY) || "operacional";
 let financeSubView = null;
+let financeSelectedDate = null;
+const pagamentosByDateCache = new Map();
 let aiChatBusy = false;
 const aiChatHistory = [];
 let aiMemory = createEmptyAiMemory();
@@ -1659,6 +1661,67 @@ function getFinanceTodayPayments(unitId) {
   return [];
 }
 
+function dateKeyToBR(dateKey) {
+  const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return dateKey || "";
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function brToDateKey(br) {
+  const match = String(br || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return br || "";
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function isTodayDateKey(dateKey) {
+  return dateKey === getTodayDateKey();
+}
+
+async function carregarPagamentosPorData(unitId, dateKey) {
+  const cacheKey = `${unitId}|${dateKey}`;
+  if (pagamentosByDateCache.has(cacheKey)) return pagamentosByDateCache.get(cacheKey);
+
+  const todayKey = getTodayDateKey();
+  if (dateKey === todayKey && pagamentosHojePorUnidade[unitId]) {
+    pagamentosByDateCache.set(cacheKey, pagamentosHojePorUnidade[unitId]);
+    return pagamentosHojePorUnidade[unitId];
+  }
+
+  const promise = readFirebaseValue(
+    `${PAGAMENTOS_BY_DATE_ROOT}/${unitId}/${dateKey}`,
+    `pagamentos-${unitId}-${dateKey}`
+  )
+    .then((data) => {
+      const pagamentos = toArray(data);
+      pagamentosByDateCache.set(cacheKey, pagamentos);
+      if (dateKey === todayKey) {
+        pagamentosHojePorUnidade[unitId] = pagamentos;
+      }
+      return pagamentos;
+    })
+    .catch((error) => {
+      console.warn("Pagamentos do dia indisponiveis:", error.code || error.message, error.message);
+      pagamentosByDateCache.set(cacheKey, []);
+      return [];
+    });
+
+  return promise;
+}
+
+function getFinancePaymentsForDate(unitId, dateKey) {
+  const cacheKey = `${unitId}|${dateKey}`;
+  if (pagamentosByDateCache.has(cacheKey)) return pagamentosByDateCache.get(cacheKey);
+  const todayKey = getTodayDateKey();
+  if (dateKey === todayKey) return getFinanceTodayPayments(unitId);
+  return [];
+}
+
+function getFinanceDateBreakdown(unitId, dateKey) {
+  const payments = getFinancePaymentsForDate(unitId, dateKey);
+  if (payments.length) return groupFinanceTodayPayments(payments);
+  return { lines: [], total: 0 };
+}
+
 function getPaymentPlanType(payment) {
   return String(payment?.plano || payment?.tipoPlano || payment?.type || "outros")
     .normalize("NFD")
@@ -1812,17 +1875,30 @@ function renderFinanceSubView() {
   const { view, unitId } = financeSubView;
   const unitName = nomeUnidade(unitId);
   const isDaily = view === "dia";
+  const dateKey = financeSelectedDate || getTodayDateKey();
+  const isToday = isTodayDateKey(dateKey);
 
   setText("financeSubKicker", unitName);
-  setText("financeSubTitle", isDaily ? "Hoje" : "Mês a mês");
+  setText("financeSubTitle", isDaily ? (isToday ? "Hoje" : dateKeyToBR(dateKey)) : "Mês a mês");
+
+  const datePickerWrap = qs("financeDatePickerWrap");
+  if (datePickerWrap) {
+    datePickerWrap.hidden = !isDaily;
+  }
+  setText("financeDateBtnLabel", isToday ? "Listar" : dateKeyToBR(dateKey));
+  const todayBtn = qs("financeDateTodayBtn");
+  if (todayBtn) {
+    todayBtn.classList.toggle("is-hidden", isToday);
+  }
 
   const list = qs("financeSubList");
   if (!list) return;
 
   if (isDaily) {
-    if (!pagamentosHojePorUnidade[unitId] && !pagamentosHojeFetchPromises.has(unitId)) {
+    const cached = getFinancePaymentsForDate(unitId, dateKey);
+    if (!cached.length && !pagamentosHojeFetchPromises.has(unitId)) {
       list.innerHTML = '<div class="mini-note">Carregando pagamentos...</div>';
-      carregarPagamentosHojeFirebase(unitId).then(() => {
+      carregarPagamentosPorData(unitId, dateKey).then(() => {
         if (financeSubView?.view === "dia" && financeSubView?.unitId === unitId) {
           renderFinanceSubView();
         }
@@ -1830,7 +1906,7 @@ function renderFinanceSubView() {
       return;
     }
 
-    list.innerHTML = renderFinanceTodayList(getFinanceTodayBreakdown(unitId));
+    list.innerHTML = renderFinanceTodayList(getFinanceDateBreakdown(unitId, dateKey));
     return;
   }
 
@@ -1905,6 +1981,7 @@ function openFinanceSubView(view, unitId, pushHistory = true, animate = true) {
   if (!relatoriosPorUnidade[unitId]) return;
 
   const enteringFromList = !financeSubView;
+  financeSelectedDate = null;
   financeSubView = { view, unitId };
   renderFinanceSubView();
   setFinanceStackLayer("subview", animate && enteringFromList);
@@ -1922,6 +1999,7 @@ function openFinanceSubView(view, unitId, pushHistory = true, animate = true) {
 
 function closeFinanceSubView(updateHash = true, animate = true) {
   const leavingSubView = Boolean(financeSubView);
+  financeSelectedDate = null;
   financeSubView = null;
   setFinanceStackLayer("list", animate && leavingSubView);
 
@@ -2106,12 +2184,35 @@ function setupFinanceSubView() {
     });
   });
 
+  qs("financeDateBtn")?.addEventListener("click", () => {
+    const input = qs("financeDateInput");
+    if (!input) return;
+    const todayKey = getTodayDateKey();
+    input.value = financeSelectedDate || todayKey;
+    input.showPicker?.();
+  });
+
+  qs("financeDateTodayBtn")?.addEventListener("click", () => {
+    financeSelectedDate = null;
+    renderFinanceSubView();
+  });
+
+  qs("financeDateInput")?.addEventListener("change", (event) => {
+    const value = event.target.value;
+    if (!value) return;
+    const dateKey = String(value).trim();
+    if (!dateKey) return;
+    financeSelectedDate = dateKey;
+    renderFinanceSubView();
+  });
+
   window.addEventListener("popstate", () => {
     if (!appAuthorized) return;
 
     const parsed = parseFinanceHash();
     if (parsed && relatoriosPorUnidade[parsed.unitId]) {
       const enteringFromList = !financeSubView;
+      financeSelectedDate = null;
       financeSubView = parsed;
       renderFinanceSubView();
       setFinanceStackLayer("subview", enteringFromList);
