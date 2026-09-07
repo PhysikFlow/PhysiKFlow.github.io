@@ -18,6 +18,8 @@ async function initONNX() {
     const script = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/esm/ort.min.js');
     ort = script.default || window.ort;
 
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
+
     // Configure execution providers
     const providers = [];
     
@@ -34,7 +36,9 @@ async function initONNX() {
     
     providers.push('wasm');
 
-    ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
+    ort.env.wasm.numThreads = self.crossOriginIsolated
+      ? (navigator.hardwareConcurrency || 1)
+      : 1;
 
     return providers;
   } catch (error) {
