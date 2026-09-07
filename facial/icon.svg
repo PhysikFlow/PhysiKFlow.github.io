@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="76.8" fill="#08090c"/>
+  <rect x="2" y="2" width="508" height="508" rx="74.8" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>
+  
+  <!-- Face detection corners -->
+  <g stroke="rgba(255,255,255,0.88)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Top-left -->
+    <path d="M120 200 L120 120 L200 120"/>
+    <!-- Top-right -->
+    <path d="M312 120 L392 120 L392 200"/>
+    <!-- Bottom-right -->
+    <path d="M392 312 L392 392 L312 392"/>
+    <!-- Bottom-left -->
+    <path d="M200 392 L120 392 L120 312"/>
+  </g>
+  
+  <!-- Eyes -->
+  <circle cx="212" cy="230" r="18" fill="rgba(255,255,255,0.88)"/>
+  <circle cx="300" cy="230" r="18" fill="rgba(255,255,255,0.88)"/>
+  
+  <!-- Smile -->
+  <path d="M220 280 Q256 320 292 280" stroke="rgba(255,255,255,0.88)" stroke-width="10" fill="none" stroke-linecap="round"/>
+</svg>

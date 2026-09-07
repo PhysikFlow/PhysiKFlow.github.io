@@ -1,0 +1,30 @@
+{
+  "name": "FlowFace — Detector Facial",
+  "short_name": "FlowFace",
+  "description": "PWA de detecção e reconhecimento facial com ONNX Runtime Web",
+  "start_url": "/facial/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "categories": ["utilities", "security"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

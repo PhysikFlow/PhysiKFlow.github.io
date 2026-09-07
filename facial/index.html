@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090c">
+  <meta name="description" content="FlowFace — Detector e reconhecimento facial offline">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <title>FlowFace — Detector Facial</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- ============================================
+         Rest Screen
+         ============================================ -->
+    <section class="rest" id="rest" aria-label="Tela de descanso">
+      <div class="rest-mark">FLOWFACE</div>
+      <div class="rest-center">
+        <div class="logo">
+          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M8 13V9a1 1 0 0 1 1-1h4M19 8h4a1 1 0 0 1 1 1v4M24 19v4a1 1 0 0 1-1 1h-4M13 24H9a1 1 0 0 1-1-1v-4"/>
+            <circle cx="16" cy="15" r="3.2"/>
+            <path d="M11.5 22c.9-2.2 2.4-3.2 4.5-3.2s3.6 1 4.5 3.2"/>
+          </svg>
+        </div>
+        <div class="rest-title">Aproxime-se para acessar</div>
+        <div class="rest-sub"><span class="pulse"></span>Terminal pronto</div>
+      </div>
+    </section>
+
+    <!-- ============================================
+         Camera Section
+         ============================================ -->
+    <section class="camera" id="camera">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="scrim"></div>
+
+      <!-- Face detection overlay -->
+      <div id="faceOverlay"></div>
+
+      <div class="top">
+        <div class="brand">FLOWFACE</div>
+        <div class="status">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Inicializando...</span>
+        </div>
+      </div>
+
+      <!-- Face target guide -->
+      <div class="face-target" id="faceTarget">
+        <div class="corner-bl"></div>
+        <div class="corner-tr"></div>
+      </div>
+
+      <!-- Stats panel -->
+      <div class="stats" id="stats">
+        <div class="stats-row">
+          <span class="stats-label">FPS</span>
+          <span class="stats-value" id="statFps">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Detecções</span>
+          <span class="stats-value" id="statDetections">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Rosto</span>
+          <span class="stats-value" id="statFace">--</span>
+        </div>
+      </div>
+
+      <div class="instruction" id="instruction">Inicializando modelos...</div>
+
+      <button class="close" id="close" aria-label="Voltar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+
+      <div class="message" id="message">
+        <strong id="messageTitle">Acesso liberado</strong>
+        <span id="messageText">Bem-vindo.</span>
+      </div>
+
+      <!-- Loading overlay -->
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Carregando modelos...</div>
+        <div class="loading-progress">
+          <div class="loading-progress-bar" id="loadingBar"></div>
+        </div>
+      </div>
+
+      <!-- Register form -->
+      <div class="register-form" id="registerForm">
+        <h3>Cadastrar novo rosto</h3>
+        <input type="text" id="registerName" placeholder="Nome">
+        <input type="text" id="registerId" placeholder="ID (opcional)">
+        <div class="register-form-actions">
+          <button class="btn btn-secondary" id="registerCancel">Cancelar</button>
+          <button class="btn btn-primary" id="registerSave">Salvar</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Hidden canvas for frame capture -->
+  <canvas id="captureCanvas" style="display: none;"></canvas>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
