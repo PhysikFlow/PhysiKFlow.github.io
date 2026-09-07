@@ -26,8 +26,8 @@ facial/
 ├── manifest.json       # Manifest PWA
 ├── icon.svg            # Ícone SVG
 └── models/             # Modelos ONNX (criar pasta)
-    ├── scrfd_2.5g.onnx
-    └── arcface_r100.onnx
+    ├── scrfd_500m.onnx
+    └── arcface_mbf.onnx
 ```
 
 ## Modelos ONNX
@@ -35,14 +35,14 @@ facial/
 Para funcionar, você precisa dos seguintes modelos ONNX:
 
 ### Detector Facial (SCRFD)
-- **Arquivo:** `scrfd_2.5g.onnx`
-- **Fonte:** https://github.com/deepinsight/insightface
-- **Conversão:** Use `onnxruntime` ou `tf2onnx` para converter
+- **Arquivo:** `scrfd_500m.onnx`
+- **Fonte:** pacote oficial InsightFace `buffalo_s`
+- **Download:** Execute `download-models.sh`
 
 ### Reconhecimento Facial (ArcFace)
-- **Arquivo:** `arcface_r100.onnx`
-- **Fonte:** https://github.com/deepinsight/insightface
-- **Conversão:** Use `onnxruntime` ou `tf2onnx` para converter
+- **Arquivo:** `arcface_mbf.onnx`
+- **Fonte:** pacote oficial InsightFace `buffalo_s`
+- **Download:** Execute `download-models.sh`
 
 ### Alternativas Open Source
 

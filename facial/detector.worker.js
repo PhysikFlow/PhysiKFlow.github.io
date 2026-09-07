@@ -50,6 +50,9 @@ async function initONNX() {
 async function loadModel(modelUrl, modelName) {
   try {
     const response = await fetch(modelUrl);
+    if (!response.ok) {
+      throw new Error(`Model request failed (${response.status}): ${modelUrl}`);
+    }
     const buffer = await response.arrayBuffer();
     
     const providers = await initONNX();

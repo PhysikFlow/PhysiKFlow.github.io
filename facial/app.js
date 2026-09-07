@@ -12,7 +12,7 @@ import supabase from './supabase.js';
 
 const CONFIG = {
   // Model URLs - downloaded models in /facial/models/
-  DETECTOR_MODEL_URL: '/facial/models/scrfd_2.5g.onnx',
+  DETECTOR_MODEL_URL: '/facial/models/scrfd_500m.onnx',
   RECOGNIZER_MODEL_URL: '/facial/models/arcface_mbf.onnx',
   
   // Detection settings
