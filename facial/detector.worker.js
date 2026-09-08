@@ -91,6 +91,13 @@ async function detectFaces(imageData, width, height) {
     // Run inference
     const inputName = detectorSession.inputNames[0];
     const results = await detectorSession.run({ [inputName]: inputTensor });
+
+    // Log output shapes once for debugging
+    if (!detectFaces._logged) {
+      detectFaces._logged = true;
+      const shapes = Object.entries(results).map(([name, t]) => `${name}: [${t.dims}] len=${t.data.length}`);
+      console.log('[SCRFD] output shapes:', shapes.join(' | '));
+    }
     
     return postprocessDetections(results, transform);
   } catch (error) {
@@ -157,7 +164,13 @@ function postprocessDetections(results, transform) {
       o.dims && o.dims.length === 4 && o.dims[1] === 10 &&
       o.dims[2] === gridSize && o.dims[3] === gridSize
     );
-    if (!scoreTensor || !boxTensor || !landmarkTensor) continue;
+    if (!scoreTensor || !boxTensor || !landmarkTensor) {
+      if (!postprocessDetections._skipLogged) {
+        postprocessDetections._skipLog = postprocessDetections._skipLog || [];
+        postprocessDetections._skipLog.push(`stride=${stride} gridSize=${gridSize} score=${!!scoreTensor} box=${!!boxTensor} kps=${!!landmarkTensor}`);
+      }
+      continue;
+    }
 
     for (let i = 0; i < locations; i++) {
       const h = Math.floor(i / gridSize);
@@ -194,6 +207,15 @@ function postprocessDetections(results, transform) {
 
       detections.push({ bbox, score, landmarks });
     }
+  }
+
+  // Log debug info once
+  if (!postprocessDetections._reported) {
+    postprocessDetections._reported = true;
+    if (postprocessDetections._skipLog && postprocessDetections._skipLog.length > 0) {
+      console.log('[SCRFD] skipped strides:', postprocessDetections._skipLog.join(' | '));
+    }
+    console.log('[SCRFD] pre-nms detections:', detections.length);
   }
 
   // Apply NMS
