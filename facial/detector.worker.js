@@ -145,6 +145,26 @@ function postprocessDetections(results, transform) {
       continue;
     }
 
+    // Debug: log score stats once per stride
+    if (!postprocessDetections._scoreLogged) {
+      postprocessDetections._scoreLogged = true;
+      let minS = Infinity, maxS = -Infinity, sumS = 0;
+      const buckets = [0, 0, 0, 0, 0]; // >0.1, >0.2, >0.3, >0.4, >0.5
+      for (let j = 0; j < locations; j++) {
+        let s = scoreTensor.data[j];
+        if (s < 0 || s > 1) s = 1 / (1 + Math.exp(-s));
+        if (s < minS) minS = s;
+        if (s > maxS) maxS = s;
+        sumS += s;
+        if (s > 0.1) buckets[0]++;
+        if (s > 0.2) buckets[1]++;
+        if (s > 0.3) buckets[2]++;
+        if (s > 0.4) buckets[3]++;
+        if (s > 0.5) buckets[4]++;
+      }
+      console.log(`[SCRFD] stride=${stride} locations=${locations} min=${minS.toFixed(4)} max=${maxS.toFixed(4)} avg=${(sumS/locations).toFixed(4)} >0.1:${buckets[0]} >0.2:${buckets[1]} >0.3:${buckets[2]} >0.4:${buckets[3]} >0.5:${buckets[4]}`);
+    }
+
     for (let i = 0; i < locations; i++) {
       // 2 anchors per cell: cell index = i >> 1, anchor = i & 1
       const cell = i >> 1;

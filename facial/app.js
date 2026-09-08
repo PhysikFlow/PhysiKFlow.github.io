@@ -106,7 +106,7 @@ async function registerServiceWorker() {
 
 async function initWorker() {
   return new Promise((resolve, reject) => {
-    state.worker = new Worker('/facial/detector.worker.js');
+    state.worker = new Worker('/facial/detector.worker.js?v=3');
     
     state.worker.onmessage = (event) => {
       const { type } = event.data;
