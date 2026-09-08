@@ -366,41 +366,48 @@ self.onmessage = async function(event) {
 
   try {
     switch (type) {
-      case 'init':
+      case 'init': {
         const providers = await initONNX();
         isInitialized = true;
         self.postMessage({ type: 'initialized', providers });
         break;
+      }
 
-      case 'load_detector':
+      case 'load_detector': {
         detectorSession = await loadModel(data.modelUrl, 'detector');
         self.postMessage({ type: 'detector_loaded' });
         break;
+      }
 
-      case 'load_recognizer':
+      case 'load_recognizer': {
         recognizerSession = await loadModel(data.modelUrl, 'recognizer');
         self.postMessage({ type: 'recognizer_loaded' });
         break;
+      }
 
-      case 'detect':
+      case 'detect': {
         const faces = await detectFaces(data.imageData, data.width, data.height);
         self.postMessage({ type: 'detections', faces });
         break;
+      }
 
-      case 'recognize':
+      case 'recognize': {
         const embedding = await getFaceEmbedding(data.imageData, data.width, data.height);
         self.postMessage({ type: 'embedding', embedding });
         break;
+      }
 
-      case 'compare':
+      case 'compare': {
         const comparison = compareEmbeddings(data.embedding1, data.embedding2, data.threshold);
         self.postMessage({ type: 'comparison', result: comparison });
         break;
+      }
 
-      case 'find_match':
+      case 'find_match': {
         const match = findBestMatch(data.embedding, data.knownEmbeddings, data.threshold);
         self.postMessage({ type: 'match_result', match });
         break;
+      }
 
       default:
         console.warn('Unknown message type:', type);

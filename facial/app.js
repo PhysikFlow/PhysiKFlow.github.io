@@ -315,6 +315,7 @@ function startDetectionLoop() {
 // ============================================
 
 function handleDetections(faces) {
+  if (!Array.isArray(faces)) faces = [];
   elements.statDetections.textContent = faces.length;
   
   // Clear previous overlays
