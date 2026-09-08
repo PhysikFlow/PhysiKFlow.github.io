@@ -26,8 +26,8 @@ const CONFIG = {
   VIDEO_HEIGHT: 720,
   
   // Face quality
-  MIN_FACE_SIZE: 50,
-  MAX_FACE_SIZE: 400,
+  MIN_FACE_SIZE: 20,
+  MAX_FACE_SIZE: 2000,
   CENTER_TOLERANCE: 0.3
 };
 
@@ -106,7 +106,7 @@ async function registerServiceWorker() {
 
 async function initWorker() {
   return new Promise((resolve, reject) => {
-    state.worker = new Worker('/facial/detector.worker.js?v=3');
+    state.worker = new Worker('/facial/detector.worker.js?v=4');
     
     state.worker.onmessage = (event) => {
       const { type } = event.data;
