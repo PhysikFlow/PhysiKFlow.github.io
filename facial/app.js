@@ -26,8 +26,8 @@ const CONFIG = {
   VIDEO_HEIGHT: 720,
   
   // Face quality
-  MIN_FACE_SIZE: 20,
-  MAX_FACE_SIZE: 2000,
+  MIN_FACE_SIZE: 28,
+  MAX_FACE_SIZE: 10000,
   CENTER_TOLERANCE: 0.3
 };
 
@@ -401,14 +401,21 @@ function checkFaceQuality(face) {
 function drawFaceBox(face) {
   const box = document.createElement('div');
   box.className = 'face-box';
-  
-  // Mirror the x coordinate since video is mirrored
-  const mirroredX = elements.captureCanvas.width - face.bbox.x - face.bbox.width;
-  
-  box.style.left = `${(mirroredX / elements.captureCanvas.width) * 100}%`;
-  box.style.top = `${(face.bbox.y / elements.captureCanvas.height) * 100}%`;
-  box.style.width = `${(face.bbox.width / elements.captureCanvas.width) * 100}%`;
-  box.style.height = `${(face.bbox.height / elements.captureCanvas.height) * 100}%`;
+
+  // The preview uses object-fit: cover. Map source-camera coordinates to the
+  // actually rendered (and potentially cropped) video before drawing.
+  const overlayRect = elements.faceOverlay.getBoundingClientRect();
+  const sourceWidth = elements.captureCanvas.width;
+  const sourceHeight = elements.captureCanvas.height;
+  const scale = Math.max(overlayRect.width / sourceWidth, overlayRect.height / sourceHeight);
+  const offsetX = (overlayRect.width - sourceWidth * scale) / 2;
+  const offsetY = (overlayRect.height - sourceHeight * scale) / 2;
+  const mirroredX = sourceWidth - face.bbox.x - face.bbox.width;
+
+  box.style.left = `${offsetX + mirroredX * scale}px`;
+  box.style.top = `${offsetY + face.bbox.y * scale}px`;
+  box.style.width = `${face.bbox.width * scale}px`;
+  box.style.height = `${face.bbox.height * scale}px`;
   
   elements.faceOverlay.appendChild(box);
 }

@@ -166,9 +166,10 @@ function postprocessDetections(results, transform) {
     }
 
     for (let i = 0; i < locations; i++) {
-      // 2 anchors per cell: cell index = i >> 1, anchor = i & 1
+      // SCRFD duplicates its two anchors at the same cell centre. Its offsets
+      // are expressed in stride units, so scale boxes and landmarks below.
       const cell = i >> 1;
-      const centerX = (cell % gridSize) * stride + ((i & 1) ? stride / 2 : 0);
+      const centerX = (cell % gridSize) * stride;
       const centerY = Math.floor(cell / gridSize) * stride;
 
       const rawScore = scoreTensor.data[i];
@@ -191,12 +192,10 @@ function postprocessDetections(results, transform) {
         console.log(`[SCRFD] first nonzero bbox: stride=${stride} center=(${centerX},${centerY}) ltrb=[${ltrb.map(v=>v.toFixed(4)).join(',')}] score=${score.toFixed(4)}`);
       }
 
-      // SCRFD outputs ltrb as distances from anchor center to box edges,
-      // already in pixel-space offsets (not normalized by stride)
-      const left   = ltrb[0];
-      const top    = ltrb[1];
-      const right  = ltrb[2];
-      const bottom = ltrb[3];
+      const left   = ltrb[0] * stride;
+      const top    = ltrb[1] * stride;
+      const right  = ltrb[2] * stride;
+      const bottom = ltrb[3] * stride;
 
       const x1 = (centerX - left   - transform.padX) / transform.scale;
       const y1 = (centerY - top    - transform.padY) / transform.scale;
@@ -209,8 +208,8 @@ function postprocessDetections(results, transform) {
       // Interleaved [N, 10] layout: anchor i → data[i*10 .. i*10+9]
       const kpsOffset = i * 10;
       const landmarks = Array.from({ length: 5 }, (_, point) => ({
-        x: clamp((centerX + landmarkTensor.data[kpsOffset + point * 2]     - transform.padX) / transform.scale, 0, transform.srcWidth),
-        y: clamp((centerY + landmarkTensor.data[kpsOffset + point * 2 + 1] - transform.padY) / transform.scale, 0, transform.srcHeight)
+        x: clamp((centerX + landmarkTensor.data[kpsOffset + point * 2] * stride - transform.padX) / transform.scale, 0, transform.srcWidth),
+        y: clamp((centerY + landmarkTensor.data[kpsOffset + point * 2 + 1] * stride - transform.padY) / transform.scale, 0, transform.srcHeight)
       }));
 
       detections.push({ bbox, score, landmarks });
