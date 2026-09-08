@@ -17,8 +17,12 @@ const SCRFD_STRIDES = [8, 16, 32];
 async function initONNX() {
   try {
     // Dynamically import ONNX Runtime
-    const script = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/esm/ort.min.js');
+    const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist';
+    const script = await import(`${ORT_CDN}/esm/ort.min.js`);
     ort = script.default || window.ort;
+
+    // Point WASM binaries to CDN (otherwise the browser tries the page origin → 404)
+    ort.env.wasm.wasmPaths = ORT_CDN + '/';
 
     // Configure execution providers
     const providers = [];
@@ -36,7 +40,10 @@ async function initONNX() {
     
     providers.push('wasm');
 
-    ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
+    // multi-threading requires crossOriginIsolated headers; fall back to 1 thread otherwise
+    ort.env.wasm.numThreads = self.crossOriginIsolated
+      ? (navigator.hardwareConcurrency || 4)
+      : 1;
 
     return providers;
   } catch (error) {
