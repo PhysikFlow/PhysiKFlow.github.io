@@ -8,7 +8,10 @@ const STATIC_ASSETS = [
   '/facial/detector.worker.js',
   '/facial/db.js',
   '/facial/supabase.js',
-  '/facial/icon.svg'
+  '/facial/models/det_500m.onnx',
+  '/facial/models/w600k_mbf.onnx',
+  '/facial/icon-192.png',
+  '/facial/icon-512.png'
 ];
 
 // ONNX models to cache for offline use

@@ -7,6 +7,8 @@ let ort = null;
 let detectorSession = null;
 let recognizerSession = null;
 let isInitialized = false;
+const DETECTOR_SIZE = 640;
+const SCRFD_STRIDES = [8, 16, 32];
 
 // ============================================
 // ONNX Runtime Setup
@@ -17,8 +19,6 @@ async function initONNX() {
     // Dynamically import ONNX Runtime
     const script = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/esm/ort.min.js');
     ort = script.default || window.ort;
-
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
 
     // Configure execution providers
     const providers = [];
@@ -36,9 +36,7 @@ async function initONNX() {
     
     providers.push('wasm');
 
-    ort.env.wasm.numThreads = self.crossOriginIsolated
-      ? (navigator.hardwareConcurrency || 1)
-      : 1;
+    ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
 
     return providers;
   } catch (error) {
@@ -51,9 +49,16 @@ async function loadModel(modelUrl, modelName) {
   try {
     const response = await fetch(modelUrl);
     if (!response.ok) {
-      throw new Error(`Model request failed (${response.status}): ${modelUrl}`);
+      throw new Error(`${response.status} ${response.statusText}`);
+    }
+    const contentLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(contentLength) && contentLength < 1024) {
+      throw new Error('o arquivo do modelo é inválido ou está incompleto');
     }
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength < 1024) {
+      throw new Error('o arquivo do modelo é inválido ou está incompleto');
+    }
     
     const providers = await initONNX();
     
@@ -79,17 +84,15 @@ async function detectFaces(imageData, width, height) {
 
   try {
     // Preprocess image for detector
-    const inputTensor = preprocessImage(imageData, width, height, 640, 640);
+    const { tensor: inputTensor, transform } = preprocessImage(
+      imageData, width, height, DETECTOR_SIZE, DETECTOR_SIZE
+    );
     
     // Run inference
     const inputName = detectorSession.inputNames[0];
     const results = await detectorSession.run({ [inputName]: inputTensor });
     
-    // Post-process results
-    const outputName = detectorSession.outputNames[0];
-    const output = results[outputName].data;
-    
-    return postprocessDetections(output, width, height);
+    return postprocessDetections(results, transform);
   } catch (error) {
     console.error('Detection error:', error);
     return [];
@@ -97,15 +100,22 @@ async function detectFaces(imageData, width, height) {
 }
 
 function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeight) {
-  // Create canvas for resizing
+  // SCRFD expects a square, letterboxed BGR image normalized to [-1, 1].
+  // Preserving aspect ratio is essential: stretching shifts its decoded boxes.
+  const source = new OffscreenCanvas(srcWidth, srcHeight);
+  source.getContext('2d').putImageData(
+    new ImageData(new Uint8ClampedArray(imageData), srcWidth, srcHeight), 0, 0
+  );
   const canvas = new OffscreenCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext('2d');
-  
-  // Draw and resize
-  const imageDataObj = new ImageData(new Uint8ClampedArray(imageData), srcWidth, srcHeight);
-  ctx.putImageData(imageDataObj, 0, 0);
-  
-  // Get pixel data
+  ctx.fillStyle = 'rgb(0, 0, 0)';
+  ctx.fillRect(0, 0, targetWidth, targetHeight);
+  const scale = Math.min(targetWidth / srcWidth, targetHeight / srcHeight);
+  const resizedWidth = Math.round(srcWidth * scale);
+  const resizedHeight = Math.round(srcHeight * scale);
+  const padX = Math.floor((targetWidth - resizedWidth) / 2);
+  const padY = Math.floor((targetHeight - resizedHeight) / 2);
+  ctx.drawImage(source, 0, 0, srcWidth, srcHeight, padX, padY, resizedWidth, resizedHeight);
   const resizedData = ctx.getImageData(0, 0, targetWidth, targetHeight).data;
   
   // Convert to float32 tensor [1, 3, H, W]
@@ -113,47 +123,75 @@ function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeig
   
   for (let i = 0; i < targetWidth * targetHeight; i++) {
     const srcIdx = i * 4;
-    // Normalize to [0, 1] and convert RGB to BGR if needed
-    float32Data[i] = resizedData[srcIdx] / 255.0;                    // R
-    float32Data[targetWidth * targetHeight + i] = resizedData[srcIdx + 1] / 255.0;  // G
-    float32Data[2 * targetWidth * targetHeight + i] = resizedData[srcIdx + 2] / 255.0; // B
+    // BGR, mean=127.5 and std=128 are the SCRFD training convention.
+    float32Data[i] = (resizedData[srcIdx + 2] - 127.5) / 128.0;
+    float32Data[targetWidth * targetHeight + i] = (resizedData[srcIdx + 1] - 127.5) / 128.0;
+    float32Data[2 * targetWidth * targetHeight + i] = (resizedData[srcIdx] - 127.5) / 128.0;
   }
   
-  return new ort.Tensor('float32', float32Data, [1, 3, targetHeight, targetWidth]);
+  return {
+    tensor: new ort.Tensor('float32', float32Data, [1, 3, targetHeight, targetWidth]),
+    transform: { scale, padX, padY, srcWidth, srcHeight }
+  };
 }
 
-function postprocessDetections(output, origWidth, origHeight) {
+function postprocessDetections(results, transform) {
   const detections = [];
   const confThreshold = 0.5;
-  const scaleX = origWidth / 640;
-  const scaleY = origHeight / 640;
-  
-  // Simple post-processing - adjust based on your model's output format
-  // This is a placeholder that needs to be adapted to the specific model
-  for (let i = 0; i < output.length; i += 15) {
-    const score = output[i + 4];
-    if (score > confThreshold) {
-      const x = output[i] * scaleX;
-      const y = output[i + 1] * scaleY;
-      const w = output[i + 2] * scaleX;
-      const h = output[i + 3] * scaleY;
-      
-      detections.push({
-        bbox: { x, y, width: w, height: h },
-        score,
-        landmarks: [
-          { x: output[i + 5] * scaleX, y: output[i + 6] * scaleY },
-          { x: output[i + 7] * scaleX, y: output[i + 8] * scaleY },
-          { x: output[i + 9] * scaleX, y: output[i + 10] * scaleY },
-          { x: output[i + 11] * scaleX, y: output[i + 12] * scaleY },
-          { x: output[i + 13] * scaleX, y: output[i + 14] * scaleY }
-        ]
-      });
+  const outputs = Object.values(results);
+
+  for (const stride of SCRFD_STRIDES) {
+    const locations = (DETECTOR_SIZE / stride) ** 2 * 2;
+    const scoreTensor = outputs.find(output => output.data.length === locations);
+    const boxTensor = outputs.find(output => output.data.length === locations * 4);
+    const landmarkTensor = outputs.find(output => output.data.length === locations * 10);
+    if (!scoreTensor || !boxTensor || !landmarkTensor) continue;
+
+    for (let i = 0; i < locations; i++) {
+      const rawScore = scoreTensor.data[i];
+      const score = rawScore >= 0 && rawScore <= 1
+        ? rawScore
+        : 1 / (1 + Math.exp(-rawScore));
+      if (score < confThreshold) continue;
+
+      const cell = Math.floor(i / 2);
+      const centerX = (cell % (DETECTOR_SIZE / stride)) * stride;
+      const centerY = Math.floor(cell / (DETECTOR_SIZE / stride)) * stride;
+      const boxOffset = i * 4;
+      const left = boxTensor.data[boxOffset] * stride;
+      const top = boxTensor.data[boxOffset + 1] * stride;
+      const right = boxTensor.data[boxOffset + 2] * stride;
+      const bottom = boxTensor.data[boxOffset + 3] * stride;
+      const x1 = (centerX - left - transform.padX) / transform.scale;
+      const y1 = (centerY - top - transform.padY) / transform.scale;
+      const x2 = (centerX + right - transform.padX) / transform.scale;
+      const y2 = (centerY + bottom - transform.padY) / transform.scale;
+      const bbox = clampBox(x1, y1, x2, y2, transform.srcWidth, transform.srcHeight);
+      if (bbox.width <= 1 || bbox.height <= 1) continue;
+
+      const landmarkOffset = i * 10;
+      const landmarks = Array.from({ length: 5 }, (_, point) => ({
+        x: clamp((centerX + landmarkTensor.data[landmarkOffset + point * 2] * stride - transform.padX) / transform.scale, 0, transform.srcWidth),
+        y: clamp((centerY + landmarkTensor.data[landmarkOffset + point * 2 + 1] * stride - transform.padY) / transform.scale, 0, transform.srcHeight)
+      }));
+      detections.push({ bbox, score, landmarks });
     }
   }
   
   // Apply NMS
   return nms(detections, 0.4);
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function clampBox(x1, y1, x2, y2, width, height) {
+  const left = clamp(x1, 0, width);
+  const top = clamp(y1, 0, height);
+  const right = clamp(x2, 0, width);
+  const bottom = clamp(y2, 0, height);
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 function nms(detections, threshold) {
@@ -313,7 +351,7 @@ self.onmessage = async function(event) {
       case 'init':
         const providers = await initONNX();
         isInitialized = true;
-        self.postMessage({ type: 'initialized', data: { providers } });
+        self.postMessage({ type: 'initialized', providers });
         break;
 
       case 'load_detector':
@@ -350,7 +388,7 @@ self.onmessage = async function(event) {
         console.warn('Unknown message type:', type);
     }
   } catch (error) {
-    self.postMessage({ type: 'error', data: { error: error.message } });
+    self.postMessage({ type: 'error', error: error.message });
   }
 };
 

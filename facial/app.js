@@ -12,8 +12,9 @@ import supabase from './supabase.js';
 
 const CONFIG = {
   // Model URLs - downloaded models in /facial/models/
-  DETECTOR_MODEL_URL: '/facial/models/scrfd_500m.onnx',
-  RECOGNIZER_MODEL_URL: '/facial/models/arcface_mbf.onnx',
+  // Official InsightFace buffalo_s weights, committed under /models.
+  DETECTOR_MODEL_URL: '/facial/models/det_500m.onnx',
+  RECOGNIZER_MODEL_URL: '/facial/models/w600k_mbf.onnx',
   
   // Detection settings
   DETECTION_INTERVAL: 100, // ms between detections
@@ -47,7 +48,9 @@ const state = {
   frameCount: 0,
   knownEmbeddings: [],
   isRegistering: false,
-  pendingEmbedding: null
+  pendingEmbedding: null,
+  detectionInFlight: false,
+  recognitionInFlight: false
 };
 
 // ============================================
@@ -106,7 +109,10 @@ async function initWorker() {
     state.worker = new Worker('/facial/detector.worker.js');
     
     state.worker.onmessage = (event) => {
-      const { type, data = {} } = event.data || {};
+      const { type } = event.data;
+      // Older worker messages were top-level while the UI expected a `data`
+      // envelope. Accept both so a stale worker can never crash the UI.
+      const data = event.data.data ?? event.data;
       
       switch (type) {
         case 'worker_ready':
@@ -131,10 +137,12 @@ async function initWorker() {
           break;
           
         case 'detections':
-          handleDetections(data.faces);
+          state.detectionInFlight = false;
+          handleDetections(Array.isArray(data.faces) ? data.faces : []);
           break;
           
         case 'embedding':
+          state.recognitionInFlight = false;
           handleEmbedding(data.embedding);
           break;
           
@@ -143,6 +151,8 @@ async function initWorker() {
           break;
           
         case 'error':
+          state.detectionInFlight = false;
+          state.recognitionInFlight = false;
           console.error('Worker error:', data.error);
           updateStatus('error', 'Erro na inferência');
           break;
@@ -278,13 +288,16 @@ function startDetectionLoop() {
     }
     
     // Capture frame
-    const ctx = elements.captureCanvas.getContext('2d');
+    if (state.detectionInFlight) return;
+
+    const ctx = elements.captureCanvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(elements.video, 0, 0);
     
     // Get image data
     const imageData = ctx.getImageData(0, 0, elements.captureCanvas.width, elements.captureCanvas.height);
     
     // Send to worker for detection
+    state.detectionInFlight = true;
     state.worker.postMessage({
       type: 'detect',
       data: {
@@ -292,7 +305,7 @@ function startDetectionLoop() {
         width: elements.captureCanvas.width,
         height: elements.captureCanvas.height
       }
-    });
+    }, [imageData.data.buffer]);
     
   }, CONFIG.DETECTION_INTERVAL);
 }
@@ -404,6 +417,7 @@ function drawFaceBox(face) {
 // ============================================
 
 function recognizeFace(face) {
+  if (state.recognitionInFlight) return;
   // Extract face region from canvas
   const ctx = elements.captureCanvas.getContext('2d');
   const faceImageData = ctx.getImageData(
@@ -414,14 +428,15 @@ function recognizeFace(face) {
   );
   
   // Send to worker for recognition
+  state.recognitionInFlight = true;
   state.worker.postMessage({
     type: 'recognize',
     data: {
       imageData: faceImageData.data.buffer,
       width: face.bbox.width,
       height: face.bbox.height
-    }
-  });
+      }
+  }, [faceImageData.data.buffer]);
 }
 
 function handleEmbedding(embedding) {

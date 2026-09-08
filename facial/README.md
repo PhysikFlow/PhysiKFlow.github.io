@@ -26,8 +26,8 @@ facial/
 ├── manifest.json       # Manifest PWA
 ├── icon.svg            # Ícone SVG
 └── models/             # Modelos ONNX (criar pasta)
-    ├── scrfd_500m.onnx
-    └── arcface_mbf.onnx
+    ├── det_500m.onnx   # SCRFD-500MF, 2.5 MB
+    └── w600k_mbf.onnx  # MobileFaceNet / ArcFace, 13.6 MB
 ```
 
 ## Modelos ONNX
@@ -35,14 +35,14 @@ facial/
 Para funcionar, você precisa dos seguintes modelos ONNX:
 
 ### Detector Facial (SCRFD)
-- **Arquivo:** `scrfd_500m.onnx`
-- **Fonte:** pacote oficial InsightFace `buffalo_s`
-- **Download:** Execute `download-models.sh`
+- **Arquivo:** `det_500m.onnx`
+- **Fonte:** pacote oficial [InsightFace buffalo_s](https://github.com/deepinsight/insightface/releases/tag/v0.7)
+- **Formato:** SCRFD-500MF ONNX; não requer conversão.
 
 ### Reconhecimento Facial (ArcFace)
-- **Arquivo:** `arcface_mbf.onnx`
-- **Fonte:** pacote oficial InsightFace `buffalo_s`
-- **Download:** Execute `download-models.sh`
+- **Arquivo:** `w600k_mbf.onnx`
+- **Fonte:** pacote oficial [InsightFace buffalo_s](https://github.com/deepinsight/insightface/releases/tag/v0.7)
+- **Formato:** MobileFaceNet / ArcFace, embeddings de 512 dimensões.
 
 ### Alternativas Open Source
 
@@ -58,17 +58,10 @@ Para funcionar, você precisa dos seguintes modelos ONNX:
 mkdir -p facial/models
 ```
 
-### 2. Baixar/Converter modelos
+### 2. Baixar os modelos
 
 ```bash
-# Exemplo com pip
-pip install onnxruntime
-
-# Converter do InsightFace
-python -c "
-import onnxruntime as ort
-# Carregar modelo e exportar
-"
+bash download-models.sh
 ```
 
 ### 3. Gerar ícones PNG
@@ -204,6 +197,9 @@ await db.setConfig('supabase_key', 'sua-chave-anon');
 - Verifique se os arquivos `.onnx` estão na pasta `models/`
 - Verifique o console do navegador para erros
 - Teste com modelos menores primeiro
+
+> Os pesos pré-treinados InsightFace têm licença própria e são destinados a
+> pesquisa não comercial. Confira os termos do pacote antes de uso comercial.
 
 ### Performance ruim
 

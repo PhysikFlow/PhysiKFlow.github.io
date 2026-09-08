@@ -12,16 +12,13 @@ echo ""
 mkdir -p models
 cd models
 
-PACKAGE_URL="https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
-PACKAGE_FILE=".buffalo_s.zip"
+ARCHIVE_URL="https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
+ARCHIVE="buffalo_s.zip"
 
-echo "📥 Baixando pacote oficial InsightFace buffalo_s..."
-curl -fL "$PACKAGE_URL" -o "$PACKAGE_FILE" --progress-bar
-unzip -j -o "$PACKAGE_FILE" 'det_500m.onnx' -d .
-unzip -j -o "$PACKAGE_FILE" 'w600k_mbf.onnx' -d .
-mv -f det_500m.onnx scrfd_500m.onnx
-mv -f w600k_mbf.onnx arcface_mbf.onnx
-rm -f "$PACKAGE_FILE"
+echo "📥 Baixando pesos oficiais InsightFace buffalo_s..."
+curl --fail --location --retry 3 --progress-bar -o "$ARCHIVE" "$ARCHIVE_URL"
+unzip -o "$ARCHIVE" det_500m.onnx w600k_mbf.onnx
+rm -f "$ARCHIVE"
 
 echo ""
 echo "=========================================="
@@ -38,10 +35,8 @@ echo "=========================================="
 echo "  Recomendações"
 echo "=========================================="
 echo ""
-echo "🎯 Para PWA mobile (mais leve):"
-echo "   - Detector: scrfd_500m.onnx (2.41 MB)"
-echo "   - Reconhecimento: arcface_mbf.onnx (12.99 MB)"
-echo ""
-echo "🎯 Pacote usado pelo PWA: buffalo_s (detector leve + ArcFace MobileFaceNet)"
+echo "🎯 Conjunto padrão:"
+echo "   - Detector: det_500m.onnx (SCRFD-500MF)"
+echo "   - Reconhecimento: w600k_mbf.onnx (MobileFaceNet / ArcFace)"
 echo ""
 echo "✅ Concluído!"
