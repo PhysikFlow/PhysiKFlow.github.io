@@ -7,6 +7,7 @@ let ort = null;
 let detectorSession = null;
 let recognizerSession = null;
 let isInitialized = false;
+let cachedProviders = null;
 const DETECTOR_SIZE = 640;
 const SCRFD_STRIDES = [8, 16, 32];
 
@@ -15,87 +16,55 @@ const SCRFD_STRIDES = [8, 16, 32];
 // ============================================
 
 async function initONNX() {
-  try {
-    // Dynamically import ONNX Runtime
-    const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist';
-    const script = await import(`${ORT_CDN}/esm/ort.min.js`);
-    ort = script.default || window.ort;
+  if (cachedProviders) return cachedProviders;
 
-    // Point WASM binaries to CDN (otherwise the browser tries the page origin → 404)
-    ort.env.wasm.wasmPaths = ORT_CDN + '/';
+  // Dynamically import ONNX Runtime
+  const script = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/esm/ort.min.js');
+  ort = script.default || window.ort;
 
-    // Configure execution providers
-    const providers = [];
-    
-    if (typeof WebGPU !== 'undefined') {
-      try {
-        const adapter = await navigator.gpu?.requestAdapter();
-        if (adapter) {
-          providers.push('webgpu');
-        }
-      } catch (e) {
-        console.warn('WebGPU not available, using WASM');
-      }
-    }
-    
-    providers.push('wasm');
+  // Point WASM binaries to CDN — without this the browser fetches from page origin (404 on GitHub Pages)
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
 
-    // multi-threading requires crossOriginIsolated headers; fall back to 1 thread otherwise
-    ort.env.wasm.numThreads = self.crossOriginIsolated
-      ? (navigator.hardwareConcurrency || 4)
-      : 1;
+  // Single-threaded: multi-threading requires crossOriginIsolated headers
+  ort.env.wasm.numThreads = 1;
 
-    return providers;
-  } catch (error) {
-    console.error('Failed to load ONNX Runtime:', error);
-    throw error;
-  }
+  // Configure execution providers
+  cachedProviders = ['wasm'];
+  return cachedProviders;
 }
 
 async function loadModel(modelUrl, modelName) {
-  try {
-    const response = await fetch(modelUrl);
-    if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`);
-    }
-    const contentLength = Number(response.headers.get('content-length'));
-    if (Number.isFinite(contentLength) && contentLength < 1024) {
-      throw new Error('o arquivo do modelo é inválido ou está incompleto');
-    }
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength < 1024) {
-      throw new Error('o arquivo do modelo é inválido ou está incompleto');
-    }
-    
-    const providers = await initONNX();
-    
-    const session = await ort.InferenceSession.create(buffer, {
-      executionProviders: providers
-    });
+  // Ensure ONNX is initialized (idempotent — providers cached after first call)
+  const providers = await initONNX();
 
-    return session;
-  } catch (error) {
-    console.error(`Failed to load model ${modelName}:`, error);
-    throw error;
+  const response = await fetch(modelUrl);
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
   }
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength < 1024) {
+    throw new Error('o arquivo do modelo é inválido ou está incompleto');
+  }
+
+  const session = await ort.InferenceSession.create(buffer, {
+    executionProviders: providers
+  });
+
+  return session;
 }
 
 // ============================================
-// Face Detection (SCRFD/BlazeFace)
+// Face Detection (SCRFD)
 // ============================================
 
 async function detectFaces(imageData, width, height) {
-  if (!detectorSession) {
-    return [];
-  }
+  if (!detectorSession) return [];
 
   try {
-    // Preprocess image for detector
     const { tensor: inputTensor, transform } = preprocessImage(
       imageData, width, height, DETECTOR_SIZE, DETECTOR_SIZE
     );
-    
-    // Run inference
+
     const inputName = detectorSession.inputNames[0];
     const results = await detectorSession.run({ [inputName]: inputTensor });
 
@@ -105,7 +74,7 @@ async function detectFaces(imageData, width, height) {
       const shapes = Object.entries(results).map(([name, t]) => `${name}: [${t.dims}] len=${t.data.length}`);
       console.log('[SCRFD] output shapes:', shapes.join(' | '));
     }
-    
+
     return postprocessDetections(results, transform);
   } catch (error) {
     console.error('Detection error:', error);
@@ -114,8 +83,6 @@ async function detectFaces(imageData, width, height) {
 }
 
 function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeight) {
-  // SCRFD expects a square, letterboxed BGR image normalized to [-1, 1].
-  // Preserving aspect ratio is essential: stretching shifts its decoded boxes.
   const source = new OffscreenCanvas(srcWidth, srcHeight);
   source.getContext('2d').putImageData(
     new ImageData(new Uint8ClampedArray(imageData), srcWidth, srcHeight), 0, 0
@@ -131,18 +98,17 @@ function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeig
   const padY = Math.floor((targetHeight - resizedHeight) / 2);
   ctx.drawImage(source, 0, 0, srcWidth, srcHeight, padX, padY, resizedWidth, resizedHeight);
   const resizedData = ctx.getImageData(0, 0, targetWidth, targetHeight).data;
-  
-  // Convert to float32 tensor [1, 3, H, W]
+
+  // Convert to float32 tensor [1, 3, H, W] — BGR, mean=127.5, std=128
   const float32Data = new Float32Array(3 * targetWidth * targetHeight);
-  
+
   for (let i = 0; i < targetWidth * targetHeight; i++) {
     const srcIdx = i * 4;
-    // BGR, mean=127.5 and std=128 are the SCRFD training convention.
     float32Data[i] = (resizedData[srcIdx + 2] - 127.5) / 128.0;
     float32Data[targetWidth * targetHeight + i] = (resizedData[srcIdx + 1] - 127.5) / 128.0;
     float32Data[2 * targetWidth * targetHeight + i] = (resizedData[srcIdx] - 127.5) / 128.0;
   }
-  
+
   return {
     tensor: new ort.Tensor('float32', float32Data, [1, 3, targetHeight, targetWidth]),
     transform: { scale, padX, padY, srcWidth, srcHeight }
@@ -171,10 +137,11 @@ function postprocessDetections(results, transform) {
       o.dims && o.dims.length === 4 && o.dims[1] === 10 &&
       o.dims[2] === gridSize && o.dims[3] === gridSize
     );
+
     if (!scoreTensor || !boxTensor || !landmarkTensor) {
       if (!postprocessDetections._skipLogged) {
         postprocessDetections._skipLog = postprocessDetections._skipLog || [];
-        postprocessDetections._skipLog.push(`stride=${stride} gridSize=${gridSize} score=${!!scoreTensor} box=${!!boxTensor} kps=${!!landmarkTensor}`);
+        postprocessDetections._skipLog.push(`stride=${stride} g=${gridSize} s=${!!scoreTensor} b=${!!boxTensor} k=${!!landmarkTensor}`);
       }
       continue;
     }
@@ -206,7 +173,6 @@ function postprocessDetections(results, transform) {
       const bbox = clampBox(x1, y1, x2, y2, transform.srcWidth, transform.srcHeight);
       if (bbox.width <= 1 || bbox.height <= 1) continue;
 
-      // NCHW landmarks [1,10,H,W]: channel 2p = point p x, channel 2p+1 = point p y
       const landmarks = Array.from({ length: 5 }, (_, point) => ({
         x: clamp((centerX + landmarkTensor.data[point * 2 * locations + i] * stride - transform.padX) / transform.scale, 0, transform.srcWidth),
         y: clamp((centerY + landmarkTensor.data[(point * 2 + 1) * locations + i] * stride - transform.padY) / transform.scale, 0, transform.srcHeight)
@@ -225,7 +191,6 @@ function postprocessDetections(results, transform) {
     console.log('[SCRFD] pre-nms detections:', detections.length);
   }
 
-  // Apply NMS
   return nms(detections, 0.4);
 }
 
@@ -242,27 +207,22 @@ function clampBox(x1, y1, x2, y2, width, height) {
 }
 
 function nms(detections, threshold) {
-  // Sort by score
   detections.sort((a, b) => b.score - a.score);
-  
   const keep = [];
   const suppressed = new Set();
-  
+
   for (let i = 0; i < detections.length; i++) {
     if (suppressed.has(i)) continue;
-    
     keep.push(detections[i]);
-    
     for (let j = i + 1; j < detections.length; j++) {
       if (suppressed.has(j)) continue;
-      
       const iou = calculateIoU(detections[i].bbox, detections[j].bbox);
       if (iou > threshold) {
         suppressed.add(j);
       }
     }
   }
-  
+
   return keep;
 }
 
@@ -271,12 +231,12 @@ function calculateIoU(box1, box2) {
   const y1 = Math.max(box1.y, box2.y);
   const x2 = Math.min(box1.x + box1.width, box2.x + box2.width);
   const y2 = Math.min(box1.y + box1.height, box2.y + box2.height);
-  
+
   const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
   const area1 = box1.width * box1.height;
   const area2 = box2.width * box2.height;
   const union = area1 + area2 - intersection;
-  
+
   return union > 0 ? intersection / union : 0;
 }
 
@@ -285,27 +245,16 @@ function calculateIoU(box1, box2) {
 // ============================================
 
 async function getFaceEmbedding(faceImageData, width, height) {
-  if (!recognizerSession) {
-    return null;
-  }
+  if (!recognizerSession) return null;
 
   try {
-    // Preprocess face for recognizer
     const inputTensor = preprocessFace(faceImageData, width, height, 112, 112);
-    
-    // Run inference
     const inputName = recognizerSession.inputNames[0];
     const results = await recognizerSession.run({ [inputName]: inputTensor });
-    
-    // Get embedding
     const outputName = recognizerSession.outputNames[0];
     const embedding = results[outputName].data;
-    
-    // L2 normalize
     const norm = Math.sqrt(Array.from(embedding).reduce((sum, val) => sum + val * val, 0));
-    const normalized = Array.from(embedding).map(val => val / norm);
-    
-    return normalized;
+    return Array.from(embedding).map(val => val / norm);
   } catch (error) {
     console.error('Recognition error:', error);
     return null;
@@ -315,25 +264,18 @@ async function getFaceEmbedding(faceImageData, width, height) {
 function preprocessFace(imageData, srcWidth, srcHeight, targetWidth, targetHeight) {
   const canvas = new OffscreenCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext('2d');
-  
   const imageDataObj = new ImageData(new Uint8ClampedArray(imageData), srcWidth, srcHeight);
-  
-  // Draw face region
   ctx.putImageData(imageDataObj, 0, 0);
-  
   const resizedData = ctx.getImageData(0, 0, targetWidth, targetHeight).data;
-  
-  // Convert to float32 tensor [1, 3, 112, 112]
+
   const float32Data = new Float32Array(3 * targetWidth * targetHeight);
-  
   for (let i = 0; i < targetWidth * targetHeight; i++) {
     const srcIdx = i * 4;
-    // Normalize with mean subtraction (ImageNet stats)
-    float32Data[i] = (resizedData[srcIdx] - 127.5) / 128.0;                    // R
-    float32Data[targetWidth * targetHeight + i] = (resizedData[srcIdx + 1] - 127.5) / 128.0;  // G
-    float32Data[2 * targetWidth * targetHeight + i] = (resizedData[srcIdx + 2] - 127.5) / 128.0; // B
+    float32Data[i] = (resizedData[srcIdx] - 127.5) / 128.0;
+    float32Data[targetWidth * targetHeight + i] = (resizedData[srcIdx + 1] - 127.5) / 128.0;
+    float32Data[2 * targetWidth * targetHeight + i] = (resizedData[srcIdx + 2] - 127.5) / 128.0;
   }
-  
+
   return new ort.Tensor('float32', float32Data, [1, 3, targetHeight, targetWidth]);
 }
 
@@ -346,7 +288,6 @@ function compareEmbeddings(embedding1, embedding2, threshold = 0.4) {
     return { distance: 1, match: false };
   }
 
-  // Cosine similarity
   let dotProduct = 0;
   let norm1 = 0;
   let norm2 = 0;
