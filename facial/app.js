@@ -18,6 +18,8 @@ const CONFIG = {
   
   // Detection settings
   DETECTION_INTERVAL: 100, // ms between detections
+  RECOGNITION_COOLDOWN: 2500, // prevent repeat access attempts for one face
+  FACE_LOST_RESET: 1200, // ms without a face before a new access attempt
   CONFIDENCE_THRESHOLD: 0.5,
   RECOGNITION_THRESHOLD: 0.4,
   
@@ -50,7 +52,10 @@ const state = {
   isRegistering: false,
   pendingEmbedding: null,
   detectionInFlight: false,
-  recognitionInFlight: false
+  recognitionInFlight: false,
+  lastRecognitionAt: 0,
+  lastFaceSeenAt: 0,
+  recognitionAttempted: false
 };
 
 // ============================================
@@ -322,11 +327,16 @@ function handleDetections(faces) {
   elements.faceOverlay.innerHTML = '';
   
   if (faces.length === 0) {
+    if (performance.now() - state.lastFaceSeenAt >= CONFIG.FACE_LOST_RESET) {
+      state.recognitionAttempted = false;
+    }
     elements.statFace.textContent = '--';
     elements.instruction.textContent = 'Olhe para a câmera';
     elements.instruction.className = 'instruction';
     return;
   }
+
+  state.lastFaceSeenAt = performance.now();
   
   // Find best face (closest to center, largest)
   const bestFace = findBestFace(faces);
@@ -425,7 +435,12 @@ function drawFaceBox(face) {
 // ============================================
 
 function recognizeFace(face) {
-  if (state.recognitionInFlight) return;
+  const now = performance.now();
+  if (
+    state.recognitionInFlight ||
+    state.recognitionAttempted ||
+    now - state.lastRecognitionAt < CONFIG.RECOGNITION_COOLDOWN
+  ) return;
   // Extract face region from canvas
   const ctx = elements.captureCanvas.getContext('2d');
   const faceImageData = ctx.getImageData(
@@ -437,6 +452,8 @@ function recognizeFace(face) {
   
   // Send to worker for recognition
   state.recognitionInFlight = true;
+  state.lastRecognitionAt = now;
+  state.recognitionAttempted = true;
   state.worker.postMessage({
     type: 'recognize',
     data: {
@@ -510,6 +527,7 @@ function handleMatchResult(match) {
 
 function startRegistration() {
   state.isRegistering = true;
+  state.recognitionAttempted = false;
   elements.registerForm.classList.add('show');
   elements.registerName.focus();
 }
