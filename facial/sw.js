@@ -1,5 +1,5 @@
 // Force clients running the old decoder to retrieve this corrected worker.
-const CACHE_NAME = 'flowface-v4';
+const CACHE_NAME = 'flowface-v5';
 const STATIC_ASSETS = [
   '/facial/',
   '/facial/index.html',

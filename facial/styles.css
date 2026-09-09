@@ -280,7 +280,8 @@ video {
   border: 2px solid var(--ok);
   border-radius: 8px;
   pointer-events: none;
-  transition: border-color 0.2s;
+  transition: left 160ms ease-out, top 160ms ease-out, width 160ms ease-out,
+    height 160ms ease-out, border-color 0.2s;
 }
 
 .face-box.denied {

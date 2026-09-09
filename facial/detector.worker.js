@@ -75,14 +75,23 @@ async function detectFaces(imageData, width, height) {
       console.log('[SCRFD] output shapes:', shapes.join(' | '));
     }
 
-    return postprocessDetections(results, transform);
+    const detections = postprocessDetections(results, transform);
+    if (detections.length > 0) return detections;
+
+    // Large, natural close-up faces can occupy too much of the 640px model
+    // input. When the regular pass finds nothing, render the same frame at
+    // 72% inside the input and try once more. The transform still maps boxes
+    // back to the original camera pixels.
+    const closeUpPass = preprocessImage(imageData, width, height, DETECTOR_SIZE, DETECTOR_SIZE, 0.72);
+    const closeUpResults = await detectorSession.run({ [inputName]: closeUpPass.tensor });
+    return postprocessDetections(closeUpResults, closeUpPass.transform, 0.45);
   } catch (error) {
     console.error('Detection error:', error);
     return [];
   }
 }
 
-function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeight) {
+function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeight, contentScale = 1) {
   const source = new OffscreenCanvas(srcWidth, srcHeight);
   source.getContext('2d').putImageData(
     new ImageData(new Uint8ClampedArray(imageData), srcWidth, srcHeight), 0, 0
@@ -91,7 +100,7 @@ function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeig
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = 'rgb(0, 0, 0)';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
-  const scale = Math.min(targetWidth / srcWidth, targetHeight / srcHeight);
+  const scale = Math.min(targetWidth / srcWidth, targetHeight / srcHeight) * contentScale;
   const resizedWidth = Math.round(srcWidth * scale);
   const resizedHeight = Math.round(srcHeight * scale);
   const padX = Math.floor((targetWidth - resizedWidth) / 2);
@@ -115,9 +124,8 @@ function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeig
   };
 }
 
-function postprocessDetections(results, transform) {
+function postprocessDetections(results, transform, confThreshold = 0.5) {
   const detections = [];
-  const confThreshold = 0.5;
   const outputs = Object.values(results);
 
   // The SCRFD_500M model outputs 2D tensors [num_anchors, channels]:

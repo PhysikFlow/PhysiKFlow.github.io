@@ -55,7 +55,8 @@ const state = {
   recognitionInFlight: false,
   lastRecognitionAt: 0,
   lastFaceSeenAt: 0,
-  recognitionAttempted: false
+  recognitionAttempted: false,
+  faceBox: null
 };
 
 // ============================================
@@ -323,10 +324,9 @@ function handleDetections(faces) {
   if (!Array.isArray(faces)) faces = [];
   elements.statDetections.textContent = faces.length;
   
-  // Clear previous overlays
-  elements.faceOverlay.innerHTML = '';
-  
   if (faces.length === 0) {
+    state.faceBox?.remove();
+    state.faceBox = null;
     if (performance.now() - state.lastFaceSeenAt >= CONFIG.FACE_LOST_RESET) {
       state.recognitionAttempted = false;
     }
@@ -409,7 +409,7 @@ function checkFaceQuality(face) {
 }
 
 function drawFaceBox(face) {
-  const box = document.createElement('div');
+  const box = state.faceBox || document.createElement('div');
   box.className = 'face-box';
 
   // The preview uses object-fit: cover. Map source-camera coordinates to the
@@ -427,7 +427,10 @@ function drawFaceBox(face) {
   box.style.width = `${face.bbox.width * scale}px`;
   box.style.height = `${face.bbox.height * scale}px`;
   
-  elements.faceOverlay.appendChild(box);
+  if (!state.faceBox) {
+    elements.faceOverlay.appendChild(box);
+    state.faceBox = box;
+  }
 }
 
 // ============================================
