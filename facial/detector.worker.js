@@ -10,6 +10,9 @@ let isInitialized = false;
 let cachedProviders = null;
 const DETECTOR_SIZE = 640;
 const SCRFD_STRIDES = [8, 16, 32];
+const ULTRAFACE_WIDTH = 320;
+const ULTRAFACE_HEIGHT = 240;
+const ULTRAFACE_PRIORS = createUltraFacePriors();
 
 // ============================================
 // ONNX Runtime Setup
@@ -61,34 +64,89 @@ async function detectFaces(imageData, width, height) {
   if (!detectorSession) return [];
 
   try {
-    const { tensor: inputTensor, transform } = preprocessImage(
-      imageData, width, height, DETECTOR_SIZE, DETECTOR_SIZE
-    );
-
+    const inputTensor = preprocessUltraFace(imageData, width, height);
     const inputName = detectorSession.inputNames[0];
     const results = await detectorSession.run({ [inputName]: inputTensor });
-
-    // Log output shapes once for debugging
-    if (!detectFaces._logged) {
-      detectFaces._logged = true;
-      const shapes = Object.entries(results).map(([name, t]) => `${name}: [${t.dims}] len=${t.data.length}`);
-      console.log('[SCRFD] output shapes:', shapes.join(' | '));
-    }
-
-    const detections = postprocessDetections(results, transform);
-    if (detections.length > 0) return detections;
-
-    // Large, natural close-up faces can occupy too much of the 640px model
-    // input. When the regular pass finds nothing, render the same frame at
-    // 72% inside the input and try once more. The transform still maps boxes
-    // back to the original camera pixels.
-    const closeUpPass = preprocessImage(imageData, width, height, DETECTOR_SIZE, DETECTOR_SIZE, 0.72);
-    const closeUpResults = await detectorSession.run({ [inputName]: closeUpPass.tensor });
-    return postprocessDetections(closeUpResults, closeUpPass.transform, 0.45);
+    return postprocessUltraFace(results, width, height);
   } catch (error) {
     console.error('Detection error:', error);
     return [];
   }
+}
+
+function preprocessUltraFace(imageData, srcWidth, srcHeight) {
+  const source = new OffscreenCanvas(srcWidth, srcHeight);
+  source.getContext('2d').putImageData(
+    new ImageData(new Uint8ClampedArray(imageData), srcWidth, srcHeight), 0, 0
+  );
+  const canvas = new OffscreenCanvas(ULTRAFACE_WIDTH, ULTRAFACE_HEIGHT);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(source, 0, 0, srcWidth, srcHeight, 0, 0, ULTRAFACE_WIDTH, ULTRAFACE_HEIGHT);
+  const pixels = ctx.getImageData(0, 0, ULTRAFACE_WIDTH, ULTRAFACE_HEIGHT).data;
+  const tensor = new Float32Array(3 * ULTRAFACE_WIDTH * ULTRAFACE_HEIGHT);
+  const plane = ULTRAFACE_WIDTH * ULTRAFACE_HEIGHT;
+
+  for (let i = 0; i < plane; i++) {
+    const pixel = i * 4;
+    tensor[i] = (pixels[pixel] - 127) / 128;
+    tensor[plane + i] = (pixels[pixel + 1] - 127) / 128;
+    tensor[plane * 2 + i] = (pixels[pixel + 2] - 127) / 128;
+  }
+  return new ort.Tensor('float32', tensor, [1, 3, ULTRAFACE_HEIGHT, ULTRAFACE_WIDTH]);
+}
+
+function createUltraFacePriors() {
+  const priors = [];
+  const minBoxes = [[10, 16, 24], [32, 48], [64, 96], [128, 192, 256]];
+  const strides = [8, 16, 32, 64];
+  for (let level = 0; level < strides.length; level++) {
+    const stride = strides[level];
+    const featureWidth = Math.ceil(ULTRAFACE_WIDTH / stride);
+    const featureHeight = Math.ceil(ULTRAFACE_HEIGHT / stride);
+    for (let y = 0; y < featureHeight; y++) {
+      for (let x = 0; x < featureWidth; x++) {
+        for (const size of minBoxes[level]) {
+          priors.push({
+            cx: (x + 0.5) * stride / ULTRAFACE_WIDTH,
+            cy: (y + 0.5) * stride / ULTRAFACE_HEIGHT,
+            width: size / ULTRAFACE_WIDTH,
+            height: size / ULTRAFACE_HEIGHT
+          });
+        }
+      }
+    }
+  }
+  return priors;
+}
+
+function postprocessUltraFace(results, sourceWidth, sourceHeight) {
+  const outputs = Object.values(results);
+  const locations = ULTRAFACE_PRIORS.length;
+  const boxes = outputs.find(output => output.data.length === locations * 4);
+  const scores = outputs.find(output => output.data.length === locations * 2);
+  if (!boxes || !scores) throw new Error('Saída inesperada do modelo UltraFace');
+
+  const detections = [];
+  for (let i = 0; i < locations; i++) {
+    const score = scores.data[i * 2 + 1];
+    if (score < 0.55) continue;
+    const prior = ULTRAFACE_PRIORS[i];
+    const offset = i * 4;
+    const cx = boxes.data[offset] * 0.1 * prior.width + prior.cx;
+    const cy = boxes.data[offset + 1] * 0.1 * prior.height + prior.cy;
+    const width = Math.exp(boxes.data[offset + 2] * 0.2) * prior.width;
+    const height = Math.exp(boxes.data[offset + 3] * 0.2) * prior.height;
+    const bbox = clampBox(
+      (cx - width / 2) * sourceWidth,
+      (cy - height / 2) * sourceHeight,
+      (cx + width / 2) * sourceWidth,
+      (cy + height / 2) * sourceHeight,
+      sourceWidth,
+      sourceHeight
+    );
+    if (bbox.width > 1 && bbox.height > 1) detections.push({ bbox, score, landmarks: [] });
+  }
+  return nms(detections, 0.3);
 }
 
 function preprocessImage(imageData, srcWidth, srcHeight, targetWidth, targetHeight, contentScale = 1) {

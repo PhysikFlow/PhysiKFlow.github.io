@@ -14,10 +14,13 @@ cd models
 
 ARCHIVE_URL="https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip"
 ARCHIVE="buffalo_s.zip"
+DETECTOR_URL="https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/raw/master/models/onnx/version-RFB-320.onnx"
 
-echo "📥 Baixando pesos oficiais InsightFace buffalo_s..."
+echo "📥 Baixando detector leve UltraFace..."
+curl --fail --location --retry 3 --progress-bar -o "ultraface-rfb-320.onnx" "$DETECTOR_URL"
+echo "📥 Baixando reconhecimento InsightFace..."
 curl --fail --location --retry 3 --progress-bar -o "$ARCHIVE" "$ARCHIVE_URL"
-unzip -o "$ARCHIVE" det_500m.onnx w600k_mbf.onnx
+unzip -o "$ARCHIVE" w600k_mbf.onnx
 rm -f "$ARCHIVE"
 
 echo ""
@@ -36,7 +39,7 @@ echo "  Recomendações"
 echo "=========================================="
 echo ""
 echo "🎯 Conjunto padrão:"
-echo "   - Detector: det_500m.onnx (SCRFD-500MF)"
+echo "   - Detector: ultraface-rfb-320.onnx (UltraFace RFB 320)"
 echo "   - Reconhecimento: w600k_mbf.onnx (MobileFaceNet / ArcFace)"
 echo ""
 echo "✅ Concluído!"

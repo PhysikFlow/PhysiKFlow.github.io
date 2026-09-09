@@ -26,7 +26,7 @@ facial/
 ├── manifest.json       # Manifest PWA
 ├── icon.svg            # Ícone SVG
 └── models/             # Modelos ONNX (criar pasta)
-    ├── det_500m.onnx   # SCRFD-500MF, 2.5 MB
+    ├── ultraface-rfb-320.onnx # UltraFace RFB 320, 1.27 MB
     └── w600k_mbf.onnx  # MobileFaceNet / ArcFace, 13.6 MB
 ```
 
@@ -34,10 +34,10 @@ facial/
 
 Para funcionar, você precisa dos seguintes modelos ONNX:
 
-### Detector Facial (SCRFD)
-- **Arquivo:** `det_500m.onnx`
-- **Fonte:** pacote oficial [InsightFace buffalo_s](https://github.com/deepinsight/insightface/releases/tag/v0.7)
-- **Formato:** SCRFD-500MF ONNX; não requer conversão.
+### Detector Facial (UltraFace)
+- **Arquivo:** `ultraface-rfb-320.onnx`
+- **Fonte:** [Ultra-Light-Fast-Generic-Face-Detector-1MB](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
+- **Formato:** RFB 320×240, otimizado para dispositivos móveis.
 
 ### Reconhecimento Facial (ArcFace)
 - **Arquivo:** `w600k_mbf.onnx`

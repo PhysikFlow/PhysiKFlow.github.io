@@ -12,8 +12,8 @@ import supabase from './supabase.js';
 
 const CONFIG = {
   // Model URLs - downloaded models in /facial/models/
-  // Official InsightFace buffalo_s weights, committed under /models.
-  DETECTOR_MODEL_URL: '/facial/models/det_500m.onnx',
+  // UltraFace RFB 320 is designed for edge/mobile face detection.
+  DETECTOR_MODEL_URL: '/facial/models/ultraface-rfb-320.onnx',
   RECOGNIZER_MODEL_URL: '/facial/models/w600k_mbf.onnx',
   
   // Detection settings
@@ -56,7 +56,8 @@ const state = {
   lastRecognitionAt: 0,
   lastFaceSeenAt: 0,
   recognitionAttempted: false,
-  faceBox: null
+  faceBox: null,
+  recognizerRequested: false
 };
 
 // ============================================
@@ -112,7 +113,7 @@ async function registerServiceWorker() {
 
 async function initWorker() {
   return new Promise((resolve, reject) => {
-    state.worker = new Worker('/facial/detector.worker.js?v=4');
+    state.worker = new Worker('/facial/detector.worker.js?v=6');
     
     state.worker.onmessage = (event) => {
       const { type } = event.data;
@@ -132,7 +133,7 @@ async function initWorker() {
           
         case 'detector_loaded':
           state.detectorLoaded = true;
-          updateLoadingProgress(50, 'Detector facial carregado');
+          updateLoadingProgress(100, 'Detector facial carregado');
           checkModelsReady();
           break;
           
@@ -180,7 +181,7 @@ function updateLoadingProgress(percent, text) {
 }
 
 function checkModelsReady() {
-  if (state.detectorLoaded && state.recognizerLoaded) {
+  if (state.detectorLoaded) {
     state.modelsLoaded = true;
     elements.loadingOverlay.classList.remove('show');
     elements.instruction.textContent = 'Olhe para a câmera';
@@ -205,11 +206,6 @@ async function loadModels() {
     });
     
     // Load recognizer model
-    updateLoadingProgress(30, 'Carregando reconhecimento facial...');
-    state.worker.postMessage({
-      type: 'load_recognizer',
-      data: { modelUrl: CONFIG.RECOGNIZER_MODEL_URL }
-    });
     
   } catch (error) {
     console.error('Failed to load models:', error);
@@ -433,12 +429,25 @@ function drawFaceBox(face) {
   }
 }
 
+function ensureRecognizer() {
+  if (state.recognizerLoaded || state.recognizerRequested) return;
+  state.recognizerRequested = true;
+  state.worker.postMessage({
+    type: 'load_recognizer',
+    data: { modelUrl: CONFIG.RECOGNIZER_MODEL_URL }
+  });
+}
+
 // ============================================
 // Recognition
 // ============================================
 
 function recognizeFace(face) {
   const now = performance.now();
+  if (!state.recognizerLoaded) {
+    ensureRecognizer();
+    return;
+  }
   if (
     state.recognitionInFlight ||
     state.recognitionAttempted ||
@@ -531,6 +540,7 @@ function handleMatchResult(match) {
 function startRegistration() {
   state.isRegistering = true;
   state.recognitionAttempted = false;
+  ensureRecognizer();
   elements.registerForm.classList.add('show');
   elements.registerName.focus();
 }
@@ -653,6 +663,7 @@ function leaveCamera() {
 async function loadKnownEmbeddings() {
   try {
     state.knownEmbeddings = await db.getAllEmbeddings();
+    if (state.knownEmbeddings.length > 0) ensureRecognizer();
     console.log(`Loaded ${state.knownEmbeddings.length} embeddings`);
   } catch (error) {
     console.error('Failed to load embeddings:', error);
