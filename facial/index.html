@@ -32,6 +32,8 @@
         <div class="rest-title">Aproxime-se para acessar</div>
         <div class="rest-sub"><span class="pulse loading" id="restPulse"></span><span id="restStatus">Carregando detector…</span></div>
       </div>
+      <!-- Painel técnico no descanso: o que o vigia de movimento está vendo -->
+      <div class="rest-debug" id="restDebug" hidden></div>
     </section>
 
     <section class="camera" id="camera">
@@ -62,7 +64,7 @@
 
       <div class="instruction" id="instruction" role="status" aria-live="polite">Olhe para a câmera</div>
 
-      <button class="close" id="close" type="button" aria-label="Voltar">
+      <button class="close" id="close" type="button" aria-label="Voltar ao descanso">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18"/>
         </svg>
@@ -71,11 +73,6 @@
       <div class="message" id="message" role="alert">
         <strong id="messageTitle"></strong>
         <span id="messageText"></span>
-      </div>
-
-      <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text" id="loadingText">Carregando detector…</div>
       </div>
     </section>
   </div>

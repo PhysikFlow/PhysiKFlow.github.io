@@ -9,12 +9,22 @@
  * O envio ao computador (pareamento + rede local) ainda não existe. Até lá, a
  * captura para na tela e diz isso.
  *
- * Por que o quadrado acompanha o rosto sem atraso:
+ * Feito para ficar ligado o dia inteiro, em qualquer aparelho. Três modos:
+ *   desligado  sem câmera (falta permissão, deu erro ou a aba está escondida);
+ *   descanso   câmera a 5 quadros/s atrás da tela de descanso. Só um vigia de
+ *              movimento olha a imagem: uma miniatura de 64 px, 4 vezes por
+ *              segundo. O detector de rosto e o desenho ficam parados;
+ *   ativo      preview, detector e o quadrado. Volta ao descanso depois de
+ *              15 s sem rosto.
+ *
+ * Por que o quadrado acompanha o rosto sem atraso e sem pular:
  *   - a detecção roda num worker, sobre uma imagem de 320 px (nunca o quadro
  *     cheio), e só um quadro por vez fica em voo;
- *   - o desenho roda a cada quadro da tela, num canvas, sem transição de CSS;
  *   - um filtro One Euro tira o tremido parado sem segurar o movimento, e a
- *     posição é adiantada pelo tempo que a detecção levou.
+ *     posição é adiantada pelo tempo que a detecção levou;
+ *   - o desenho, a cada quadro da tela, persegue essa posição com uma mola
+ *     amortecida: entre uma detecção e outra (12 por segundo num celular) o
+ *     quadrado desliza em vez de saltar.
  */
 
 const params = new URLSearchParams(location.search);
@@ -24,8 +34,9 @@ const CONFIG = {
   WORKER_URL: new URL('./detector.worker.js', import.meta.url),
 
   // 720p basta: o detector vê bem menos, e a resolução cheia só serve para o
-  // recorte que irá ao computador.
+  // recorte que irá ao computador. Em descanso a câmera cai para 5 quadros/s.
   CAMERA: { width: 1280, height: 720, frameRate: 30 },
+  IDLE_CAMERA_FPS: 5,
 
   // Lado maior da imagem entregue ao detector. O rosto de quem está diante
   // do totem é grande; em aparelho lento a entrada encolhe sozinha.
@@ -35,17 +46,42 @@ const CONFIG = {
   SLOW_MS: 70,
   FAST_MS: 28,
 
+  // Ritmo do detector. Com rosto na tela, 15 por segundo (a mola cobre o
+  // intervalo); sem rosto, 6 por segundo bastam para perceber quem chega.
+  DETECT_MAX_HZ: 15,
+  DETECT_SEARCH_HZ: 6,
+  SEARCH_AFTER_MS: 1500,
+
   SCORE_CAPTURE: 0.75,
 
   FACE_GONE_MS: 450,      // sem rosto por isso: o quadrado some
   NEXT_ATTEMPT_MS: 1500,  // sem rosto por isso: nova tentativa liberada
+  REST_AFTER_MS: 15000,   // sem rosto por isso: volta ao descanso
   HOLD_MS: 400,           // tudo certo por isso: captura
   SHOTS: 3,
   SHOT_GAP_MS: 120,
   CROP_SCALE: 2.2,        // recorte = maior lado do rosto × isto
   CROP_SIDE: 320,         // px do recorte (rosto com ~150 px)
   JPEG_QUALITY: 0.85,
+
+  // Desenho do quadrado
   PREDICT_MAX_MS: 120,    // até quanto a posição é adiantada
+  PREDICT_FACTOR: 0.8,    // folga para não passar do ponto quando o rosto para
+  // Tempo da mola. 'auto' = 85% do intervalo entre detecções (15/s -> ~57 ms,
+  // 12/s num celular -> ~71 ms): só o bastante para cobrir o vão. Número fixo
+  // em ms também vale; 0 = pula direto a cada detecção.
+  SMOOTH_MS: 'auto',
+  // Adiantar o alvo da mola tira o atraso dela, mas faz o quadrado passar do
+  // ponto quando a pessoa para (medido: até 35 px). Totem é chegar e parar.
+  LEAD_MS: 0,
+
+  // Vigia de movimento (descanso)
+  MOTION_INTERVAL_MS: 250,
+  MOTION_WIDTH: 64,       // miniatura em que o vigia compara
+  MOTION_PIXEL: 18,       // diferença de brilho (0-255) que conta como mudança
+  MOTION_FRACTION: 0.03,  // fração da imagem que precisa mudar
+  MOTION_CONFIRM: 2,      // leituras seguidas acima do limite
+  MOTION_WARMUP_MS: 1500, // ao entrar em descanso, a câmera ainda se ajusta
 
   // Portões de qualidade
   SIZE_MIN: 0.45,         // largura do rosto / largura do contorno
@@ -82,6 +118,7 @@ const el = {
   rest: $('rest'),
   restPulse: $('restPulse'),
   restStatus: $('restStatus'),
+  restDebug: $('restDebug'),
   camera: $('camera'),
   video: $('video'),
   overlay: $('overlay'),
@@ -101,31 +138,38 @@ const el = {
   closeBtn: $('close'),
   message: $('message'),
   messageTitle: $('messageTitle'),
-  messageText: $('messageText'),
-  loading: $('loadingOverlay'),
-  loadingText: $('loadingText')
+  messageText: $('messageText')
 };
 const ctx = el.overlay.getContext('2d');
 
 // ---------------------------------------------------------------- state ---
 
 const state = {
-  phase: 'rest',            // rest | starting | camera
+  modo: 'desligado',        // desligado | descanso | ativo
   worker: null,
   detector: null,           // Promise do init
   detectorReady: false,
+  detectorErro: null,
   engine: null,             // {ms, threads}
   pending: new Map(),
   msgId: 0,
 
   stream: null,
+  camera: 'desligada',      // desligada | ligando | ligada
+  cameraLigando: null,      // Promise
+  cameraErro: null,
+  religarEm: 2000,
+  religarTimer: 0,
+  retomarAoVoltar: false,
   fake: null,               // fonte de teste (?fonte=)
   mirror: true,
   wakeLock: null,
+
   vfcHandle: 0,
   frameRaf: 0,
   renderRaf: 0,
   lastVideoTime: -1,
+  ultimaDeteccao: 0,
 
   busy: false,
   detectSide: CONFIG.DETECT_SIDE_MAX,
@@ -136,12 +180,21 @@ const state = {
   layoutDirty: true,
 
   track: null,
+  caixa: null,              // o que está desenhado: posição e velocidade da mola
+  ultimoDesenho: 0,
+  intervaloMs: 80,          // média do vão entre detecções com rosto
+  ultimoRosto: 0,
   lastFaceAt: 0,
   lastReason: 'semRosto',
   okSince: 0,
   attempt: 'livre',         // livre | capturando | capturado
   messageTimer: 0,
   captureUrls: [],
+
+  vigia: { timer: 0, desde: 0, reset: true, seguidas: 0, ultima: null },
+
+  // Totais para quem mede (painel técnico e testes).
+  total: { deteccoes: 0, inferenciaMs: 0, vigias: 0, vigiaMs: 0, modos: [] },
 
   debug: params.has('debug') || storageGet('flowface.debug') === '1',
   counters: { t0: performance.now(), render: 0, detect: 0 }
@@ -216,6 +269,21 @@ class OneEuro {
   }
 }
 
+/**
+ * Mola criticamente amortecida ("SmoothDamp", Game Programming Gems 4):
+ * persegue o alvo sem salto e sem passar do ponto. `m` guarda posição (p) e
+ * velocidade (v); `tempo` e `dt` em segundos.
+ */
+function perseguir(m, alvo, tempo, dt) {
+  const omega = 2 / tempo;
+  const x = omega * dt;
+  const e = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const d = m.p - alvo;
+  const temp = (m.v + omega * d) * dt;
+  m.v = (m.v - omega * temp) * e;
+  m.p = alvo + (d + temp) * e;
+}
+
 function novoRastro() {
   return {
     cx: new OneEuro(1.5, 12),
@@ -226,6 +294,12 @@ function novoRastro() {
     seenAt: 0,     // quando o resultado chegou (ms)
     raw: null
   };
+}
+
+function marcarModo(modo, motivo) {
+  state.modo = modo;
+  state.total.modos.push({ modo, motivo, em: Math.round(performance.now()) });
+  if (state.total.modos.length > 50) state.total.modos.shift();
 }
 
 // --------------------------------------------------------------- worker ---
@@ -256,21 +330,23 @@ function iniciarDetector() {
     state.pending.clear();
   };
 
-  setRestStatus('Carregando detector…', 'loading');
+  atualizarStatusDoDescanso();
   state.detector = chamarWorker('init', { modelUrl: CONFIG.MODEL_URL })
     .then((pronto) => {
       state.detectorReady = true;
+      state.detectorErro = null;
       state.engine = pronto;
-      setRestStatus('Terminal pronto', 'ok');
       console.info(`Detector pronto em ${pronto.ms} ms (${pronto.threads} thread)`);
+      atualizarStatusDoDescanso();
       return pronto;
     })
     .catch((erro) => {
       console.error('Detector não carregou:', erro);
-      setRestStatus('Detector não carregou — toque para tentar de novo', 'error');
+      state.detectorErro = erro;
       state.worker.terminate();
       state.worker = null;
       state.detector = null;
+      atualizarStatusDoDescanso();
       throw erro;
     });
   return state.detector;
@@ -285,6 +361,44 @@ function chamarWorker(type, payload, transfer = []) {
 }
 
 // --------------------------------------------------------------- câmera ---
+
+// Liga a câmera uma vez e a mantém: o descanso precisa dela para o vigia.
+function ligarCamera() {
+  if (state.camera === 'ligada') return Promise.resolve(true);
+  if (state.cameraLigando) return state.cameraLigando;
+
+  state.camera = 'ligando';
+  atualizarStatusDoDescanso();
+  state.cameraLigando = abrirCamera()
+    .then(() => {
+      if (document.hidden) {
+        // A aba sumiu enquanto a permissão era pedida: não fica ligada escondida.
+        fecharCamera();
+        state.retomarAoVoltar = true;
+        return false;
+      }
+      state.camera = 'ligada';
+      state.cameraErro = null;
+      state.religarEm = 2000;
+      storageSet('flowface.camera', 'ok');
+      el.camera.classList.toggle('mirror', state.mirror);
+      state.layoutDirty = true;
+      manterTelaAcesa();
+      return true;
+    })
+    .catch((erro) => {
+      console.error('Câmera:', erro);
+      fecharCamera();
+      state.camera = 'desligada';
+      state.cameraErro = erro;
+      return false;
+    })
+    .finally(() => {
+      state.cameraLigando = null;
+      atualizarStatusDoDescanso();
+    });
+  return state.cameraLigando;
+}
 
 async function abrirCamera() {
   const fonte = params.get('fonte');
@@ -303,9 +417,14 @@ async function abrirCamera() {
     audio: false
   });
   state.stream = stream;
-  const ajustes = stream.getVideoTracks()[0]?.getSettings?.() || {};
+  const trilha = stream.getVideoTracks()[0];
+  const ajustes = trilha?.getSettings?.() || {};
   // Câmera de trás não se espelha; a frontal e a webcam, sim (como selfie).
   state.mirror = ajustes.facingMode !== 'environment';
+  // O sistema pode tomar a câmera (outro app, cabo solto): religa sozinho.
+  trilha?.addEventListener('ended', () => {
+    if (state.stream === stream) cameraCaiu();
+  });
   el.video.srcObject = stream;
   await tocarVideo();
 }
@@ -315,6 +434,21 @@ async function tocarVideo() {
     await new Promise((ok) => el.video.addEventListener('loadedmetadata', ok, { once: true }));
   }
   await el.video.play().catch(() => {});
+}
+
+// Menos quadros em descanso: menos trabalho para câmera, decodificação e tela.
+// A resolução não muda -- trocá-la reinicia a câmera, e a imagem piscaria ao
+// acordar.
+async function ajustarQuadros(fps) {
+  const trilha = state.stream?.getVideoTracks?.()[0];
+  if (!trilha?.applyConstraints || !fps) return;
+  try {
+    await trilha.applyConstraints({
+      width: { ideal: CONFIG.CAMERA.width },
+      height: { ideal: CONFIG.CAMERA.height },
+      frameRate: { ideal: fps }
+    });
+  } catch { /* câmera sem esse ajuste: segue no ritmo dela */ }
 }
 
 /**
@@ -369,16 +503,40 @@ function fecharCamera() {
   const origem = el.video.srcObject;
   if (origem) origem.getTracks().forEach((t) => t.stop());
   state.stream = null;
+  state.camera = 'desligada';
   el.video.srcObject = null;
   el.video.removeAttribute('src');
   el.video.load();
+}
+
+function cameraCaiu() {
+  console.warn('A câmera parou; religando.');
+  desligar('camera caiu');
+  tentarReligar();
+}
+
+// Tenta de novo com espera crescente (2 s, 4 s, ... até 30 s) até voltar.
+function tentarReligar() {
+  clearTimeout(state.religarTimer);
+  state.religarTimer = setTimeout(async () => {
+    if (document.hidden) {
+      state.retomarAoVoltar = true;
+      return;
+    }
+    if (await ligarCamera()) {
+      descansar('camera voltou');
+    } else {
+      state.religarEm = Math.min(30000, state.religarEm * 2);
+      tentarReligar();
+    }
+  }, state.religarEm);
 }
 
 function mensagemDeErroDaCamera(erro) {
   switch (erro?.name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return 'Permita o uso da câmera nas configurações do navegador';
+      return 'Câmera bloqueada: permita nas configurações do navegador';
     case 'NotFoundError':
     case 'OverconstrainedError':
       return 'Nenhuma câmera encontrada';
@@ -391,12 +549,156 @@ function mensagemDeErroDaCamera(erro) {
   }
 }
 
+// Com a permissão já dada, a câmera liga sozinha ao abrir o app. Sem ela,
+// espera um toque: o pedido de permissão precisa de alguém na frente.
+async function podeLigarSozinha() {
+  if (params.get('fonte')) return true;
+  try {
+    const p = await navigator.permissions.query({ name: 'camera' });
+    if (p.state === 'granted') return true;
+    if (p.state === 'denied') return false;
+  } catch { /* navegador sem essa consulta */ }
+  return storageGet('flowface.camera') === 'ok';
+}
+
+// ------------------------------------------------------------------ modos ---
+
+async function acordar(motivo) {
+  if (state.modo === 'ativo') return;
+  if (!(await ligarCamera())) return;
+  if (state.modo === 'ativo') return;
+
+  pararVigia();
+  marcarModo('ativo', motivo);
+  ajustarQuadros(CONFIG.CAMERA.frameRate);
+  // A janela de 15 s sem rosto conta a partir de agora.
+  state.lastFaceAt = performance.now();
+  state.ultimaDeteccao = 0;
+  state.track = null;
+  state.caixa = null;
+  state.attempt = 'livre';
+  state.okSince = 0;
+  state.lastReason = 'semRosto';
+  state.layoutDirty = true;
+  state.counters = { t0: performance.now(), render: 0, detect: 0 };
+
+  el.rest.classList.add('hidden');
+  el.camera.classList.add('active');
+  setStatus('ok', params.get('fonte') ? 'Fonte de teste' : 'Câmera ligada');
+  setInstruction(state.detectorReady ? MENSAGENS.semRosto : 'Carregando detector…');
+  setTimeout(() => el.camera.classList.add('show-target'), 250);
+
+  agendarQuadro();
+  state.ultimoDesenho = 0;
+  state.renderRaf = requestAnimationFrame(desenhar);
+  if (!state.detector && !state.detectorReady) iniciarDetector().catch(() => {});
+}
+
+function pararAtivo() {
+  if (temVfc && state.vfcHandle) el.video.cancelVideoFrameCallback(state.vfcHandle);
+  state.vfcHandle = 0;
+  cancelAnimationFrame(state.frameRaf);
+  cancelAnimationFrame(state.renderRaf);
+  state.renderRaf = 0;
+  state.track = null;
+  state.caixa = null;
+  state.attempt = 'livre';
+  state.okSince = 0;
+  state.lastReason = 'semRosto';
+  if (state.layout) ctx.clearRect(0, 0, state.layout.cw, state.layout.ch);
+  el.camera.classList.remove('active', 'show-target');
+  el.message.classList.remove('show');
+  el.rest.classList.remove('hidden');
+  setTarget(false);
+  reiniciarPulso();
+}
+
+function descansar(motivo) {
+  if (state.modo === 'descanso') return;
+  if (state.camera !== 'ligada') {
+    desligar(motivo);
+    return;
+  }
+  const estavaAtivo = state.modo === 'ativo';
+  marcarModo('descanso', motivo);
+  if (estavaAtivo) pararAtivo();
+  ajustarQuadros(CONFIG.IDLE_CAMERA_FPS);
+  atualizarStatusDoDescanso();
+  iniciarVigia();
+}
+
+function desligar(motivo) {
+  pararVigia();
+  if (state.modo === 'ativo') pararAtivo();
+  marcarModo('desligado', motivo);
+  fecharCamera();
+  state.wakeLock?.release().catch(() => {});
+  state.wakeLock = null;
+  atualizarStatusDoDescanso();
+}
+
+// ------------------------------------------------------------------ vigia ---
+
+function iniciarVigia() {
+  pararVigia();
+  state.vigia.desde = performance.now();
+  state.vigia.reset = true;
+  state.vigia.seguidas = 0;
+  proximoVigia();
+}
+
+function pararVigia() {
+  clearTimeout(state.vigia.timer);
+  state.vigia.timer = 0;
+}
+
+function proximoVigia() {
+  if (state.modo !== 'descanso') return;
+  state.vigia.timer = setTimeout(vigiar, CONFIG.MOTION_INTERVAL_MS);
+}
+
+async function vigiar() {
+  if (state.modo !== 'descanso') return;
+  const vw = el.video.videoWidth;
+  const vh = el.video.videoHeight;
+  if (state.worker && vw && vh && !document.hidden) {
+    try {
+      const w = CONFIG.MOTION_WIDTH;
+      const h = Math.max(1, Math.round((w * vh) / vw));
+      const bitmap = await createImageBitmap(el.video, { resizeWidth: w, resizeHeight: h, resizeQuality: 'low' });
+      const r = await chamarWorker('motion', { bitmap, reset: state.vigia.reset, pixel: CONFIG.MOTION_PIXEL }, [bitmap]);
+      state.vigia.reset = false;
+      state.vigia.ultima = r.fracao;
+      state.total.vigias++;
+      state.total.vigiaMs += r.ms;
+      if (state.debug) {
+        el.restDebug.textContent =
+          `vigia: ${(r.fracao * 100).toFixed(1)}% da imagem mudou (acorda com ${CONFIG.MOTION_FRACTION * 100}%) · ${r.ms.toFixed(1)} ms por leitura`;
+      }
+      if (state.modo !== 'descanso') return;
+
+      const aquecendo = performance.now() - state.vigia.desde < CONFIG.MOTION_WARMUP_MS;
+      if (!aquecendo && r.fracao >= CONFIG.MOTION_FRACTION) {
+        if (++state.vigia.seguidas >= CONFIG.MOTION_CONFIRM) {
+          acordar('movimento');
+          return;
+        }
+      } else {
+        state.vigia.seguidas = 0;
+      }
+    } catch (erro) {
+      console.warn('Vigia:', erro);
+    }
+  }
+  proximoVigia();
+}
+
 // ------------------------------------------------------ laço de quadros ---
 
 const temVfc = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 
 function agendarQuadro() {
-  if (state.phase !== 'camera') return;
+  if (state.modo !== 'ativo') return;
   if (temVfc) state.vfcHandle = el.video.requestVideoFrameCallback(onQuadro);
   else state.frameRaf = requestAnimationFrame((agora) => onQuadro(agora, null));
 }
@@ -410,6 +712,11 @@ async function onQuadro(agora, meta) {
     state.lastVideoTime = el.video.currentTime;
   }
 
+  // Com rosto recente, ritmo cheio; procurando alguém, ritmo de busca.
+  const agoraMs = performance.now();
+  const hz = agoraMs - state.lastFaceAt < CONFIG.SEARCH_AFTER_MS ? CONFIG.DETECT_MAX_HZ : CONFIG.DETECT_SEARCH_HZ;
+  if (agoraMs - state.ultimaDeteccao < 1000 / hz - 4) return;
+
   const vw = el.video.videoWidth;
   const vh = el.video.videoHeight;
   if (!vw || !vh) return;
@@ -417,9 +724,10 @@ async function onQuadro(agora, meta) {
   const width = Math.round(vw * s);
   const height = Math.round(vh * s);
   // Instante do quadro, para adiantar o desenho pelo tempo da detecção.
-  const t = meta?.presentationTime || performance.now();
+  const t = meta?.presentationTime || agoraMs;
 
   state.busy = true;
+  state.ultimaDeteccao = agoraMs;
   try {
     const bitmap = await createImageBitmap(el.video, {
       resizeWidth: width,
@@ -449,8 +757,10 @@ function ajustarEntrada(ms) {
 
 function onFaces({ t, ms, faces, input }) {
   state.busy = false;
-  if (state.phase !== 'camera') return;
+  if (state.modo !== 'ativo') return;
   state.counters.detect++;
+  state.total.deteccoes++;
+  state.total.inferenciaMs += ms;
   state.lastInput = input;
   ajustarEntrada(ms);
 
@@ -463,7 +773,10 @@ function onFaces({ t, ms, faces, input }) {
 
   let rastro = state.track;
   const perdido = !rastro || agora - rastro.seenAt > CONFIG.FACE_GONE_MS;
-  if (perdido || iou(rastro.raw, rosto) < 0.1) rastro = state.track = novoRastro();
+  if (perdido || iou(rastro.raw, rosto) < 0.1) {
+    rastro = state.track = novoRastro();
+    state.caixa = null;   // rosto novo: o quadrado nasce nele, não desliza até ele
+  }
 
   const ts = t / 1000;
   rastro.cx.filter(rosto.x + rosto.w / 2, ts);
@@ -474,6 +787,9 @@ function onFaces({ t, ms, faces, input }) {
   rastro.seenAt = agora;
   rastro.raw = rosto;
   state.lastFaceAt = agora;
+  const vao = agora - state.ultimoRosto;
+  if (vao < 500) state.intervaloMs += (vao - state.intervaloMs) * 0.2;
+  state.ultimoRosto = agora;
 
   const motivo = avaliar(rosto, rastro);
   state.lastReason = motivo;
@@ -575,13 +891,13 @@ async function capturar() {
   try {
     for (let i = 0; i < CONFIG.SHOTS; i++) {
       if (i) await sleep(CONFIG.SHOT_GAP_MS);
-      if (state.phase !== 'camera' || state.lastReason !== 'ok' || !state.track?.raw) break;
+      if (state.modo !== 'ativo' || state.lastReason !== 'ok' || !state.track?.raw) break;
       fotos.push(await recortar(state.track.raw));
     }
   } catch (erro) {
     console.warn('Captura falhou:', erro);
   }
-  if (state.phase !== 'camera') return;
+  if (state.modo !== 'ativo') return;
   if (!fotos.length) {
     state.attempt = 'livre';
     state.okSince = 0;
@@ -669,15 +985,37 @@ function medir() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+// Onde o quadrado deveria estar agora: a posição filtrada, adiantada pelo
+// tempo desde o quadro detectado (o vídeo na tela já é mais novo que ele).
+function alvoDoQuadrado(r, agora) {
+  const dt = ((clamp(agora - r.t, 0, CONFIG.PREDICT_MAX_MS) + CONFIG.LEAD_MS) / 1000) * CONFIG.PREDICT_FACTOR;
+  return {
+    cx: r.cx.x + r.cx.dx * dt,
+    cy: r.cy.x + r.cy.dx * dt,
+    w: r.w.x + r.w.dx * dt * 0.5,
+    h: r.h.x + r.h.dx * dt * 0.5
+  };
+}
+
 function desenhar(agora) {
+  if (state.modo !== 'ativo') return;
   state.renderRaf = requestAnimationFrame(desenhar);
   if (state.layoutDirty) {
     medir();
     state.layoutDirty = false;
   }
+
+  // 15 s sem ninguém: volta ao descanso (e o vigia assume).
+  if (agora - state.lastFaceAt > CONFIG.REST_AFTER_MS && state.attempt !== 'capturando') {
+    descansar('sem rosto');
+    return;
+  }
+
   const L = state.layout;
   if (!L) return;
   state.counters.render++;
+  const dtQuadro = state.ultimoDesenho ? clamp((agora - state.ultimoDesenho) / 1000, 0, 0.1) : 0;
+  state.ultimoDesenho = agora;
   ctx.clearRect(0, 0, L.cw, L.ch);
 
   const r = state.track;
@@ -685,19 +1023,27 @@ function desenhar(agora) {
     const desde = agora - r.seenAt;
     const alfa = desde <= CONFIG.FACE_GONE_MS ? 1 : 1 - (desde - CONFIG.FACE_GONE_MS) / 180;
     if (alfa > 0) {
-      // Adianta pelo tempo desde o quadro detectado (o vídeo na tela já é
-      // mais novo que ele), com folga para não passar do ponto.
-      const dt = (clamp(agora - r.t, 0, CONFIG.PREDICT_MAX_MS) / 1000) * 0.8;
-      const cx = r.cx.x + r.cx.dx * dt;
-      const cy = r.cy.x + r.cy.dx * dt;
-      const w = r.w.x + r.w.dx * dt * 0.5;
-      const h = r.h.x + r.h.dx * dt * 0.5;
+      const alvo = alvoDoQuadrado(r, agora);
+      const molaMs = CONFIG.SMOOTH_MS === 'auto'
+        ? clamp(state.intervaloMs * 0.85, 25, 110)
+        : CONFIG.SMOOTH_MS;
+      if (!state.caixa || molaMs <= 0) {
+        state.caixa = {
+          cx: { p: alvo.cx, v: 0 },
+          cy: { p: alvo.cy, v: 0 },
+          w: { p: alvo.w, v: 0 },
+          h: { p: alvo.h, v: 0 }
+        };
+      } else if (dtQuadro > 0) {
+        for (const k of ['cx', 'cy', 'w', 'h']) perseguir(state.caixa[k], alvo[k], molaMs / 1000, dtQuadro);
+      }
+      const c = state.caixa;
       const pronto = state.lastReason === 'ok' || state.attempt !== 'livre';
       cantoneiras(
-        L.offX + (cx - w / 2) * L.dispW,
-        L.offY + (cy - h / 2) * L.dispH,
-        w * L.dispW,
-        h * L.dispH,
+        L.offX + (c.cx.p - c.w.p / 2) * L.dispW,
+        L.offY + (c.cy.p - c.h.p / 2) * L.dispH,
+        c.w.p * L.dispW,
+        c.h.p * L.dispH,
         pronto ? '#70e0a3' : 'rgba(255,255,255,0.92)',
         alfa
       );
@@ -752,7 +1098,7 @@ function pontos(landmarks, L, alfa) {
 
 function atualizarStats(agora) {
   const s = (agora - state.counters.t0) / 1000;
-  if (state.debug && state.phase === 'camera') {
+  if (state.debug && state.modo === 'ativo') {
     el.statRender.textContent = `${Math.round(state.counters.render / s)} fps`;
     el.statDetect.textContent = `${Math.round(state.counters.detect / s)} /s`;
     el.statInfer.textContent = state.inferMs.length ? `${Math.round(median(state.inferMs))} ms` : '--';
@@ -793,6 +1139,31 @@ function setRestStatus(texto, tipo) {
   el.restPulse.className = `pulse${tipo === 'ok' ? '' : ` ${tipo}`}`;
 }
 
+// A linha de baixo da tela de descanso diz o que falta para funcionar.
+function atualizarStatusDoDescanso() {
+  if (state.detectorErro) {
+    setRestStatus('Detector não carregou — toque para tentar de novo', 'error');
+  } else if (state.cameraErro) {
+    setRestStatus(mensagemDeErroDaCamera(state.cameraErro), 'error');
+  } else if (state.camera === 'ligando') {
+    setRestStatus('Ligando a câmera…', 'loading');
+  } else if (!state.detectorReady) {
+    setRestStatus('Carregando detector…', 'loading');
+  } else if (state.camera !== 'ligada') {
+    setRestStatus('Toque para ativar a câmera', 'loading');
+  } else {
+    setRestStatus('Terminal pronto', 'ok');
+  }
+}
+
+// O ponto verde pulsa algumas vezes ao entrar em descanso e depois fica
+// parado: animação eterna faria a tela redesenhar o dia inteiro.
+function reiniciarPulso() {
+  el.restPulse.style.animation = 'none';
+  void el.restPulse.offsetWidth;
+  el.restPulse.style.animation = '';
+}
+
 function showMessage(titulo, texto, tipo = '') {
   el.messageTitle.textContent = titulo;
   el.messageText.textContent = texto;
@@ -806,106 +1177,35 @@ function setDebug(ligado) {
   storageSet('flowface.debug', ligado ? '1' : '0');
   el.stats.hidden = !ligado;
   el.captures.hidden = !ligado;
+  el.restDebug.hidden = !ligado;
 }
 
 async function manterTelaAcesa() {
   try {
-    if ('wakeLock' in navigator && !state.wakeLock) {
+    if ('wakeLock' in navigator && !state.wakeLock && !document.hidden) {
       state.wakeLock = await navigator.wakeLock.request('screen');
       state.wakeLock.addEventListener('release', () => { state.wakeLock = null; });
     }
   } catch { /* sem permissão ou sem suporte: segue sem */ }
 }
 
-// ------------------------------------------------------------ navegação ---
+// ---------------------------------------------------------------- eventos ---
 
-async function entrar() {
-  if (state.phase !== 'rest') return;
-  state.phase = 'starting';
-  el.rest.classList.add('hidden');
-  el.camera.classList.add('active');
-  setStatus('warning', 'Iniciando…');
-  setInstruction('Iniciando câmera…');
-
-  if (!state.detectorReady) {
-    el.loadingText.textContent = 'Carregando detector…';
-    el.loading.classList.add('show');
-    try {
-      await iniciarDetector();
-    } catch (erro) {
-      el.loading.classList.remove('show');
-      setStatus('error', 'Detector não carregou');
-      setInstruction(`Detector não carregou: ${erro.message}`, 'error');
-      state.phase = 'erro';
-      return;
-    }
-    el.loading.classList.remove('show');
-    if (state.phase !== 'starting') return;
+el.rest.addEventListener('click', () => {
+  if (state.detectorErro) {
+    state.detectorErro = null;
+    iniciarDetector().catch(() => {});
   }
-
-  try {
-    await abrirCamera();
-  } catch (erro) {
-    console.error('Câmera:', erro);
-    fecharCamera();
-    setStatus('error', 'Câmera indisponível');
-    setInstruction(mensagemDeErroDaCamera(erro), 'error');
-    state.phase = 'erro';
-    return;
-  }
-  if (state.phase !== 'starting') {
-    fecharCamera();
-    return;
-  }
-
-  state.phase = 'camera';
-  el.camera.classList.toggle('mirror', state.mirror);
-  state.layoutDirty = true;
-  state.counters = { t0: performance.now(), render: 0, detect: 0 };
-  setStatus('ok', params.get('fonte') ? 'Fonte de teste' : 'Câmera ligada');
-  setInstruction(MENSAGENS.semRosto);
-  agendarQuadro();
-  state.renderRaf = requestAnimationFrame(desenhar);
-  manterTelaAcesa();
-  setTimeout(() => el.camera.classList.add('show-target'), 250);
-}
-
-function sair() {
-  if (state.phase === 'rest') return;
-  state.phase = 'rest';
-  if (temVfc && state.vfcHandle) el.video.cancelVideoFrameCallback(state.vfcHandle);
-  cancelAnimationFrame(state.frameRaf);
-  cancelAnimationFrame(state.renderRaf);
-  fecharCamera();
-  state.wakeLock?.release().catch(() => {});
-  state.wakeLock = null;
-  state.track = null;
-  state.attempt = 'livre';
-  state.okSince = 0;
-  state.lastReason = 'semRosto';
-  state.lastFaceAt = 0;
-  state.busy = false;
-
-  if (state.layout) ctx.clearRect(0, 0, state.layout.cw, state.layout.ch);
-  el.camera.classList.remove('active', 'show-target');
-  el.message.classList.remove('show');
-  el.loading.classList.remove('show');
-  el.rest.classList.remove('hidden');
-  setTarget(false);
-  if (!state.detector) iniciarDetector().catch(() => {});
-}
-
-// --------------------------------------------------------------- eventos ---
-
-el.rest.addEventListener('click', entrar);
-el.closeBtn.addEventListener('click', sair);
+  acordar('toque');
+});
+el.closeBtn.addEventListener('click', () => descansar('botão'));
 
 window.addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && state.phase === 'rest') {
+  if ((e.key === 'Enter' || e.key === ' ') && state.modo !== 'ativo') {
     e.preventDefault();
-    entrar();
-  } else if (e.key === 'Escape') {
-    sair();
+    acordar('teclado');
+  } else if (e.key === 'Escape' && state.modo === 'ativo') {
+    descansar('teclado');
   } else if (e.key === 'd' || e.key === 'D') {
     setDebug(!state.debug);
   }
@@ -930,10 +1230,21 @@ document.addEventListener('dragstart', (e) => e.preventDefault());
 new ResizeObserver(() => { state.layoutDirty = true; }).observe(el.camera);
 el.video.addEventListener('resize', () => { state.layoutDirty = true; });
 
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) return;
-  if (state.phase === 'camera') manterTelaAcesa();
+// Aba escondida (tablet bloqueado, outro app na frente): solta a câmera de
+// vez. Na volta, religa em descanso.
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) {
+    if (state.camera === 'ligada' || state.camera === 'ligando') {
+      state.retomarAoVoltar = true;
+      desligar('aba escondida');
+    }
+    return;
+  }
   state.counters = { t0: performance.now(), render: 0, detect: 0 };
+  if (state.retomarAoVoltar) {
+    state.retomarAoVoltar = false;
+    if (await ligarCamera()) descansar('aba visível');
+  }
 });
 
 // ----------------------------------------------------------------- início ---
@@ -943,6 +1254,13 @@ if ('serviceWorker' in navigator) {
 }
 
 setDebug(state.debug);
-// O detector carrega enquanto a tela de descanso está parada: ao tocar, já
-// está pronto.
+marcarModo('desligado', 'início');
+// O detector carrega enquanto a tela de descanso está parada.
 iniciarDetector().catch(() => {});
+podeLigarSozinha().then(async (pode) => {
+  if (!pode) {
+    atualizarStatusDoDescanso();
+    return;
+  }
+  if (await ligarCamera()) descansar('início');
+});

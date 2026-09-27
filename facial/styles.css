@@ -7,7 +7,6 @@
   --fg: #f5f7fa;
   --muted: #9aa1ac;
   --line: rgba(255, 255, 255, 0.12);
-  --glass: rgba(10, 12, 16, 0.58);
   --ok: #70e0a3;
   --danger: #ff7777;
   --warning: #ffd166;
@@ -123,7 +122,11 @@ button {
   color: var(--muted);
 }
 
+/* O ponto de "pronto" pulsa três vezes ao entrar em descanso e para. Animação
+   eterna manteria a tela redesenhando o dia inteiro; e o anel anima só
+   transform e opacidade, que a placa de vídeo faz sem redesenhar a página. */
 .pulse {
+  position: relative;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -131,23 +134,40 @@ button {
   display: inline-block;
   margin-right: 7px;
   vertical-align: 1px;
-  box-shadow: 0 0 0 0 rgba(112, 224, 163, 0.4);
-  animation: pulse 2.1s infinite;
 }
 
-.pulse.loading {
-  background: var(--warning);
-  animation: none;
+.pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ok);
+  opacity: 0;
+  animation: pulse 2.1s ease-out 3;
 }
 
-.pulse.error {
-  background: var(--danger);
-  animation: none;
+.rest-debug {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
+
+.rest-debug[hidden] { display: none; }
+
+.pulse.loading { background: var(--warning); }
+.pulse.error { background: var(--danger); }
+
+.pulse.loading::after,
+.pulse.error::after { animation: none; }
 
 @keyframes pulse {
-  70% { box-shadow: 0 0 0 9px rgba(112, 224, 163, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(112, 224, 163, 0); }
+  0% { transform: scale(1); opacity: 0.45; }
+  70%, 100% { transform: scale(3.6); opacity: 0; }
 }
 
 /* ============================================
@@ -270,6 +290,8 @@ video { object-fit: cover; }
 
 /* ============================================
    Instrução
+   Nada aqui usa backdrop-filter: sobre um vídeo ao vivo, o desfoque é
+   refeito a cada quadro -- caro num celular fraco ligado o dia inteiro.
    ============================================ */
 
 .instruction {
@@ -280,9 +302,7 @@ video { object-fit: cover; }
   max-width: calc(100% - 160px);  /* livra o botão de voltar dos dois lados */
   padding: 10px 15px;
   border-radius: 999px;
-  background: var(--glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 12, 16, 0.72);
   font-size: 13px;
   color: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -318,14 +338,12 @@ video { object-fit: cover; }
   height: 42px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.5);
   color: white;
   display: grid;
   place-items: center;
   cursor: pointer;
   opacity: 0.72;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   transition: opacity 0.2s, background 0.2s;
 }
 
@@ -355,9 +373,7 @@ video { object-fit: cover; }
   transform: translate(-50%, -50%);
   padding: 18px 22px;
   border-radius: 18px;
-  background: rgba(8, 9, 12, 0.76);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(8, 9, 12, 0.88);
   border: 1px solid var(--line);
   text-align: center;
   display: none;
@@ -392,45 +408,6 @@ video { object-fit: cover; }
 .message.error strong { color: var(--danger); }
 
 /* ============================================
-   Carregando
-   ============================================ */
-
-.loading-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(8, 9, 12, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s;
-}
-
-.loading-overlay.show { opacity: 1; }
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--line);
-  border-top-color: var(--ok);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loading-text {
-  margin-top: 16px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-/* ============================================
    Painel técnico (três toques em FLOWFACE)
    ============================================ */
 
@@ -441,9 +418,7 @@ video { object-fit: cover; }
   min-width: 170px;
   padding: 12px 16px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.66);
   font-size: 11px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   pointer-events: none;
@@ -530,7 +505,6 @@ video { object-fit: cover; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse,
-  .loading-spinner { animation-duration: 3s; }
+  .pulse::after { animation: none; }
   .message { animation: none; }
 }

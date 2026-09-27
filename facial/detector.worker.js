@@ -6,9 +6,10 @@
  * leitura dos pixels, a rede e a codificação do recorte em JPEG.
  *
  * Mensagens:
- *   init   {modelUrl}                      -> ready {ms, threads}
- *   detect {t, bitmap, width, height}      -> faces {t, ms, faces, input}
- *   encode {bitmap, quality}               -> jpeg  {blob, width, height}
+ *   init   {modelUrl}                      -> ready  {ms, threads}
+ *   detect {t, bitmap, width, height}      -> faces  {t, ms, faces, input}
+ *   motion {bitmap, reset, pixel}          -> motion {fracao, ms}
+ *   encode {bitmap, quality}               -> jpeg   {blob, width, height}
  * Erros voltam como {type:'error', id, op, message}.
  */
 
@@ -30,6 +31,7 @@ self.onmessage = async ({ data }) => {
   try {
     if (data.type === 'init') await init(data);
     else if (data.type === 'detect') await detect(data);
+    else if (data.type === 'motion') motion(data);
     else if (data.type === 'encode') await encode(data);
   } catch (error) {
     data.bitmap?.close?.();
@@ -170,6 +172,59 @@ function meanLuma(px, W, f) {
     }
   }
   return n ? soma / n : 0;
+}
+
+// ------------------------------------------------------------ movimento ---
+// O vigia do descanso: compara uma miniatura em cinza (64 px de largura) com
+// um fundo que acompanha a cena devagar. Custa uma fração de milissegundo e
+// deixa o detector de rosto desligado enquanto nada acontece.
+const ADAPTA_FUNDO = 0.1;   // a 4 leituras/s, o fundo "esquece" em ~2,5 s
+let vigia = null;           // { canvas, ctx, fundo: Float32Array, luma: Float32Array }
+
+function motion({ id, bitmap, reset, pixel }) {
+  const t0 = performance.now();
+  const w = bitmap.width;
+  const h = bitmap.height;
+  if (!vigia || vigia.canvas.width !== w || vigia.canvas.height !== h) {
+    const canvas = new OffscreenCanvas(w, h);
+    vigia = {
+      canvas,
+      ctx: canvas.getContext('2d', { willReadFrequently: true }),
+      fundo: null,
+      luma: new Float32Array(w * h)
+    };
+  }
+  vigia.ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const px = vigia.ctx.getImageData(0, 0, w, h).data;
+
+  const n = w * h;
+  const luma = vigia.luma;
+  let soma = 0;
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    luma[i] = 0.299 * px[j] + 0.587 * px[j + 1] + 0.114 * px[j + 2];
+    soma += luma[i];
+  }
+
+  let fracao = 0;
+  if (reset || !vigia.fundo) {
+    vigia.fundo = Float32Array.from(luma);
+  } else {
+    const fundo = vigia.fundo;
+    let somaFundo = 0;
+    for (let i = 0; i < n; i++) somaFundo += fundo[i];
+    // A exposição automática clareia ou escurece a imagem inteira: isso não é
+    // movimento. Tira a mudança média antes de comparar ponto a ponto.
+    const luz = (soma - somaFundo) / n;
+    let mudou = 0;
+    for (let i = 0; i < n; i++) {
+      if (Math.abs(luma[i] - fundo[i] - luz) > pixel) mudou++;
+      fundo[i] += (luma[i] - fundo[i]) * ADAPTA_FUNDO;
+    }
+    fracao = mudou / n;
+  }
+
+  self.postMessage({ type: 'motion', id, fracao, ms: performance.now() - t0 });
 }
 
 async function encode({ id, bitmap, quality }) {
