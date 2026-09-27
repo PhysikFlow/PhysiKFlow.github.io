@@ -1,13 +1,14 @@
 {
-  "name": "FlowFace — Detector Facial",
+  "name": "FlowFace — câmera de acesso",
   "short_name": "FlowFace",
-  "description": "PWA de detecção e reconhecimento facial com ONNX Runtime Web",
-  "start_url": "/facial/",
-  "display": "standalone",
-  "orientation": "portrait",
+  "description": "Câmera de acesso por rosto do PhysikFlow",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
   "background_color": "#08090c",
   "theme_color": "#08090c",
-  "categories": ["utilities", "security"],
+  "categories": ["utilities", "business"],
   "icons": [
     {
       "src": "icon.svg",

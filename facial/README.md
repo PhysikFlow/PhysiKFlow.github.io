@@ -1,212 +1,96 @@
-# FlowFace PWA — Detector Facial
+# FlowFace — câmera de acesso do PhysikFlow
 
-PWA de detecção e reconhecimento facial offline usando ONNX Runtime Web.
+PWA que transforma um celular, tablet ou notebook na câmera de acesso da academia.
 
-## Stack
+**O que ele faz:**
+- acha o rosto e orienta a pessoa ("aproxime-se", "olhe de frente", "fique parado");
+- escolhe três quadros bons e recorta o rosto (JPEG 320×320, ~20 KB).
 
-- **Câmera:** Web APIs (`getUserMedia`)
-- **IA:** ONNX Runtime Web (WebGPU → WASM fallback)
-- **Detector:** SCRFD/BlazeFace/YOLO-face
-- **Reconhecimento:** ArcFace
-- **Performance:** Web Worker
-- **Offline:** Service Worker + IndexedDB
-- **Backend:** Supabase (opcional)
+**Quem reconhece é o PhysikFlow no computador da recepção,** com o mesmo índice da busca por rosto. Neste aparelho não existe vetor facial, cadastro nem banco de rostos: nada biométrico mora nele.
 
-## Estrutura
+> **Ainda não existe:** o envio ao computador (pareamento por QR + rede local). Até lá, a captura para na tela com a mensagem "Sem computador pareado: nada foi enviado." Os recortes ficam só na memória, e dá para vê-los no painel técnico.
+
+## Arquivos
 
 ```
 facial/
-├── index.html          # HTML principal
-├── styles.css          # Estilos
-├── app.js              # Lógica principal
-├── db.js               # IndexedDB
-├── supabase.js         # Integração Supabase
-├── detector.worker.js  # Web Worker de inferência
-├── sw.js               # Service Worker
-├── manifest.json       # Manifest PWA
-├── icon.svg            # Ícone SVG
-└── models/             # Modelos ONNX (criar pasta)
-    ├── ultraface-rfb-320.onnx # UltraFace RFB 320, 1.27 MB
-    └── w600k_mbf.onnx  # MobileFaceNet / ArcFace, 13.6 MB
+├── index.html
+├── styles.css
+├── app.js                 câmera, laço de quadros, portões de qualidade, desenho
+├── detector.worker.js     YuNet no ONNX Runtime Web, fora da thread da tela
+├── sw.js                  offline: site com rede primeiro; runtime e modelo com cache primeiro
+├── manifest.json
+├── icon.svg, icon-192.png, icon-512.png
+└── models/
+    ├── yunet-2023mar-dinamico.onnx   detector (0,23 MB)
+    └── gerar-yunet-dinamico.py       como o arquivo acima foi gerado
 ```
 
-## Modelos ONNX
+## Modelo e runtime
 
-Para funcionar, você precisa dos seguintes modelos ONNX:
+- **Detector:** YuNet 2023mar, do [OpenCV Zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet), com licença MIT.
+  - É o mesmo detector do PhysikFlow no desktop. Um rosto aceito aqui é aceito lá.
+  - Tem 0,23 MB e devolve caixa, cinco pontos (olhos, nariz, cantos da boca) e confiança.
+  - O arquivo original declara a entrada fixa em 640×640, e o ONNX Runtime recusa outro tamanho. `gerar-yunet-dinamico.py` troca só as dimensões declaradas; nenhum peso muda.
+  - O resultado foi conferido contra o original no OpenCV: diferença 0.
+  - Original: sha256 `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4`.
+  - Gerado: sha256 `29609ad02d555c55ed384c6f6d6fbee3faf23c8849869495012ea750f07a2f32`.
+- **Runtime:** [onnxruntime-web](https://www.npmjs.com/package/onnxruntime-web) 1.30.0, WASM, 1 thread, carregado do jsDelivr.
+  - Baixa ~3 MB na primeira visita (14 MB descomprimido) e depois fica no cache do service worker.
+  - Mais threads exigiriam cabeçalhos COOP/COEP, que o GitHub Pages não envia.
 
-### Detector Facial (UltraFace)
-- **Arquivo:** `ultraface-rfb-320.onnx`
-- **Fonte:** [Ultra-Light-Fast-Generic-Face-Detector-1MB](https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB)
-- **Formato:** RFB 320×240, otimizado para dispositivos móveis.
+## Por que o quadrado agora acompanha o rosto
 
-### Reconhecimento Facial (ArcFace)
-- **Arquivo:** `w600k_mbf.onnx`
-- **Fonte:** pacote oficial [InsightFace buffalo_s](https://github.com/deepinsight/insightface/releases/tag/v0.7)
-- **Formato:** MobileFaceNet / ArcFace, embeddings de 512 dimensões.
+A versão anterior copiava o quadro inteiro (1280×720) na thread da tela a cada 100 ms. O quadrado andava com uma transição de CSS de 160 ms e congelava quando o rosto saía do centro.
 
-### Alternativas Open Source
+Agora:
+- a detecção roda num worker, sobre uma imagem de 320 px;
+- só um quadro fica em voo, e o mais novo sempre vence;
+- o desenho é num canvas, a cada quadro da tela;
+- um filtro One Euro tira o tremido sem segurar o movimento;
+- a posição é adiantada pelo tempo que a detecção levou.
 
-1. **YOLO-face** - https://github.com/deepcam-cn/yolov5-face
-2. **BlazeFace** - https://github.com/tensorflow/tfjs-models/tree/master/face-detection
-3. **MediaPipe Face Detection** - https://google.github.io/mediapipe/solutions/face_detection.html
+**Medido** num Edge headless (Ryzen 5 5500), com a mesma câmera falsa nos dois: a foto de teste andando numa trajetória conhecida.
 
-## Setup
+| | antes | agora |
+|---|---|---|
+| detecções por segundo | 6,6 | 30 (limite da câmera) |
+| atraso do quadrado | 140 ms | 18 ms |
+| erro com o rosto andando | 39 px | 6 px |
+| tremido | 31 px | 5 px |
+| inferência por quadro | — | 6 ms |
 
-### 1. Criar pasta de modelos
+Em aparelho lento, a entrada do detector encolhe sozinha (320 → 192 px) quando a mediana passa de 70 ms.
+
+## Portões de qualidade
+
+A captura só acontece com tudo certo por 0,4 s. A instrução na tela mostra o primeiro portão que falhar:
+
+| Portão | Regra | Instrução |
+|---|---|---|
+| confiança | detector ≥ 0,75 | Olhe para a câmera |
+| tamanho | rosto entre 45% e 105% da largura do contorno, e ≥ 90 px na câmera | Aproxime-se / Afaste-se um pouco |
+| centro | centro do rosto no miolo do contorno | Centralize o rosto no contorno |
+| de frente | nariz entre os olhos (≥ 0,55), cabeça reta (≤ 15°), sem olhar para cima ou para baixo | Olhe de frente / Endireite a cabeça |
+| luz | brilho médio do rosto entre 50 e 220 | Pouca luz / Luz forte demais |
+| parado | < 0,6 largura de rosto por segundo | Fique parado um instante |
+
+Os limites ficam em `CONFIG`, no começo do `app.js`.
+
+## Testar
+
+`getUserMedia` só funciona em HTTPS ou em `localhost`. Na raiz do repositório, rode:
 
 ```bash
-mkdir -p facial/models
+python -m http.server 8080
 ```
 
-### 2. Baixar os modelos
+e abra `http://localhost:8080/facial/`.
 
-```bash
-bash download-models.sh
-```
+- **Painel técnico** (fps da tela, detecções/s, inferência, tamanho da entrada, motivo do portão, recortes capturados): três toques em "FLOWFACE", ou a tecla **D**. Também pode abrir já ligado com `?debug`.
+- **Sem câmera:** `?fonte=<imagem ou vídeo do mesmo site>`. Uma imagem vira um vídeo que passeia devagar; use `&movimento=0` para parada. Use só fotos de quem consentiu, e não suba essas fotos para o repositório.
 
-### 3. Gerar ícones PNG
+## Navegadores
 
-Abra `generate-icons.html` no navegador e salve os PNGs gerados.
-
-### 4. Configurar Supabase (opcional)
-
-Crie as seguintes tabelas no Supabase:
-
-```sql
--- Usuários
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Embeddings
-CREATE TABLE embeddings (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  name TEXT,
-  embedding FLOAT8[],
-  device_id TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Log de acessos
-CREATE TABLE access_log (
-  id BIGSERIAL PRIMARY KEY,
-  user_id UUID,
-  user_name TEXT,
-  recognized BOOLEAN,
-  device_id TEXT,
-  timestamp TIMESTAMP DEFAULT NOW()
-);
-```
-
-### 5. Configurar RLS (Row Level Security)
-
-```sql
--- Habilitar RLS
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE embeddings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE access_log ENABLE ROW LEVEL SECURITY;
-
--- Políticas (ajuste conforme necessidade)
-CREATE POLICY "Allow all operations" ON users FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON embeddings FOR ALL USING (true);
-CREATE POLICY "Allow all operations" ON access_log FOR ALL USING (true);
-```
-
-### 6. Configurar no app
-
-No app, acesse o Supabase pelo console do navegador:
-
-```javascript
-// No console do navegador
-await db.setConfig('supabase_url', 'https://seu-projeto.supabase.co');
-await db.setConfig('supabase_key', 'sua-chave-anon');
-```
-
-## Uso
-
-### Modo Normal
-
-1. Abra `index.html` no navegador
-2. Toque na tela para ativar a câmera
-3. Olhe para a câmera
-4. O sistema detectará e reconhecerá rostos cadastrados
-
-### Modo Cadastro
-
-1. Pressione `Ctrl+Shift+R` ou toque 3 vezes na área da câmera
-2. Digite o nome da pessoa
-3. Olhe para a câmera
-4. O rosto será cadastrado automaticamente
-
-### Atalhos
-
-- **Enter** - Ativar câmera
-- **Escape** - Voltar para tela inicial
-- **Ctrl+Shift+R** - Modo cadastro
-
-## Funcionalidades
-
-### Offline
-
-- Service Worker cacheia todos os arquivos
-- IndexedDB armazena embeddings localmente
-- Funciona sem internet após primeiro carregamento
-
-### WebGPU Acceleration
-
-- Detecta automaticamente se WebGPU está disponível
-- Usa WASM como fallback
-- Performance superior em dispositivos compatíveis
-
-### Web Worker
-
-- Inferência roda fora da thread principal
-- Interface continua responsiva
-- Processamento paralelo de frames
-
-### Sync com Supabase
-
-- Sincronização automática a cada 5 minutos
-- Sync quando a página fica visível
-- Upload de novos embeddings
-- Log de acessos
-
-## Navegadores Suportados
-
-- Chrome 90+
-- Edge 90+
-- Firefox 90+
-- Safari 15+
-
-**Nota:** WebGPU requer Chrome 113+ ou Edge 113+
-
-## Troubleshooting
-
-### Câmera não funciona
-
-- Verifique as permissões do navegador
-- Teste em HTTPS (requisito para `getUserMedia`)
-- Verifique se outro app não está usando a câmera
-
-### Modelos não carregam
-
-- Verifique se os arquivos `.onnx` estão na pasta `models/`
-- Verifique o console do navegador para erros
-- Teste com modelos menores primeiro
-
-> Os pesos pré-treinados InsightFace têm licença própria e são destinados a
-> pesquisa não comercial. Confira os termos do pacote antes de uso comercial.
-
-### Performance ruim
-
-- Use dispositivo com WebGPU
-- Reduza a resolução da câmera
-- Aumente `DETECTION_INTERVAL` no `app.js`
-
-## Licença
-
-MIT
+- **Chrome e Edge, no Android e no desktop:** é o alvo.
+- **iOS:** fora da primeira versão. Falar com o computador pela rede local a partir de uma página HTTPS depende do "Local Network Access" do Chrome, que o Safari não tem.
