@@ -4,11 +4,36 @@ PWA que transforma um celular, tablet ou notebook na câmera de acesso da academ
 
 **O que ele faz:**
 - acha o rosto e orienta a pessoa ("aproxime-se", "olhe de frente", "fique parado");
-- escolhe três quadros bons e recorta o rosto (JPEG 320×320, ~20 KB).
+- escolhe três quadros bons e recorta o rosto (JPEG 320×320, ~20 KB);
+- manda os recortes, cifrados, ao PhysikFlow da recepção e mostra a resposta ("Olá, Maria").
 
 **Quem reconhece é o PhysikFlow no computador da recepção,** com o mesmo índice da busca por rosto. Neste aparelho não existe vetor facial, cadastro nem banco de rostos: nada biométrico mora nele.
 
-> **Ainda não existe:** o envio ao computador (pareamento por QR + rede local). Até lá, a captura para na tela com a mensagem "Sem computador pareado: nada foi enviado." Os recortes ficam só na memória, e dá para vê-los no painel técnico.
+> **Modo teste (sombra):** por enquanto a câmera só identifica. O PhysikFlow responde quem é, compara com as passagens da catraca e conta os acertos, mas não abre nada. O totem diz "Modo teste: use o cartão ou o facial para entrar."
+
+## Pareamento e conexão (`conexao.js`)
+
+No PhysikFlow: aba **Dispositivos → Adicionar dispositivo → Câmera no celular ou tablet**, e no card da câmera, **Mostrar código**. O QR abre este app com `#par=<convite>`.
+
+- **O convite** traz o id da câmera, um segredo de 32 bytes, os endereços do PC na rede e a porta (7793). Vai para o `localStorage` e **sai da barra de endereço na hora**: o segredo não fica no histórico.
+- **Quem hospeda o servidor é o próprio PhysikFlow**, sem programa a parte. O app tenta os endereços do convite em ordem (o último que funcionou primeiro) e reconecta sozinho, com espera crescente até 30 s.
+- **Aperto de mão mútuo:** HMAC-SHA256 do segredo sobre dois nonces. O aparelho só manda rosto depois de o PC provar que conhece o segredo.
+- **Cada mensagem** vai em AES-256-GCM, com chave da sessão (HKDF-SHA256) e numerada. Quadro repetido, fora de ordem ou adulterado é recusado.
+- **Nada fica aqui:** os recortes saem, a resposta volta. Nem o totem nem o PC guardam a imagem (P-138).
+
+É o espelho de `backend/face/totem/TotemProtocol.h`, no repositório do app. Mudou um, muda o outro: o teste `CameraTotemTests` do app roda este arquivo no Node contra o servidor de verdade.
+
+**O que a tela de descanso diz:**
+
+| Situação | Tela |
+|---|---|
+| pareado e conectado | Pronto · Recepção |
+| procurando o PC | Procurando o computador… (ou o motivo: rede local bloqueada, computador fora da rede) |
+| segredo errado ou câmera removida | Pareamento recusado: leia o código de novo no PhysikFlow |
+| outro aparelho pareou a mesma câmera | Outro aparelho assumiu esta câmera. Toque para retomar |
+| nunca pareado | Sem computador pareado: leia o código no PhysikFlow |
+
+**Esquecer o pareamento:** painel técnico → botão **Esquecer pareamento**. **Parear de novo**, no card da câmera, invalida o código antigo e derruba o aparelho que o usava.
 
 ## Os três modos
 
@@ -73,6 +98,7 @@ facial/
 ├── index.html
 ├── styles.css
 ├── app.js                 modos, câmera, vigia, portões de qualidade, desenho
+├── conexao.js             pareamento e conversa cifrada com o PhysikFlow
 ├── detector.worker.js     YuNet no ONNX Runtime Web, vigia de movimento e JPEG, fora da thread da tela
 ├── sw.js                  offline: site com rede primeiro; runtime e modelo com cache primeiro
 ├── manifest.json
@@ -124,8 +150,10 @@ e abra `http://localhost:8080/facial/`.
   - Com a câmera aberta: fps da tela, detecções/s, inferência, tamanho da entrada, motivo do portão, recortes capturados.
   - No descanso: quanto da imagem o vigia viu mudar e quanto custou cada leitura.
 - **Sem câmera:** `?fonte=<imagem ou vídeo do mesmo site>`. Uma imagem vira um vídeo que passeia devagar; use `&movimento=0` para parada. Use só fotos de quem consentiu, e não suba essas fotos para o repositório.
+- **Com o PhysikFlow:** no card da câmera, **Abrir neste computador** abre este app já pareado, pelo mesmo caminho de um tablet. Para testar uma cópia local, mude o endereço do app em `local-settings.ini` (`cameraTotem/app`); `localhost` e `127.0.0.1` são aceitos em qualquer porta.
 
 ## Navegadores
 
 - **Chrome e Edge, no Android e no desktop:** é o alvo.
-- **iOS:** fora da primeira versão. Falar com o computador pela rede local a partir de uma página HTTPS depende do "Local Network Access" do Chrome, que o Safari não tem.
+- **Permissão de rede local:** na primeira conexão, o Chrome pergunta se a página pode acessar dispositivos na rede local. Sem essa permissão o totem não acha o PC, e a tela diz isso.
+- **iOS:** fora da primeira versão (P-140). Falar com o computador pela rede local a partir de uma página HTTPS depende do "Local Network Access" do Chrome, que o Safari não tem.

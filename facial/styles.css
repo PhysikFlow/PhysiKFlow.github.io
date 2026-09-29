@@ -362,6 +362,37 @@ video { object-fit: cover; }
   height: 17px;
 }
 
+/* Painel técnico: desfaz o pareamento deste aparelho. Do lado oposto ao
+   botão de voltar, com a mesma cara, e só aparece com o painel ligado. */
+.forget {
+  position: absolute;
+  left: 25px;
+  bottom: calc(25px + env(safe-area-inset-bottom));
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 21px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.forget[hidden] { display: none; }
+
+.forget:hover,
+.forget:focus-visible {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.forget:active {
+  background: rgba(0, 0, 0, 0.7);
+}
+
 /* ============================================
    Mensagem
    ============================================ */

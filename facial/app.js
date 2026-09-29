@@ -6,8 +6,10 @@
  * mesmo índice da busca por rosto. Aqui não existe vetor facial, cadastro nem
  * banco de rostos: nada biométrico mora no aparelho.
  *
- * O envio ao computador (pareamento + rede local) ainda não existe. Até lá, a
- * captura para na tela e diz isso.
+ * O envio ao computador mora em conexao.js: o QR do card da câmera no
+ * PhysikFlow abre este app já pareado, e cada captura vai cifrada pela rede
+ * local. Sem pareamento (ou sem o PC na rede), a captura para na tela e diz
+ * isso -- nada é guardado aqui.
  *
  * Feito para ficar ligado o dia inteiro, em qualquer aparelho. Três modos:
  *   desligado  sem câmera (falta permissão, deu erro ou a aba está escondida);
@@ -26,6 +28,8 @@
  *     amortecida: entre uma detecção e outra (12 por segundo num celular) o
  *     quadrado desliza em vez de saltar.
  */
+
+import { Conexao, conviteDaUrl, conviteSalvo } from './conexao.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -97,6 +101,19 @@ const CONFIG = {
   STILL_MAX: 0.6          // larguras de rosto por segundo
 };
 
+// O que o PhysikFlow respondeu, em frase para quem está na frente do totem.
+// Em modo teste (sombra) a câmera só identifica: a catraca segue com o
+// cartão ou o facial de sempre, e o totem diz isso.
+const RESULTADOS = {
+  reconhecido: (r) => [`Olá, ${r.nome}`, r.modo === 'sombra' ? 'Modo teste: use o cartão ou o facial para entrar.' : '', 'success'],
+  incerto: () => ['Não reconheci com certeza', 'Olhe de frente para a câmera e tente de novo.', 'error'],
+  desconhecido: () => ['Rosto não reconhecido', 'Procure a recepção.', 'error'],
+  sem_rosto: () => ['Não encontrei o rosto', 'Tente de novo, olhando para a câmera.', 'error'],
+  indisponivel: () => ['Reconhecimento indisponível', 'O computador ainda está preparando o reconhecimento.', 'error'],
+  ocupado: () => ['Um instante', 'O computador está respondendo outra pessoa.', ''],
+  invalida: () => ['Tente de novo', 'A imagem não chegou inteira.', 'error']
+};
+
 const MENSAGENS = {
   semRosto: 'Olhe para a câmera',
   longe: 'Aproxime-se',
@@ -133,6 +150,8 @@ const el = {
   statInput: $('statInput'),
   statEngine: $('statEngine'),
   statFace: $('statFace'),
+  statPc: $('statPc'),
+  forget: $('forget'),
   captures: $('captures'),
   instruction: $('instruction'),
   closeBtn: $('close'),
@@ -200,8 +219,11 @@ const state = {
   counters: { t0: performance.now(), render: 0, detect: 0 }
 };
 
+// O canal com o PhysikFlow (pareamento, rede local, cifra).
+const conexao = new Conexao();
+
 // Para inspecionar pelo console durante testes.
-window.flowface = { state, CONFIG };
+window.flowface = { state, CONFIG, conexao };
 
 // ------------------------------------------------------------- helpers ---
 
@@ -585,6 +607,7 @@ async function acordar(motivo) {
   el.rest.classList.add('hidden');
   el.camera.classList.add('active');
   setStatus('ok', params.get('fonte') ? 'Fonte de teste' : 'Câmera ligada');
+  atualizarStatusDaConexao();
   setInstruction(state.detectorReady ? MENSAGENS.semRosto : 'Carregando detector…');
   setTimeout(() => el.camera.classList.add('show-target'), 250);
 
@@ -864,7 +887,7 @@ function avaliar(f, rastro) {
 }
 
 function orientar(motivo, agora) {
-  if (state.attempt === 'capturando') return;
+  if (state.attempt === 'capturando' || state.attempt === 'enviando') return;
   if (state.attempt === 'capturado') {
     setInstruction('Captura feita', 'done');
     setTarget(false);
@@ -904,10 +927,30 @@ async function capturar() {
     return;
   }
 
-  state.attempt = 'capturado';
   mostrarCapturas(fotos);
-  // Honesto: sem computador pareado, nada sai daqui.
-  showMessage('Rosto capturado', 'Sem computador pareado: nada foi enviado.', 'info');
+  if (!conexao.conectado) {
+    // Honesto: sem o computador, nada sai daqui.
+    state.attempt = 'capturado';
+    showMessage('Rosto capturado', conexao.convite
+      ? 'Sem conexão com o computador: nada foi enviado.'
+      : 'Sem computador pareado: nada foi enviado.', 'error');
+    setInstruction('Captura feita', 'done');
+    setTarget(false);
+    return;
+  }
+
+  state.attempt = 'enviando';
+  setInstruction('Reconhecendo…', 'ok');
+  try {
+    const r = await conexao.enviarCaptura(fotos.map((f) => f.blob));
+    const [titulo, texto, tipo] = (RESULTADOS[r.status] || RESULTADOS.invalida)(r);
+    showMessage(titulo, texto, tipo);
+  } catch (erro) {
+    console.warn('Envio ao computador:', erro);
+    showMessage('Sem resposta do computador', 'Tente de novo em instantes.', 'error');
+  }
+  if (state.modo !== 'ativo') return;
+  state.attempt = 'capturado';
   setInstruction('Captura feita', 'done');
   setTarget(false);
 }
@@ -1006,7 +1049,7 @@ function desenhar(agora) {
   }
 
   // 15 s sem ninguém: volta ao descanso (e o vigia assume).
-  if (agora - state.lastFaceAt > CONFIG.REST_AFTER_MS && state.attempt !== 'capturando') {
+  if (agora - state.lastFaceAt > CONFIG.REST_AFTER_MS && state.attempt !== 'capturando' && state.attempt !== 'enviando') {
     descansar('sem rosto');
     return;
   }
@@ -1149,11 +1192,35 @@ function atualizarStatusDoDescanso() {
     setRestStatus('Ligando a câmera…', 'loading');
   } else if (!state.detectorReady) {
     setRestStatus('Carregando detector…', 'loading');
+  } else if (conexao.estado === 'recusado') {
+    // Antes da câmera: o que falta aqui é ler o código de novo, e ligar a
+    // câmera primeiro só adiaria a notícia.
+    setRestStatus(conexao.texto, 'error');
   } else if (state.camera !== 'ligada') {
     setRestStatus('Toque para ativar a câmera', 'loading');
+  } else if (conexao.estado === 'conectado') {
+    setRestStatus(`Pronto · ${conexao.nomeDaCamera || 'PhysikFlow'}`, 'ok');
+  } else if (conexao.estado === 'procurando') {
+    setRestStatus(conexao.texto || 'Procurando o computador…', 'loading');
   } else {
-    setRestStatus('Terminal pronto', 'ok');
+    setRestStatus('Sem computador pareado: leia o código no PhysikFlow', 'loading');
   }
+  if (state.debug) atualizarPainelDaConexao();
+}
+
+// Na tela da câmera, o ponto de status diz se a captura tem para onde ir.
+function atualizarStatusDaConexao() {
+  atualizarStatusDoDescanso();
+  if (state.modo !== 'ativo') return;
+  if (conexao.conectado) setStatus('ok', conexao.nomeDaCamera || 'Conectado');
+  else if (conexao.estado === 'recusado') setStatus('error', 'Pareamento recusado');
+  else if (conexao.estado === 'procurando') setStatus('warning', 'Procurando o computador');
+  else setStatus('warning', 'Sem computador pareado');
+}
+
+function atualizarPainelDaConexao() {
+  el.statPc.textContent = conexao.conectado ? `${conexao.endereco} · ${conexao.modo || '--'}` : conexao.estado;
+  el.forget.hidden = !state.debug || !conexao.convite;
 }
 
 // O ponto verde pulsa algumas vezes ao entrar em descanso e depois fica
@@ -1178,6 +1245,7 @@ function setDebug(ligado) {
   el.stats.hidden = !ligado;
   el.captures.hidden = !ligado;
   el.restDebug.hidden = !ligado;
+  atualizarPainelDaConexao();
 }
 
 async function manterTelaAcesa() {
@@ -1192,6 +1260,7 @@ async function manterTelaAcesa() {
 // ---------------------------------------------------------------- eventos ---
 
 el.rest.addEventListener('click', () => {
+  conexao.retomar();
   if (state.detectorErro) {
     state.detectorErro = null;
     iniciarDetector().catch(() => {});
@@ -1199,6 +1268,11 @@ el.rest.addEventListener('click', () => {
   acordar('toque');
 });
 el.closeBtn.addEventListener('click', () => descansar('botão'));
+el.forget.addEventListener('click', () => {
+  conexao.esquecer();
+  atualizarStatusDaConexao();
+});
+conexao.addEventListener('estado', atualizarStatusDaConexao);
 
 window.addEventListener('keydown', (e) => {
   if ((e.key === 'Enter' || e.key === ' ') && state.modo !== 'ativo') {
@@ -1255,6 +1329,10 @@ if ('serviceWorker' in navigator) {
 
 setDebug(state.debug);
 marcarModo('desligado', 'início');
+// Pareado pelo QR (o convite chega no #par= e sai da URL na hora), ou pelo
+// convite guardado da última vez.
+const convite = conviteDaUrl() || conviteSalvo();
+if (convite) conexao.iniciar(convite);
 // O detector carrega enquanto a tela de descanso está parada.
 iniciarDetector().catch(() => {});
 podeLigarSozinha().then(async (pode) => {
