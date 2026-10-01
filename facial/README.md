@@ -9,7 +9,9 @@ PWA que transforma um celular, tablet ou notebook na câmera de acesso da academ
 
 **Quem reconhece é o PhysikFlow no computador da recepção,** com o mesmo índice da busca por rosto. Neste aparelho não existe vetor facial, cadastro nem banco de rostos: nada biométrico mora nele.
 
-> **Modo teste (sombra):** por enquanto a câmera só identifica. O PhysikFlow responde quem é, compara com as passagens da catraca e conta os acertos, mas não abre nada. O totem diz "Modo teste: use o cartão ou o facial para entrar."
+> **Dois modos, escolhidos no card da câmera, no PhysikFlow:**
+> - **Teste (sombra), o padrão:** a câmera só identifica. O PhysikFlow responde quem é, compara com as passagens da catraca e conta os acertos, mas não abre nada. O totem diz "Modo teste: use o cartão ou o facial para entrar."
+> - **Abre:** com a câmera escolhida para uma catraca e a chave "Abre a catraca" ligada, o PhysikFlow decide como decide para o cartão e abre para quem a câmera reconhece. O totem diz "Pode passar, Maria" ou o motivo de não abrir ("Plano vencido em 31/12. Procure a recepção.").
 
 ## Pareamento e conexão (`conexao.js`)
 
@@ -123,18 +125,48 @@ facial/
 
 ## Portões de qualidade
 
-A captura só acontece com tudo certo por 0,4 s. A instrução na tela mostra o primeiro portão que falhar:
+**Pedem só o que o PC precisa para reconhecer.** Onde o rosto está na tela não importa: o recorte vai atrás dele, e o contorno é só um convite. O tamanho conta em px da imagem da câmera, que é o que chega ao PC, e não contra o contorno.
+
+A captura acontece com tudo certo por 0,25 s. Uma leitura ruim isolada no meio (um quadro sem rosto, ou com os pontos errados) não zera essa espera. A instrução na tela mostra o primeiro portão que falhar por mais de 0,3 s:
 
 | Portão | Regra | Instrução |
 |---|---|---|
-| confiança | detector ≥ 0,75 | Olhe para a câmera |
-| tamanho | rosto entre 45% e 105% da largura do contorno, e ≥ 90 px na câmera | Aproxime-se / Afaste-se um pouco |
-| centro | centro do rosto no miolo do contorno | Centralize o rosto no contorno |
-| de frente | nariz entre os olhos (≥ 0,55), cabeça reta (≤ 15°), sem olhar para cima ou para baixo | Olhe de frente / Endireite a cabeça |
-| luz | brilho médio do rosto entre 50 e 220 | Pouca luz / Luz forte demais |
-| parado | < 0,6 largura de rosto por segundo | Fique parado um instante |
+| tamanho | rosto com ≥ 64 px de largura na imagem da câmera | Aproxime-se |
+| caber na imagem | até 35% da caixa do rosto pode passar da borda (embaixo e nos lados o PC aguenta); passando disso, rosto maior que 90% da imagem é perto demais | Mostre o rosto inteiro na tela / Afaste-se um pouco |
+| testa na imagem | acima dos olhos, pelo menos 0,15 da distância olho-boca até a borda de cima | Mostre o rosto inteiro na tela |
+| de lado | o nariz tem de estar entre os olhos (de lado ~40° ou mais, não) | Olhe de frente para a câmera |
+| inclinado | a linha dos olhos até 25° — mas o detector lê a inclinação para menos (30° de verdade lê ~7°), então só pega cabeça deitada | Endireite a cabeça |
+| para cima ou para baixo | nariz entre 25% e 90% do caminho dos olhos à boca | Olhe de frente para a câmera |
+| luz | brilho médio do miolo do rosto entre 28 e 235 | Pouca luz no rosto / Luz forte demais no rosto |
+| parado | < 2 larguras de rosto por segundo | Fique parado um instante |
 
-Todos os limites, e os de ritmo, vigia e mola, ficam em `CONFIG`, no começo do `app.js`.
+**Por que o "de frente" ficou tão largo:** os cinco pontos do detector, com o rosto pequeno na imagem de 320 px, erram mais do que a pose. O mesmo rosto parado lia 0,26 de longe e 0,63 de perto (1 = de frente) — o portão antigo, de 0,55, virava exigência de distância. Só o nariz fora de entre os olhos é sinal firme de rosto de lado.
+
+**Por que a testa tem regra própria:** com a testa fora da imagem, o detector desenha a caixa só até a borda, e o portão de "caber na imagem" não percebe. Sem testa, o PC reconhece mal: com 35% do rosto fora no alto, 34 de 81. Nos lados e embaixo ele aguenta bem mais corte.
+
+**A lupa (longe).** Na imagem inteira reduzida a 320 px, um rosto de 80 px na câmera fica com 20 — e abaixo disso o detector já não o achava. Com um rosto menor que 160 px à vista, a detecção passa a olhar só a região em volta dele, onde ele ocupa ~1/5 da entrada: acha rostos de ~40 px e acerta os pontos. Procurando alguém, ela alterna a imagem inteira com o miolo ampliado 2x, por onde costuma vir quem chega de longe. A entrada do detector continua com 320 px, então o custo não muda. Painel técnico: a linha "Entrada" diz `lupa`, `miolo` ou `conferencia`.
+
+**Tentar de novo sozinho.** Se o PC responde sem nome (não teve certeza, não achou o rosto, estava ocupado), o totem faz outra captura 0,9 s depois, com a pessoa ainda na frente, até duas vezes. Nome reconhecido (liberado ou negado) é resposta final. Entre as tentativas a tela diz "vou tentar de novo", sem vermelho; só a última resposta sem nome manda procurar a recepção. No card da câmera, cada tentativa conta como uma identificação.
+
+**Outra pessoa, do zero.** Se o rosto na frente muda de lugar (quem estava saiu e ficou quem vinha atrás), a contagem recomeça. Antes, um rosto que nunca sumia (um cartaz, alguém parado ao fundo) prendia o totem em "Captura feita" para todo mundo que chegasse depois.
+
+**Medido** no laboratório do app (`tools/face-lab/tolerancia.py`: 300 retratos, com o caminho inteiro câmera → este app → PC → regra de porta) e num Edge headless com câmera falsa:
+- **Alcance:** com a lupa, o totem acha rosto de 44 px em 243 de 300 (antes, 2) e de 60 px em 296 (antes, 68).
+- **O que o PC reconhece:** é a mesma foto do índice, então o número é otimista.
+  - rosto de 60 px: 296 de 300;
+  - até 20% do rosto fora da imagem: de 278 a 300;
+  - cabeça inclinada 15°: 299;
+  - borrão de 8 px: 300;
+  - luz 35: 296.
+- **Os portões antigos barravam boa parte disso,** mesmo sem contar o contorno. Dos reconhecidos, barravam 209 de 299 com o rosto de 90 px, 127 de 299 com a cabeça inclinada 15° e 230 de 297 com luz 50. Os novos barram só abaixo de 64 px, a testa cortada e a luz abaixo de 28.
+- **Pessoa errada:** zero aceites errados com rosto pequeno, cortado, inclinado ou borrado. Os 6 que houve, em 17.085 recortes, vieram de 4 pessoas com um parecido forte na base, 5 deles com o rosto grande e inteiro (P-136, no repositório do app).
+- **Edge headless,** com o rosto de teste `lena.jpg` (amostra do OpenCV), em 14 cenas:
+  - a versão anterior não capturou em nenhuma: a lena é de 3/4, e o "de frente" de 0,55 a barrava;
+  - mesmo sem esse portão, a anterior capturou só no meio e com pouca luz;
+  - a nova capturou em 10, em 0,3 a 0,6 s: no meio, no canto, na borda, no alto, a 100 e a 80 px, a 400 px, inclinada 15°, com pouca luz e balançando;
+  - ficaram de fora o rosto de 64 px (no limite), o de 50 px ("Aproxime-se"), o longe fora do meio e a inclinação de 25°.
+
+Todos os limites, e os de ritmo, lupa, vigia e mola, ficam em `CONFIG`, no começo do `app.js`.
 
 ## Testar
 

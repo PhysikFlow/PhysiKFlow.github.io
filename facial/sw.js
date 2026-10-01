@@ -7,7 +7,7 @@
  * primeiro, porque nunca mudam.
  */
 
-const CACHE = 'flowface-v9';
+const CACHE = 'flowface-v10';
 const BASE = new URL('./', self.location).pathname;
 
 const APP = [

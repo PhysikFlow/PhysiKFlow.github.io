@@ -50,18 +50,30 @@ const CONFIG = {
   SLOW_MS: 70,
   FAST_MS: 28,
 
+  // Lupa (regiaoDaDeteccao): rosto mais estreito que isto, em px da câmera,
+  // é seguido olhando só a região em volta dele, onde ocupa esta fração.
+  ZOOM_BELOW_PX: 160,
+  ZOOM_FACE_SHARE: 0.2,
+  ZOOM_CHECK_EVERY: 4,    // na lupa, 1 detecção em 4 olha a imagem inteira
+
   // Ritmo do detector. Com rosto na tela, 15 por segundo (a mola cobre o
   // intervalo); sem rosto, 6 por segundo bastam para perceber quem chega.
   DETECT_MAX_HZ: 15,
   DETECT_SEARCH_HZ: 6,
   SEARCH_AFTER_MS: 1500,
 
-  SCORE_CAPTURE: 0.75,
-
   FACE_GONE_MS: 450,      // sem rosto por isso: o quadrado some
   NEXT_ATTEMPT_MS: 1500,  // sem rosto por isso: nova tentativa liberada
   REST_AFTER_MS: 15000,   // sem rosto por isso: volta ao descanso
-  HOLD_MS: 400,           // tudo certo por isso: captura
+  HOLD_MS: 250,           // tudo certo por isso: captura
+  // Uma leitura ruim no meio (o detector erra os pontos de vez em quando)
+  // não zera a espera nem troca a instrução: só uma que dure mais que isto.
+  GRACE_MS: 300,
+  // Resposta sem nome (não teve certeza, não achou, PC ocupado): o totem
+  // tenta de novo sozinho, com a pessoa ainda ali, em vez de pedir que ela
+  // saia e volte. Até duas vezes por pessoa.
+  RETRY_MS: 900,
+  RETRIES: 2,
   SHOTS: 3,
   SHOT_GAP_MS: 120,
   CROP_SCALE: 2.2,        // recorte = maior lado do rosto × isto
@@ -87,38 +99,121 @@ const CONFIG = {
   MOTION_CONFIRM: 2,      // leituras seguidas acima do limite
   MOTION_WARMUP_MS: 1500, // ao entrar em descanso, a câmera ainda se ajusta
 
-  // Portões de qualidade
-  SIZE_MIN: 0.45,         // largura do rosto / largura do contorno
-  SIZE_MAX: 1.05,
-  FACE_MIN_PX: 90,        // rosto na imagem cheia da câmera
-  CENTER_TOL: 0.45,       // fração dos raios do contorno
-  FRONTAL_MIN: 0.55,      // nariz entre os olhos: 1 = de frente
-  ROLL_MAX_DEG: 15,
-  PITCH_MIN: 0.3,
-  PITCH_MAX: 0.78,
-  LIGHT_MIN: 50,
-  LIGHT_MAX: 220,
-  STILL_MAX: 0.6          // larguras de rosto por segundo
+  // Portões de qualidade: só o que o PC precisa para reconhecer, medido no
+  // laboratório do app (tools/face-lab/tolerancia.py). A POSIÇÃO NÃO É
+  // PORTÃO: o recorte segue o rosto onde ele estiver na imagem, e o
+  // contorno na tela é só um convite. O tamanho conta em px da câmera (o
+  // que o PC recebe), não contra o contorno.
+  SCORE_CAPTURE: 0.6,     // o corte do próprio detector: rosto achado serve
+  FACE_MIN_PX: 64,        // largura do rosto na imagem da câmera
+  // Quanto da caixa do rosto pode passar da borda da imagem. Embaixo e nos
+  // lados o PC aguenta muito corte (com 30% do rosto fora embaixo,
+  // reconheceu 238 de 240); com 0,2, este portão barrava quase todos esses.
+  EDGE_OUT_MAX: 0.35,
+  // Folga dos olhos até a borda de cima, em distâncias olho-boca. Abaixo
+  // disto a testa está cortada demais e o PC deixava de reconhecer (com 35%
+  // do rosto fora no alto, reconheceu 34 de 81).
+  TOP_EYES_MIN: 0.15,
+  FRONTAL_MIN: 0.08,      // folga do nariz até o olho mais perto (0,5 = de frente)
+  // A linha dos olhos que o detector daqui lê sai quase reta mesmo com a
+  // cabeça bem inclinada (30° de verdade lê ~7°): este portão só pega cabeça
+  // deitada. A inclinação de verdade quem pode corrigir é o PC.
+  ROLL_MAX_DEG: 25,
+  PITCH_MIN: 0.25,        // nariz entre os olhos e a boca
+  PITCH_MAX: 0.9,
+  // Brilho médio do miolo do rosto, 0-255. Com 25 o PC ainda reconhecia 97%,
+  // mas foi ali o único aceite da pessoa errada em imagem piorada: o piso
+  // fica acima disso.
+  LIGHT_MIN: 28,
+  LIGHT_MAX: 235,
+  STILL_MAX: 2.0          // larguras de rosto por segundo
 };
 
 // O que o PhysikFlow respondeu, em frase para quem está na frente do totem.
 // Em modo teste (sombra) a câmera só identifica: a catraca segue com o
-// cartão ou o facial de sempre, e o totem diz isso.
+// cartão ou o facial de sempre, e o totem diz isso. Quando a câmera abre a
+// catraca (modo "abre"), a resposta diz se liberou e, se não, o motivo.
+//
+// `deNovo`: o totem ainda vai tentar outra vez com a pessoa ali. Então a
+// frase é de "um instante", não de "procure a recepção" -- e não fica
+// vermelha: vermelho é para a resposta final.
 const RESULTADOS = {
-  reconhecido: (r) => [`Olá, ${r.nome}`, r.modo === 'sombra' ? 'Modo teste: use o cartão ou o facial para entrar.' : '', 'success'],
-  incerto: () => ['Não reconheci com certeza', 'Olhe de frente para a câmera e tente de novo.', 'error'],
-  desconhecido: () => ['Rosto não reconhecido', 'Procure a recepção.', 'error'],
-  sem_rosto: () => ['Não encontrei o rosto', 'Tente de novo, olhando para a câmera.', 'error'],
+  reconhecido: (r) => {
+    if (r.modo !== 'abre')
+      return [`Olá, ${r.nome}`, r.modo === 'sombra' ? 'Modo teste: use o cartão ou o facial para entrar.' : '', 'success'];
+    if (r.liberado) return [`Pode passar, ${r.nome}`, avisoDeVencimento(r.validoAte), 'success'];
+    const motivo = MOTIVOS[r.motivo];
+    return [`Olá, ${r.nome}`, motivo ? motivo(r) : 'Acesso negado. Procure a recepção.', 'error'];
+  },
+  // "Cabeça reta" de propósito: o detector daqui quase não vê cabeça
+  // inclinada (30° de verdade lê ~7°), e ela é a causa mais comum de o PC
+  // não ter certeza com a pessoa de frente.
+  incerto: (r, deNovo) => deNovo
+    ? ['Ainda não tive certeza', 'Olhe de frente, com a cabeça reta: vou tentar de novo.', '']
+    : ['Não reconheci com certeza', 'Olhe de frente para a câmera e tente de novo.', 'error'],
+  desconhecido: (r, deNovo) => deNovo
+    ? ['Ainda não reconheci', 'Olhe de frente, com a cabeça reta: vou tentar de novo.', '']
+    : ['Rosto não reconhecido', 'Procure a recepção.', 'error'],
+  sem_rosto: (r, deNovo) => deNovo
+    ? ['Não encontrei o rosto', 'Olhe para a câmera: vou tentar de novo.', '']
+    : ['Não encontrei o rosto', 'Tente de novo, olhando para a câmera.', 'error'],
   indisponivel: () => ['Reconhecimento indisponível', 'O computador ainda está preparando o reconhecimento.', 'error'],
   ocupado: () => ['Um instante', 'O computador está respondendo outra pessoa.', ''],
-  invalida: () => ['Tente de novo', 'A imagem não chegou inteira.', 'error']
+  invalida: (r, deNovo) => ['Tente de novo', deNovo ? 'A imagem não chegou inteira: vou tentar de novo.' : 'A imagem não chegou inteira.', deNovo ? '' : 'error']
 };
+
+// Respostas que valem outra tentativa com a pessoa ainda na frente. Nome
+// reconhecido (liberado ou negado) é resposta final; "indisponível" também:
+// o índice ainda está montando, e insistir não muda isso.
+const TENTA_DE_NOVO = new Set(['incerto', 'desconhecido', 'sem_rosto', 'ocupado', 'invalida']);
+
+// Por que a catraca não abriu. Os códigos são os do servidor (os mesmos da
+// catraca e do F4), mais os da própria câmera: sem cartão no cadastro, ou a
+// catraca não estava pronta para abrir.
+const MOTIVOS = {
+  enrollment_expired: (r) => (r.validoAte ? `Plano vencido em ${dataCurta(r.validoAte)}.` : 'Plano vencido.') + ' Procure a recepção.',
+  enrollment_not_started: () => 'O plano ainda não começou. Procure a recepção.',
+  credential_blocked: () => 'Acesso bloqueado. Procure a recepção.',
+  person_archived: () => 'Cadastro inativo. Procure a recepção.',
+  unknown_credential: () => 'Cartão não cadastrado. Procure a recepção.',
+  no_enrollment: () => 'Sem matrícula. Procure a recepção.',
+  no_active_enrollment: () => 'Sem matrícula ativa. Procure a recepção.',
+  enrollment_ended: () => 'Matrícula encerrada. Procure a recepção.',
+  weekday_not_allowed: () => 'Seu plano não libera entrada hoje.',
+  time_not_allowed: () => 'Seu plano não libera entrada neste horário.',
+  entry_limit_reached: () => 'Você já usou todas as entradas do plano. Procure a recepção.',
+  other_unit: () => 'Sua matrícula é de outra unidade. Procure a recepção.',
+  organization_suspended: () => 'Acesso suspenso. Procure a recepção.',
+  sem_cartao: () => 'Seu cadastro não tem cartão. Procure a recepção.',
+  catraca_indisponivel: () => 'A catraca não pôde abrir agora. Use o cartão ou procure a recepção.'
+};
+
+// "2026-12-31" -> "31/12".
+function dataCurta(iso) {
+  const [, mes, dia] = String(iso).split('-');
+  return dia && mes ? `${dia}/${mes}` : '';
+}
+
+// Liberado com o plano perto do fim: a pessoa fica sabendo na porta, como no
+// F4. Longe do fim, nada: a tela da porta não é lugar de recado.
+function avisoDeVencimento(iso) {
+  if (!iso) return '';
+  const [ano, mes, dia] = String(iso).split('-').map(Number);
+  if (!ano || !mes || !dia) return '';
+  const hoje = new Date();
+  const fim = new Date(ano, mes - 1, dia);
+  const dias = Math.round((fim - new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())) / 86400000);
+  if (dias < 0 || dias > 7) return '';
+  if (dias === 0) return 'Seu plano vence hoje.';
+  if (dias === 1) return 'Seu plano vence amanhã.';
+  return `Seu plano vence em ${dias} dias.`;
+}
 
 const MENSAGENS = {
   semRosto: 'Olhe para a câmera',
   longe: 'Aproxime-se',
   perto: 'Afaste-se um pouco',
-  fora: 'Centralize o rosto no contorno',
+  fora: 'Mostre o rosto inteiro na tela',
   lado: 'Olhe de frente para a câmera',
   inclinado: 'Endireite a cabeça',
   escuro: 'Pouca luz no rosto',
@@ -192,6 +287,8 @@ const state = {
 
   busy: false,
   detectSide: CONFIG.DETECT_SIDE_MAX,
+  regiao: null,             // onde a detecção em voo olhou (regiaoDaDeteccao)
+  lupaConta: 0,
   inferMs: [],
   lastInput: null,
 
@@ -205,8 +302,11 @@ const state = {
   ultimoRosto: 0,
   lastFaceAt: 0,
   lastReason: 'semRosto',
-  okSince: 0,
-  attempt: 'livre',         // livre | capturando | capturado
+  okSince: 0,               // início da sequência boa (0 = nenhuma)
+  lastOkAt: 0,              // última leitura que passou em todos os portões
+  attempt: 'livre',         // livre | capturando | enviando | aguardando | capturado
+  tentativas: 0,            // novas tentativas já feitas com esta pessoa
+  retryAt: 0,               // 'aguardando' até aqui
   messageTimer: 0,
   captureUrls: [],
 
@@ -599,7 +699,9 @@ async function acordar(motivo) {
   state.track = null;
   state.caixa = null;
   state.attempt = 'livre';
+  state.tentativas = 0;
   state.okSince = 0;
+  state.lastOkAt = 0;
   state.lastReason = 'semRosto';
   state.layoutDirty = true;
   state.counters = { t0: performance.now(), render: 0, detect: 0 };
@@ -626,7 +728,9 @@ function pararAtivo() {
   state.track = null;
   state.caixa = null;
   state.attempt = 'livre';
+  state.tentativas = 0;
   state.okSince = 0;
+  state.lastOkAt = 0;
   state.lastReason = 'semRosto';
   if (state.layout) ctx.clearRect(0, 0, state.layout.cw, state.layout.ch);
   el.camera.classList.remove('active', 'show-target');
@@ -743,16 +847,19 @@ async function onQuadro(agora, meta) {
   const vw = el.video.videoWidth;
   const vh = el.video.videoHeight;
   if (!vw || !vh) return;
-  const s = state.detectSide / Math.max(vw, vh);
-  const width = Math.round(vw * s);
-  const height = Math.round(vh * s);
+  const regiao = regiaoDaDeteccao(vw, vh, agoraMs);
+  // Nunca amplia: região menor que a entrada do detector vai no tamanho dela.
+  const s = Math.min(1, state.detectSide / Math.max(regiao.w, regiao.h));
+  const width = Math.round(regiao.w * s);
+  const height = Math.round(regiao.h * s);
   // Instante do quadro, para adiantar o desenho pelo tempo da detecção.
   const t = meta?.presentationTime || agoraMs;
 
   state.busy = true;
   state.ultimaDeteccao = agoraMs;
+  state.regiao = regiao;   // só uma detecção em voo: a resposta volta nesta região
   try {
-    const bitmap = await createImageBitmap(el.video, {
+    const bitmap = await createImageBitmap(el.video, regiao.x, regiao.y, regiao.w, regiao.h, {
       resizeWidth: width,
       resizeHeight: height,
       resizeQuality: 'low'
@@ -762,6 +869,58 @@ async function onQuadro(agora, meta) {
     state.busy = false;
     console.warn('Quadro não capturado:', erro);
   }
+}
+
+/**
+ * Onde o detector olha, em px da câmera. A entrada dele tem sempre o mesmo
+ * tamanho (custa igual); muda o pedaço da imagem que cabe nela:
+ *   inteira      o normal, com rosto grande à vista (ou nenhum, alternando);
+ *   lupa         rosto pequeno (longe) à vista: só a região em volta dele,
+ *                onde o rosto ocupa ~1/5. Na imagem inteira reduzida a 320
+ *                px, ele teria ~20 px, e abaixo de ~80 px na câmera o
+ *                detector já não o achava (nem os pontos acertava);
+ *   conferencia  na lupa, 1 detecção em 4 olha a imagem inteira: alguém
+ *                pode ter chegado mais perto, fora da região;
+ *   miolo        procurando alguém, alterna com a imagem inteira: o meio
+ *                ampliado 2x, por onde costuma vir quem chega de longe.
+ */
+function regiaoDaDeteccao(vw, vh, agora) {
+  const inteira = { x: 0, y: 0, w: vw, h: vh, tipo: 'inteira' };
+  state.lupaConta++;
+  const r = state.track;
+  if (r?.raw && agora - r.seenAt < CONFIG.FACE_GONE_MS) {
+    const largura = r.w.x * vw;
+    if (largura >= CONFIG.ZOOM_BELOW_PX) return inteira;
+    if (state.lupaConta % CONFIG.ZOOM_CHECK_EVERY === 0) return { ...inteira, tipo: 'conferencia' };
+    const lado = Math.round(Math.min(Math.max(largura / CONFIG.ZOOM_FACE_SHARE, CONFIG.DETECT_SIDE_MIN), vw, vh));
+    return {
+      x: Math.round(clamp(r.cx.x * vw - lado / 2, 0, vw - lado)),
+      y: Math.round(clamp(r.cy.x * vh - lado / 2, 0, vh - lado)),
+      w: lado,
+      h: lado,
+      tipo: 'lupa'
+    };
+  }
+  if (state.lupaConta % 2 === 0) {
+    const w = Math.round(vw / 2);
+    const h = Math.round(vh / 2);
+    return { x: Math.round((vw - w) / 2), y: Math.round((vh - h) / 2), w, h, tipo: 'miolo' };
+  }
+  return inteira;
+}
+
+// Da região que o detector viu para a imagem inteira da câmera (0-1).
+function naImagemInteira(faces, g, vw, vh) {
+  const px = (x) => (g.x + x * g.w) / vw;
+  const py = (y) => (g.y + y * g.h) / vh;
+  return faces.map((f) => ({
+    ...f,
+    x: px(f.x),
+    y: py(f.y),
+    w: (f.w * g.w) / vw,
+    h: (f.h * g.h) / vh,
+    landmarks: f.landmarks.map(([x, y]) => [px(x), py(y)])
+  }));
 }
 
 function ajustarEntrada(ms) {
@@ -788,7 +947,13 @@ function onFaces({ t, ms, faces, input }) {
   ajustarEntrada(ms);
 
   const agora = performance.now();
-  const rosto = escolherRosto(faces);
+  const vw = el.video.videoWidth;
+  const vh = el.video.videoHeight;
+  const regiao = state.regiao || { x: 0, y: 0, w: vw, h: vh, tipo: 'inteira' };
+  const rosto = vw && vh ? escolherRosto(naImagemInteira(faces, regiao, vw, vh)) : null;
+  // A conferência da lupa só serve para achar alguém MAIS PERTO: o rosto
+  // pequeno que a lupa segue some na imagem inteira, e isso não é "sem rosto".
+  if (regiao.tipo === 'conferencia' && (!rosto || rosto.w * vw < CONFIG.ZOOM_BELOW_PX)) return;
   if (!rosto) {
     semRosto(agora);
     return;
@@ -796,9 +961,19 @@ function onFaces({ t, ms, faces, input }) {
 
   let rastro = state.track;
   const perdido = !rastro || agora - rastro.seenAt > CONFIG.FACE_GONE_MS;
-  if (perdido || iou(rastro.raw, rosto) < 0.1) {
+  // Outro rosto, em outro lugar: é outra pessoa (quem estava na frente saiu
+  // e ficou quem vinha atrás). Ela começa do zero -- sem isso, um rosto que
+  // nunca some (um cartaz, alguém parado ao fundo) prendia o totem em
+  // "Captura feita" para todo mundo que chegasse depois.
+  const outro = !!rastro?.raw && iou(rastro.raw, rosto) < 0.1;
+  if (perdido || outro) {
     rastro = state.track = novoRastro();
     state.caixa = null;   // rosto novo: o quadrado nasce nele, não desliza até ele
+  }
+  if (outro && (state.attempt === 'capturado' || state.attempt === 'aguardando')) {
+    state.attempt = 'livre';
+    state.tentativas = 0;
+    state.okSince = 0;
   }
 
   const ts = t / 1000;
@@ -816,6 +991,7 @@ function onFaces({ t, ms, faces, input }) {
 
   const motivo = avaliar(rosto, rastro);
   state.lastReason = motivo;
+  if (motivo === 'ok') state.lastOkAt = agora;
   orientar(motivo, agora);
 }
 
@@ -830,9 +1006,13 @@ function escolherRosto(faces) {
 
 function semRosto(agora) {
   state.lastReason = 'semRosto';
-  state.okSince = 0;
-  if (agora - state.lastFaceAt > CONFIG.NEXT_ATTEMPT_MS && state.attempt === 'capturado') {
-    state.attempt = 'livre';
+  // Um quadro sem rosto no meio da sequência boa (o detector pisca com o
+  // rosto longe, inclinado ou no escuro) conta como leitura ruim isolada.
+  if (agora - state.lastOkAt > CONFIG.GRACE_MS) state.okSince = 0;
+  // Sumiu por um tempo: quem aparecer depois é outra tentativa, do zero.
+  if (agora - state.lastFaceAt > CONFIG.NEXT_ATTEMPT_MS) {
+    if (state.attempt === 'capturado' || state.attempt === 'aguardando') state.attempt = 'livre';
+    state.tentativas = 0;
   }
   if (state.attempt === 'livre' && agora - state.lastFaceAt > CONFIG.FACE_GONE_MS) {
     setInstruction(MENSAGENS.semRosto);
@@ -842,45 +1022,58 @@ function semRosto(agora) {
 
 // ------------------------------------------------------------- portões ---
 
+// Só barra o que o PC não conseguiria reconhecer. Onde o rosto está na tela
+// não importa: o recorte vai atrás dele.
 function avaliar(f, rastro) {
-  const L = state.layout;
-  if (!L) return 'semRosto';
   const vw = el.video.videoWidth;
   const vh = el.video.videoHeight;
+  if (!vw || !vh) return 'semRosto';
 
   if (f.score < CONFIG.SCORE_CAPTURE) return 'incerto';
 
-  // Tamanho, relativo ao contorno que a pessoa vê.
-  const larguraNaTela = f.w * L.dispW;
-  const proporcao = larguraNaTela / (2 * L.oval.rx);
-  if (proporcao < CONFIG.SIZE_MIN || f.w * vw < CONFIG.FACE_MIN_PX) return 'longe';
-  if (proporcao > CONFIG.SIZE_MAX) return 'perto';
+  // Tamanho em px da câmera: é o que chega ao PC.
+  const larguraPx = f.w * vw;
+  if (larguraPx < CONFIG.FACE_MIN_PX) return 'longe';
 
-  // Centro do rosto dentro do miolo do contorno (na tela, já espelhada).
-  let sx = L.offX + (f.x + f.w / 2) * L.dispW;
-  if (state.mirror) sx = L.cw - sx;
-  const sy = L.offY + (f.y + f.h / 2) * L.dispH;
-  const ex = (sx - L.oval.cx) / (L.oval.rx * CONFIG.CENTER_TOL);
-  const ey = (sy - L.oval.cy) / (L.oval.ry * CONFIG.CENTER_TOL);
-  if (ex * ex + ey * ey > 1) return 'fora';
+  // O rosto tem de caber na imagem. Cortado numa borda, pede para mostrar o
+  // rosto inteiro; maior que a imagem, para se afastar.
+  const foraX = Math.max(0, -f.x, f.x + f.w - 1) / f.w;
+  const foraY = Math.max(0, -f.y, f.y + f.h - 1) / f.h;
+  if (Math.max(foraX, foraY) > CONFIG.EDGE_OUT_MAX) return f.w > 0.9 || f.h > 0.9 ? 'perto' : 'fora';
 
-  // Pose, pelos cinco pontos (em px da câmera, para não distorcer ângulos).
+  // No alto, a caixa não avisa: com a testa fora da imagem, o detector a
+  // desenha só até a borda. Os olhos avisam -- um rosto inteiro tem ~1
+  // distância olho-boca de testa acima deles.
   const [od, oe, nariz, bd, be] = f.landmarks.map(([x, y]) => [x * vw, y * vh]);
-  const a = Math.abs(nariz[0] - od[0]);
-  const b = Math.abs(oe[0] - nariz[0]);
-  if (Math.min(a, b) / Math.max(a, b, 1e-6) < CONFIG.FRONTAL_MIN) return 'lado';
-  const giro = Math.abs((Math.atan2(oe[1] - od[1], oe[0] - od[0]) * 180) / Math.PI);
-  if (Math.min(giro, 180 - giro) > CONFIG.ROLL_MAX_DEG) return 'inclinado';
   const olhosY = (od[1] + oe[1]) / 2;
   const bocaY = (bd[1] + be[1]) / 2;
-  const altura = (nariz[1] - olhosY) / Math.max(bocaY - olhosY, 1e-6);
+  if (olhosY / Math.max(bocaY - olhosY, 1e-6) < CONFIG.TOP_EYES_MIN) return 'fora';
+
+  // Pose, pelos cinco pontos, em px da câmera (para não distorcer ângulos) e
+  // medida na linha dos olhos: medida só na horizontal, a cabeça inclinada
+  // parecia rosto de lado.
+  const ex = oe[0] - od[0];
+  const ey = oe[1] - od[1];
+  const olhos = Math.max(Math.hypot(ex, ey), 1e-6);
+  const ao = (p) => ((p[0] - od[0]) * ex + (p[1] - od[1]) * ey) / olhos;     // ao longo dos olhos
+  const abaixo = (p) => ((p[1] - od[1]) * ex - (p[0] - od[0]) * ey) / olhos; // para baixo deles
+  // De lado só quando o nariz sai de entre os olhos (~40° ou mais). Um corte
+  // mais fino não se sustenta: com o rosto pequeno na imagem do detector, os
+  // pontos erram tanto que o mesmo rosto parado lia 0,26 de longe e 0,63 de
+  // perto -- o portão virava exigência de distância.
+  const noMeio = ao(nariz) / olhos;   // 0 = no olho direito, 1 = no esquerdo
+  if (Math.min(noMeio, 1 - noMeio) < CONFIG.FRONTAL_MIN) return 'lado';
+  const giro = Math.abs((Math.atan2(ey, ex) * 180) / Math.PI);
+  if (Math.min(giro, 180 - giro) > CONFIG.ROLL_MAX_DEG) return 'inclinado';
+  const boca = [(bd[0] + be[0]) / 2, (bd[1] + be[1]) / 2];
+  const altura = abaixo(nariz) / Math.max(abaixo(boca), 1e-6);
   if (altura < CONFIG.PITCH_MIN || altura > CONFIG.PITCH_MAX) return 'lado';
 
   if (f.light < CONFIG.LIGHT_MIN) return 'escuro';
   if (f.light > CONFIG.LIGHT_MAX) return 'claro';
 
   // Parado: velocidade do centro em larguras de rosto por segundo.
-  const velocidade = Math.hypot(rastro.cx.dx * vw, rastro.cy.dx * vh) / Math.max(f.w * vw, 1);
+  const velocidade = Math.hypot(rastro.cx.dx * vw, rastro.cy.dx * vh) / Math.max(larguraPx, 1);
   if (velocidade > CONFIG.STILL_MAX) return 'mexendo';
 
   return 'ok';
@@ -888,12 +1081,19 @@ function avaliar(f, rastro) {
 
 function orientar(motivo, agora) {
   if (state.attempt === 'capturando' || state.attempt === 'enviando') return;
+  if (state.attempt === 'aguardando') {
+    if (agora < state.retryAt) return;
+    state.attempt = 'livre';
+    state.okSince = 0;
+  }
   if (state.attempt === 'capturado') {
     setInstruction('Captura feita', 'done');
     setTarget(false);
     return;
   }
   if (motivo !== 'ok') {
+    // Leitura ruim isolada no meio de uma sequência boa: segue esperando.
+    if (state.okSince && agora - state.lastOkAt <= CONFIG.GRACE_MS) return;
     state.okSince = 0;
     setInstruction(MENSAGENS[motivo]);
     setTarget(false);
@@ -914,7 +1114,11 @@ async function capturar() {
   try {
     for (let i = 0; i < CONFIG.SHOTS; i++) {
       if (i) await sleep(CONFIG.SHOT_GAP_MS);
-      if (state.modo !== 'ativo' || state.lastReason !== 'ok' || !state.track?.raw) break;
+      // Mesma tolerância da espera: uma leitura ruim entre dois quadros não
+      // descarta a captura; o rosto sumido ou fora dos portões por mais que
+      // isso, sim.
+      if (state.modo !== 'ativo' || !state.track?.raw) break;
+      if (performance.now() - state.lastOkAt > CONFIG.GRACE_MS) break;
       fotos.push(await recortar(state.track.raw));
     }
   } catch (erro) {
@@ -941,18 +1145,34 @@ async function capturar() {
 
   state.attempt = 'enviando';
   setInstruction('Reconhecendo…', 'ok');
+  const sobraTentativa = state.tentativas < CONFIG.RETRIES;
+  let deNovo = false;
   try {
     const r = await conexao.enviarCaptura(fotos.map((f) => f.blob));
-    const [titulo, texto, tipo] = (RESULTADOS[r.status] || RESULTADOS.invalida)(r);
+    // O modo pode mudar com a câmera já conectada (chave ou catraca trocada
+    // no PhysikFlow): vale o da resposta, não o do aperto de mão.
+    if (r.modo) conexao.modo = r.modo;
+    deNovo = sobraTentativa && TENTA_DE_NOVO.has(r.status);
+    const [titulo, texto, tipo] = (RESULTADOS[r.status] || RESULTADOS.invalida)(r, deNovo);
     showMessage(titulo, texto, tipo);
   } catch (erro) {
     console.warn('Envio ao computador:', erro);
-    showMessage('Sem resposta do computador', 'Tente de novo em instantes.', 'error');
+    deNovo = sobraTentativa;
+    showMessage('Sem resposta do computador', deNovo ? 'Vou tentar de novo.' : 'Tente de novo em instantes.', deNovo ? '' : 'error');
   }
   if (state.modo !== 'ativo') return;
+  state.okSince = 0;
+  setTarget(false);
+  if (deNovo) {
+    // A pessoa continua ali: outra captura daqui a pouco, com quadros novos.
+    state.tentativas++;
+    state.attempt = 'aguardando';
+    state.retryAt = performance.now() + CONFIG.RETRY_MS;
+    setInstruction('Tentando de novo…');
+    return;
+  }
   state.attempt = 'capturado';
   setInstruction('Captura feita', 'done');
-  setTarget(false);
 }
 
 async function recortar(f) {
@@ -1003,20 +1223,13 @@ function medir() {
   const escala = Math.max(caixa.width / vw, caixa.height / vh);
   const dispW = vw * escala;
   const dispH = vh * escala;
-  const alvo = el.faceTarget.getBoundingClientRect();
   state.layout = {
     cw: caixa.width,
     ch: caixa.height,
     dispW,
     dispH,
     offX: (caixa.width - dispW) / 2,
-    offY: (caixa.height - dispH) / 2,
-    oval: {
-      cx: alvo.left - caixa.left + alvo.width / 2,
-      cy: alvo.top - caixa.top + alvo.height / 2,
-      rx: alvo.width / 2,
-      ry: alvo.height / 2
-    }
+    offY: (caixa.height - dispH) / 2
   };
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = Math.round(caixa.width * dpr);
@@ -1081,7 +1294,10 @@ function desenhar(agora) {
         for (const k of ['cx', 'cy', 'w', 'h']) perseguir(state.caixa[k], alvo[k], molaMs / 1000, dtQuadro);
       }
       const c = state.caixa;
-      const pronto = state.lastReason === 'ok' || state.attempt !== 'livre';
+      // Verde na sequência boa (leitura ruim isolada incluída) e na captura;
+      // branco esperando a nova tentativa.
+      const pronto = (state.attempt === 'livre' && state.okSince > 0)
+        || state.attempt === 'capturando' || state.attempt === 'enviando' || state.attempt === 'capturado';
       cantoneiras(
         L.offX + (c.cx.p - c.w.p / 2) * L.dispW,
         L.offY + (c.cy.p - c.h.p / 2) * L.dispH,
@@ -1145,7 +1361,9 @@ function atualizarStats(agora) {
     el.statRender.textContent = `${Math.round(state.counters.render / s)} fps`;
     el.statDetect.textContent = `${Math.round(state.counters.detect / s)} /s`;
     el.statInfer.textContent = state.inferMs.length ? `${Math.round(median(state.inferMs))} ms` : '--';
-    el.statInput.textContent = state.lastInput ? `${state.lastInput[0]}×${state.lastInput[1]}` : '--';
+    el.statInput.textContent = state.lastInput
+      ? `${state.lastInput[0]}×${state.lastInput[1]}${state.regiao && state.regiao.tipo !== 'inteira' ? ` · ${state.regiao.tipo}` : ''}`
+      : '--';
     el.statEngine.textContent = state.engine ? `wasm · ${state.engine.threads} thread` : '--';
     el.statFace.textContent = state.lastReason === 'semRosto' ? '--' : state.lastReason;
   }
